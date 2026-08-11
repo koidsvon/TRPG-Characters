@@ -629,7 +629,7 @@ async function saveCharacter() {
       move_range: currentCharacter.value.move_range,
       pp: currentCharacter.value.pp,
       notes: currentCharacter.value.notes,
-      inventory: currentCharacter.value.inventory
+      inventory: currentCharacter.value.inventory,
       skills: currentCharacter.value.skills,
     })
     .eq('id', currentCharacter.value.id)
