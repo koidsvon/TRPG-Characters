@@ -261,15 +261,35 @@ const magicList = [
   { name: '抽丝剥茧-锐', type: '伤害', cost: '高', desc: '造成80点魔法伤害，高roll可秒杀活体目标。' }
 ]
 
-// 简单Buff表示例
-const buffList = [
-  { name: '熔炉的加护', type: '红', cost: 10, desc: '为近战武器施加熔炉的加护，将下两次攻击的伤害类型变为火属性魔法伤害。' },
-  { name: '圣母之光', type: '绿', cost: 5, desc: '回复自身15点HP。' },
-  { name: '澄澈之心', type: '金', cost: 10, desc: '解除自身30层精神异常。' },
-  { name: '暴烈的果实', type: '红', cost: 10, desc: '本场战斗中+20ATK，受到伤害后失效。' },
-  { name: '不动之墙', type: '绿', cost: 13, desc: '获得三次DEF+10效果。' },
-  { name: '王道宣言', type: '金', cost: 10, desc: '本场战斗中免疫精神异常“堕落”。' }
-]
+// Buff表（按附件三色分类）
+const buffList = {
+  red: [  // 伤害增益 · 红
+    { name: '熔炉的加护', desc: '熔炉室的秘技。为近战武器施加熔炉的加护，将下两次攻击的伤害类型变为火属性的魔法伤害（cost10）' },
+    { name: '暴烈的果实', desc: '恩赐之实。获得一颗暴烈果实，食用后本场战斗中+20ATK，受到伤害后失效（cost10）' },
+    { name: '军神的加护', desc: '被誉为战斗机器的军神的加护。本回合对人类敌人造成伤害时，判定百分比+1（cost5）' },
+    { name: '蛇牙', desc: '遥远大陆的巫毒精髓。接下来的三次攻击造成伤害时，给予敌人4层剧毒（cost9）（10层时每回合受到8点剧毒魔法伤害，20层时受到16点…上限30层）' },
+    { name: '狐火之霜', desc: '远东之国的秘术。获得冰属性魔法伤害抗性+5。下两次攻击在造成伤害前将永久减少敌人8DEF（cost18）' },
+    { name: '诺伦尼尔的祝福', desc: '向命运的祈祷。本场战斗中在自己回合内主动发动的攻击判定结果+1（不影响最大值）（cost20）' },
+    { name: '圣怀斯之歌', desc: '歌谣有曰，汝应痛击恶敌。本场战斗中暴击的触发范围+1（cost15）' }
+  ],
+  green: [  // 恢复增益 · 绿
+    { name: '圣母之光', desc: '高尚之光。回复自身15点HP（cost5）' },
+    { name: '暖光的果实', desc: '恩赐之实。食用后获得25×2的持续回复状态，造成伤害时失效（cost10）' },
+    { name: '不动之墙', desc: '落日遗迹之墙。获得三次DEF+10效果（cost13）' },
+    { name: '龙识日', desc: '远东大陆的传说。免疫下一次伤害≤50的魔术伤害（cost10）' },
+    { name: '闭目养神', desc: '免转之境。获得三回合EVA+20（cost15）' },
+    { name: '英雄之盾', desc: '于荣光尽头。本场战斗中免疫4点及以下的物理伤害（cost15）' },
+    { name: '降灵术（防御）', desc: '降灵术的一种。使用后接下来三次受到伤害前，敌人在判定时获得一次劣势（cost20）' }
+  ],
+  gold: [  // 其他 · 金
+    { name: '澄澈之心', desc: '深呼吸，远离恐惧。解除自身30层精神异常（cost10）' },
+    { name: '王道宣言', desc: '守护人民，忠于君主。在本场战斗中免疫精神异常“堕落”（cost10）' },
+    { name: '过滤', desc: '静思。解除自身所有的异常状态（cost28）' },
+    { name: '重整旗鼓', desc: '不屈不挠。解除自身所有的伤口异常，每接触5层个回复2HP（cost15）' },
+    { name: '圣洁的祈祷', desc: '向纯洁神明的祈祷。使用后免疫下一次遭受的异常状态' },
+    { name: '大腹便便', desc: '远东异兽的加护。使用后将饱食度归零（cost10）' }
+  ]
+}
 
 const currentClassInfo = computed(() => {
   if (!currentCharacter.value || !currentCharacter.value.class_name) return null
@@ -808,18 +828,42 @@ onUnmounted(() => {
   </div>
 
   <!-- Buff表页面 -->
-  <div v-else-if="page === 'buff'" style="max-width: 900px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <h1>Buff 表</h1>
-      <button @click="backToCharacter" style="padding: 8px 16px;">返回角色</button>
-    </div>
-    <p style="color: #666; margin-bottom: 20px;">目前仅展示部分常用Buff，完整表后续补充。</p>
-    <div v-for="(b, i) in buffList" :key="i" style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 12px;">
-      <div style="display: flex; justify-content: space-between;">
-        <strong style="font-size: 16px;">{{ b.name }}</strong>
-        <span :style="{ color: b.type === '红' ? '#f44336' : b.type === '绿' ? '#4CAF50' : '#ff9800' }">{{ b.type }} · 消耗 {{ b.cost }}</span>
+<div v-else-if="page === 'buff'" style="max-width: 1100px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h1>Buff 表</h1>
+    <button @click="backToCharacter" style="padding: 8px 16px;">返回角色</button>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+    <!-- 红 · 伤害增益 -->
+    <div>
+      <h2 style="color: #f44336; border-bottom: 2px solid #f44336; padding-bottom: 8px;">红 · 伤害增益</h2>
+      <div v-for="(b, i) in buffList.red" :key="'r'+i"
+           style="border: 1px solid #ffcdd2; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff5f5;">
+        <strong style="color: #c62828;">{{ b.name }}</strong>
+        <div style="font-size: 13px; margin-top: 6px; line-height: 1.5;">{{ b.desc }}</div>
       </div>
-      <div style="font-size: 14px; margin-top: 6px;">{{ b.desc }}</div>
+    </div>
+
+    <!-- 绿 · 恢复增益 -->
+    <div>
+      <h2 style="color: #4CAF50; border-bottom: 2px solid #4CAF50; padding-bottom: 8px;">绿 · 恢复增益</h2>
+      <div v-for="(b, i) in buffList.green" :key="'g'+i"
+           style="border: 1px solid #c8e6c9; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #f1f8e9;">
+        <strong style="color: #2e7d32;">{{ b.name }}</strong>
+        <div style="font-size: 13px; margin-top: 6px; line-height: 1.5;">{{ b.desc }}</div>
+      </div>
+    </div>
+
+    <!-- 金 · 其他 -->
+    <div>
+      <h2 style="color: #ff9800; border-bottom: 2px solid #ff9800; padding-bottom: 8px;">金 · 其他</h2>
+      <div v-for="(b, i) in buffList.gold" :key="'y'+i"
+           style="border: 1px solid #ffe0b2; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff8e1;">
+        <strong style="color: #ef6c00;">{{ b.name }}</strong>
+        <div style="font-size: 13px; margin-top: 6px; line-height: 1.5;">{{ b.desc }}</div>
+      </div>
     </div>
   </div>
+</div>
 </template>
