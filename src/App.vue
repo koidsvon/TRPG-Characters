@@ -916,9 +916,6 @@ onUnmounted(() => {
       <div><label>PP</label><br /><input type="number" v-model.number="currentCharacter.pp" style="width: 100%; padding: 8px;" /></div>
     </div>
 
-    <!-- 装备栏 -->
-<h2>装备栏</h2>
-
 <!-- 检定技能栏（可折叠） -->
 <div style="margin: 30px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
   <div @click="skillsExpanded = !skillsExpanded"
@@ -955,8 +952,8 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 敏捷相关 -->
-    <h3 style="margin: 0 0 12px; color: #1565c0; border-bottom: 1px solid #bbdefb; padding-bottom: 6px;">与敏捷属性有关的能力</h3>
+    <!-- 敏捷相关（绿色） -->
+    <h3 style="margin: 0 0 12px; color: #2e7d32; border-bottom: 1px solid #c8e6c9; padding-bottom: 6px;">与敏捷属性有关的能力</h3>
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 24px;">
       <div>
         <label>特技</label><br />
@@ -985,8 +982,8 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 智力相关 -->
-    <h3 style="margin: 0 0 12px; color: #6a1b9a; border-bottom: 1px solid #e1bee7; padding-bottom: 6px;">与智力属性有关的能力</h3>
+    <!-- 智力相关（蓝色） -->
+    <h3 style="margin: 0 0 12px; color: #1565c0; border-bottom: 1px solid #bbdefb; padding-bottom: 6px;">与智力属性有关的能力</h3>
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;">
       <div>
         <label>洞悉</label><br />
@@ -1031,6 +1028,11 @@ onUnmounted(() => {
     </div>
   </div>
 </div>
+
+    <!-- 装备栏 -->
+<h2>装备栏</h2>
+
+
 
 <!-- 可装备种类说明 -->
 <div v-if="currentClassInfo" style="margin-bottom: 12px; padding: 10px 14px; background: #e3f2fd; border-radius: 6px; font-size: 14px; color: #1565c0;">
