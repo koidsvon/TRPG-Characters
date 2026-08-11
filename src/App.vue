@@ -740,28 +740,37 @@ function applyLevelGrowth() {
   const i = Number(currentCharacter.value.intelligence_growth) || 0
   const a = Number(currentCharacter.value.agility_growth) || 0
 
-  // 增加基础属性
+  // 基础属性（保留小数）
   currentCharacter.value.strength = (Number(currentCharacter.value.strength) || 0) + s
   currentCharacter.value.intelligence = (Number(currentCharacter.value.intelligence) || 0) + i
   currentCharacter.value.agility = (Number(currentCharacter.value.agility) || 0) + a
 
-  // 派生属性
-  currentCharacter.value.hp_max = (Number(currentCharacter.value.hp_max) || 0) + s * 2
-  currentCharacter.value.res = (Number(currentCharacter.value.res) || 0) + i * 0.5
-  currentCharacter.value.spd = (Number(currentCharacter.value.spd) || 0) + a * 0.1
+  // 派生属性（全部向下取整）
+  currentCharacter.value.hp_max = Math.floor((Number(currentCharacter.value.hp_max) || 0) + s * 2)
+  currentCharacter.value.res = Math.floor((Number(currentCharacter.value.res) || 0) + i * 0.5)
+  currentCharacter.value.spd = Math.floor((Number(currentCharacter.value.spd) || 0) + a * 0.1)
 
-  // ATK 增加主属性成长值的一半
+  // ATK 增加升级后主属性的 1/4，并向下取整
   if (currentClassInfo.value) {
     const main = currentClassInfo.value.mainAttribute
-    let growth = 0
-    if (main === '力量') growth = s
-    else if (main === '智力') growth = i
-    else if (main === '敏捷') growth = a
+    let newMain = 0
+    if (main === '力量') newMain = currentCharacter.value.strength
+    else if (main === '智力') newMain = currentCharacter.value.intelligence
+    else if (main === '敏捷') newMain = currentCharacter.value.agility
 
-    currentCharacter.value.atk = (Number(currentCharacter.value.atk) || 0) + growth / 2
+    const atkAdd = Math.floor(newMain / 4)
+    currentCharacter.value.atk = Math.floor((Number(currentCharacter.value.atk) || 0) + atkAdd)
   }
 
-  alert('已应用本级成长值（属性、派生数值和ATK已更新）')
+  // 其他可能存在小数的字段也统一取整
+  if (currentCharacter.value.hp_current !== undefined) {
+    currentCharacter.value.hp_current = Math.floor(Number(currentCharacter.value.hp_current) || 0)
+  }
+  if (currentCharacter.value.def !== undefined) {
+    currentCharacter.value.def = Math.floor(Number(currentCharacter.value.def) || 0)
+  }
+
+  alert('已应用本级成长值（属性保留小数，其他数值已向下取整）')
 }
 
 function backToRoom() {
