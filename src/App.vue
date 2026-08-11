@@ -490,7 +490,18 @@ async function createCharacter() {
       player_name: newPlayerName.value || '未命名玩家',
       class_name: '未选择',
       level: 1,
-      inventory: []
+      inventory: {
+  items: [],
+  equipment: {
+    helmet: '',
+    chest: '',
+    legs: '',
+    mainHand: '',
+    offHand: '',
+    amulet: '',
+    backpack: ''
+  }
+}
     })
   if (error) {
     alert('创建角色失败：' + error.message)
@@ -503,9 +514,39 @@ async function createCharacter() {
 
 function enterCharacter(char) {
   const charCopy = { ...char }
-  if (!Array.isArray(charCopy.inventory)) {
-    charCopy.inventory = []
+  
+  // 兼容旧数据，确保 inventory 结构正确
+  if (!charCopy.inventory || Array.isArray(charCopy.inventory)) {
+    // 旧格式是纯数组，转换成新格式
+    const oldItems = Array.isArray(charCopy.inventory) ? charCopy.inventory : []
+    charCopy.inventory = {
+      items: oldItems,
+      equipment: {
+        helmet: '',
+        chest: '',
+        legs: '',
+        mainHand: '',
+        offHand: '',
+        amulet: '',
+        backpack: ''
+      }
+    }
+  } else {
+    // 已经是新格式
+    if (!charCopy.inventory.items) charCopy.inventory.items = []
+    if (!charCopy.inventory.equipment) {
+      charCopy.inventory.equipment = {
+        helmet: '',
+        chest: '',
+        legs: '',
+        mainHand: '',
+        offHand: '',
+        amulet: '',
+        backpack: ''
+      }
+    }
   }
+  
   currentCharacter.value = charCopy
   page.value = 'character'
 }
@@ -516,9 +557,12 @@ function addItem() {
     return
   }
   if (!currentCharacter.value.inventory) {
-    currentCharacter.value.inventory = []
+    currentCharacter.value.inventory = { items: [], equipment: {} }
   }
-  currentCharacter.value.inventory.push({
+  if (!currentCharacter.value.inventory.items) {
+    currentCharacter.value.inventory.items = []
+  }
+  currentCharacter.value.inventory.items.push({
     id: Date.now(),
     name: newItemName.value,
     quantity: newItemQuantity.value || 1
@@ -528,7 +572,7 @@ function addItem() {
 }
 
 function removeItem(index) {
-  currentCharacter.value.inventory.splice(index, 1)
+  currentCharacter.value.inventory.items.splice(index, 1)
 }
 
 async function saveCharacter() {
@@ -839,20 +883,75 @@ onUnmounted(() => {
       <div><label>PP</label><br /><input type="number" v-model.number="currentCharacter.pp" style="width: 100%; padding: 8px;" /></div>
     </div>
 
-    <!-- 物品栏 -->
-    <h2>物品栏</h2>
-    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 15px 0;">
-      <div v-if="!currentCharacter.inventory || currentCharacter.inventory.length === 0" style="color: #888; margin-bottom: 15px;">目前没有物品</div>
-      <div v-for="(item, index) in currentCharacter.inventory" :key="item.id" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee;">
-        <div><strong>{{ item.name }}</strong><span style="color: #666; margin-left: 10px;">× {{ item.quantity }}</span></div>
-        <button @click="removeItem(index)" style="padding: 4px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">删除</button>
-      </div>
-      <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
-        <input v-model="newItemName" placeholder="物品名称" style="padding: 8px; flex: 2; min-width: 150px;" />
-        <input type="number" v-model.number="newItemQuantity" placeholder="数量" style="padding: 8px; width: 80px;" />
-        <button @click="addItem" style="padding: 8px 16px; background: #2196F3; color: white; border: none; cursor: pointer;">添加物品</button>
-      </div>
+    <!-- 装备栏 -->
+<h2>装备栏</h2>
+
+<!-- 可装备种类说明 -->
+<div v-if="currentClassInfo" style="margin-bottom: 12px; padding: 10px 14px; background: #e3f2fd; border-radius: 6px; font-size: 14px; color: #1565c0;">
+  <strong>本职业可装备：</strong>
+  {{ currentClassInfo.equipment || '暂无详细说明（待补职业默认使用通用模板）' }}
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+  <div>
+    <label>头盔</label><br />
+    <input v-model="currentCharacter.inventory.equipment.helmet" placeholder="头盔" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>胸甲</label><br />
+    <input v-model="currentCharacter.inventory.equipment.chest" placeholder="胸甲" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>护腿</label><br />
+    <input v-model="currentCharacter.inventory.equipment.legs" placeholder="护腿" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>主手栏</label><br />
+    <input v-model="currentCharacter.inventory.equipment.mainHand" placeholder="主手武器" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>副手栏</label><br />
+    <input v-model="currentCharacter.inventory.equipment.offHand" placeholder="副手 / 盾牌" style="width: 100%; padding: 8px;" />
+  </div>
+  
+  <!-- 只有可使用 Buff 的职业才显示护身符 -->
+  <div v-if="currentClassInfo && currentClassInfo.canUseBuff">
+    <label>护身符</label><br />
+    <input v-model="currentCharacter.inventory.equipment.amulet" placeholder="护身符" style="width: 100%; padding: 8px;" />
+  </div>
+  
+  <div>
+    <label>背包</label><br />
+    <input v-model="currentCharacter.inventory.equipment.backpack" placeholder="背包" style="width: 100%; padding: 8px;" />
+  </div>
+</div>
+
+<!-- 物品栏（背包内物品） -->
+<h2>物品栏（背包内）</h2>
+<div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 15px 0;">
+  <div v-if="!currentCharacter.inventory?.items || currentCharacter.inventory.items.length === 0" style="color: #888; margin-bottom: 15px;">
+    目前没有物品
+  </div>
+
+  <div v-for="(item, index) in currentCharacter.inventory.items" :key="item.id"
+       style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee;">
+    <div>
+      <strong>{{ item.name }}</strong>
+      <span style="color: #666; margin-left: 10px;">× {{ item.quantity }}</span>
     </div>
+    <button @click="removeItem(index)" style="padding: 4px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      删除
+    </button>
+  </div>
+
+  <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+    <input v-model="newItemName" placeholder="物品名称" style="padding: 8px; flex: 2; min-width: 150px;" />
+    <input type="number" v-model.number="newItemQuantity" placeholder="数量" style="padding: 8px; width: 80px;" />
+    <button @click="addItem" style="padding: 8px 16px; background: #2196F3; color: white; border: none; cursor: pointer;">
+      添加物品
+    </button>
+  </div>
+</div>
 
     <h2>备注 / 讯息栏</h2>
     <textarea v-model="currentCharacter.notes" rows="4" style="width: 100%; padding: 8px; margin-top: 8px;" placeholder="临时状态、任务笔记等..."></textarea>
