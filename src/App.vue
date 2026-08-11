@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { supabase } from './supabase.js'
 
 // 页面状态：home / room / character
@@ -9,6 +9,7 @@ const page = ref('home')
 const roomName = ref('')
 const gmPassword = ref('')
 const joinCode = ref('')
+const joinGmPassword = ref('')
 const currentSession = ref(null)
 const isGM = ref(false)
 const message = ref('')
@@ -24,7 +25,9 @@ const saving = ref(false)
 const newItemName = ref('')
 const newItemQuantity = ref(1)
 
-// 生成房间码
+// 实时订阅
+let realtimeChannel = null
+
 function generateCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let code = ''
@@ -34,7 +37,33 @@ function generateCode() {
   return code
 }
 
-// 创建房间
+function saveSessionToLocal() {
+  if (currentSession.value) {
+    localStorage.setItem('rpg_session', JSON.stringify({
+      session: currentSession.value,
+      isGM: isGM.value
+    }))
+  }
+}
+
+function restoreSessionFromLocal() {
+  const saved = localStorage.getItem('rpg_session')
+  if (saved) {
+    try {
+      const data = JSON.parse(saved)
+      currentSession.value = data.session
+      isGM.value = data.isGM
+      page.value = 'room'
+      loadCharacters()
+      startRealtime()
+      return true
+    } catch (e) {
+      localStorage.removeItem('rpg_session')
+    }
+  }
+  return false
+}
+
 async function createRoom() {
   if (!roomName.value) {
     message.value = '请输入房间名称'
@@ -59,11 +88,12 @@ async function createRoom() {
     currentSession.value = data
     isGM.value = true
     page.value = 'room'
+    saveSessionToLocal()
     loadCharacters()
+    startRealtime()
   }
 }
 
-// 加入房间
 async function joinRoom() {
   if (!joinCode.value) {
     message.value = '请输入房间码'
@@ -78,15 +108,22 @@ async function joinRoom() {
 
   if (error || !data) {
     message.value = '找不到这个房间，请检查房间码'
-  } else {
-    currentSession.value = data
-    isGM.value = false
-    page.value = 'room'
-    loadCharacters()
+    return
   }
+
+  let gm = false
+  if (data.gm_password && joinGmPassword.value && joinGmPassword.value === data.gm_password) {
+    gm = true
+  }
+
+  currentSession.value = data
+  isGM.value = gm
+  page.value = 'room'
+  saveSessionToLocal()
+  loadCharacters()
+  startRealtime()
 }
 
-// 加载角色列表
 async function loadCharacters() {
   if (!currentSession.value) return
 
@@ -96,15 +133,40 @@ async function loadCharacters() {
     .eq('session_id', currentSession.value.id)
     .order('name', { ascending: true })
 
-  if (error) {
-    console.error(error)
-    alert('加载角色失败：' + error.message)
-  } else {
+  if (!error) {
     characters.value = data || []
   }
 }
 
-// 创建新角色
+function startRealtime() {
+  if (!currentSession.value) return
+
+  if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel)
+  }
+
+  realtimeChannel = supabase
+    .channel('room-' + currentSession.value.id)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'characters',
+        filter: `session_id=eq.${currentSession.value.id}`
+      },
+      (payload) => {
+        loadCharacters()
+        if (currentCharacter.value && payload.new && payload.new.id === currentCharacter.value.id) {
+          const updated = { ...payload.new }
+          if (!Array.isArray(updated.inventory)) updated.inventory = []
+          currentCharacter.value = updated
+        }
+      }
+    )
+    .subscribe()
+}
+
 async function createCharacter() {
   if (!newCharacterName.value) {
     alert('请输入角色名')
@@ -131,9 +193,7 @@ async function createCharacter() {
   }
 }
 
-// 进入某个角色
 function enterCharacter(char) {
-  // 确保 inventory 是数组
   const charCopy = { ...char }
   if (!Array.isArray(charCopy.inventory)) {
     charCopy.inventory = []
@@ -142,36 +202,29 @@ function enterCharacter(char) {
   page.value = 'character'
 }
 
-// 添加物品
 function addItem() {
   if (!newItemName.value) {
     alert('请输入物品名称')
     return
   }
-
   if (!currentCharacter.value.inventory) {
     currentCharacter.value.inventory = []
   }
-
   currentCharacter.value.inventory.push({
-    id: Date.now(),          // 简单用时间戳当临时id
+    id: Date.now(),
     name: newItemName.value,
     quantity: newItemQuantity.value || 1
   })
-
   newItemName.value = ''
   newItemQuantity.value = 1
 }
 
-// 删除物品
 function removeItem(index) {
   currentCharacter.value.inventory.splice(index, 1)
 }
 
-// 保存角色（包含物品栏）
 async function saveCharacter() {
   if (!currentCharacter.value) return
-
   saving.value = true
 
   const { error } = await supabase
@@ -206,21 +259,36 @@ async function saveCharacter() {
   }
 }
 
-// 返回角色列表
 function backToRoom() {
   page.value = 'room'
   currentCharacter.value = null
   loadCharacters()
 }
 
-// 返回首页
-function backToHome() {
+function leaveRoom() {
+  if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel)
+    realtimeChannel = null
+  }
+  localStorage.removeItem('rpg_session')
   page.value = 'home'
   currentSession.value = null
   characters.value = []
   currentCharacter.value = null
   message.value = ''
+  joinCode.value = ''
+  joinGmPassword.value = ''
 }
+
+onMounted(() => {
+  restoreSessionFromLocal()
+})
+
+onUnmounted(() => {
+  if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel)
+  }
+})
 </script>
 
 <template>
@@ -251,6 +319,10 @@ function backToHome() {
       <label>房间码：</label><br />
       <input v-model="joinCode" placeholder="输入6位房间码" style="width: 100%; padding: 8px; margin-top: 5px;" />
     </div>
+    <div style="margin-bottom: 15px;">
+      <label>GM 密码（可选，知道密码就是GM）：</label><br />
+      <input v-model="joinGmPassword" type="password" placeholder="如果有GM密码就填这里" style="width: 100%; padding: 8px; margin-top: 5px;" />
+    </div>
     <button @click="joinRoom" style="padding: 10px 20px; background: #2196F3; color: white; border: none; cursor: pointer;">
       加入房间
     </button>
@@ -265,7 +337,7 @@ function backToHome() {
         <h1>{{ currentSession?.name }}</h1>
         <p>房间码：<strong>{{ currentSession?.code }}</strong>　|　{{ isGM ? '你是 GM' : '你是玩家' }}</p>
       </div>
-      <button @click="backToHome" style="padding: 8px 16px;">返回首页</button>
+      <button @click="leaveRoom" style="padding: 8px 16px;">退出房间</button>
     </div>
 
     <hr style="margin: 20px 0;" />
@@ -286,7 +358,7 @@ function backToHome() {
         </div>
       </div>
       <button @click="enterCharacter(char)" style="padding: 6px 12px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">
-        进入角色
+        扮演角色
       </button>
     </div>
 
@@ -302,10 +374,10 @@ function backToHome() {
     </div>
   </div>
 
-  <!-- 角色详情/编辑页 -->
+  <!-- 角色详情页 -->
   <div v-else-if="page === 'character'" style="max-width: 900px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <h1>编辑角色</h1>
+      <h1>扮演角色</h1>
       <div>
         <button @click="saveCharacter" :disabled="saving" style="padding: 8px 20px; background: #4CAF50; color: white; border: none; margin-right: 10px; cursor: pointer;">
           {{ saving ? '保存中...' : '保存' }}
@@ -314,7 +386,6 @@ function backToHome() {
       </div>
     </div>
 
-    <!-- 基础信息 -->
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px;">
       <div>
         <label>角色名</label><br />
@@ -326,7 +397,7 @@ function backToHome() {
       </div>
       <div>
         <label>职业</label><br />
-        <input v-model="currentCharacter.class_name" style="width: 100%; padding: 8px;" placeholder="剑士 / 赏金猎人 / 魔术师..." />
+        <input v-model="currentCharacter.class_name" style="width: 100%; padding: 8px;" />
       </div>
       <div>
         <label>等级</label><br />
@@ -336,53 +407,19 @@ function backToHome() {
 
     <h2>核心属性</h2>
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; margin: 15px 0 30px;">
-      <div>
-        <label>力量</label><br />
-        <input type="number" v-model.number="currentCharacter.strength" style="width: 100%; padding: 8px;" />
-      </div>
-      <div>
-        <label>智力</label><br />
-        <input type="number" v-model.number="currentCharacter.intelligence" style="width: 100%; padding: 8px;" />
-      </div>
-      <div>
-        <label>敏捷</label><br />
-        <input type="number" v-model.number="currentCharacter.agility" style="width: 100%; padding: 8px;" />
-      </div>
-      <div>
-        <label>HP 当前</label><br />
-        <input type="number" v-model.number="currentCharacter.hp_current" style="width: 100%; padding: 8px;" />
-      </div>
-      <div>
-        <label>HP 最大</label><br />
-        <input type="number" v-model.number="currentCharacter.hp_max" style="width: 100%; padding: 8px;" />
-      </div>
-      <div>
-        <label>ATK</label><br />
-        <input type="number" v-model.number="currentCharacter.atk" style="width: 100%; padding: 8px;" />
-      </div>
-      <div>
-        <label>DEF</label><br />
-        <input type="number" v-model.number="currentCharacter.def" style="width: 100%; padding: 8px;" />
-      </div>
-      <div>
-        <label>RES</label><br />
-        <input type="number" v-model.number="currentCharacter.res" style="width: 100%; padding: 8px;" />
-      </div>
-      <div>
-        <label>SPD</label><br />
-        <input type="number" v-model.number="currentCharacter.spd" style="width: 100%; padding: 8px;" />
-      </div>
-      <div>
-        <label>移动格</label><br />
-        <input type="number" v-model.number="currentCharacter.move_range" style="width: 100%; padding: 8px;" />
-      </div>
-      <div>
-        <label>PP</label><br />
-        <input type="number" v-model.number="currentCharacter.pp" style="width: 100%; padding: 8px;" />
-      </div>
+      <div><label>力量</label><br /><input type="number" v-model.number="currentCharacter.strength" style="width: 100%; padding: 8px;" /></div>
+      <div><label>智力</label><br /><input type="number" v-model.number="currentCharacter.intelligence" style="width: 100%; padding: 8px;" /></div>
+      <div><label>敏捷</label><br /><input type="number" v-model.number="currentCharacter.agility" style="width: 100%; padding: 8px;" /></div>
+      <div><label>HP 当前</label><br /><input type="number" v-model.number="currentCharacter.hp_current" style="width: 100%; padding: 8px;" /></div>
+      <div><label>HP 最大</label><br /><input type="number" v-model.number="currentCharacter.hp_max" style="width: 100%; padding: 8px;" /></div>
+      <div><label>ATK</label><br /><input type="number" v-model.number="currentCharacter.atk" style="width: 100%; padding: 8px;" /></div>
+      <div><label>DEF</label><br /><input type="number" v-model.number="currentCharacter.def" style="width: 100%; padding: 8px;" /></div>
+      <div><label>RES</label><br /><input type="number" v-model.number="currentCharacter.res" style="width: 100%; padding: 8px;" /></div>
+      <div><label>SPD</label><br /><input type="number" v-model.number="currentCharacter.spd" style="width: 100%; padding: 8px;" /></div>
+      <div><label>移动格</label><br /><input type="number" v-model.number="currentCharacter.move_range" style="width: 100%; padding: 8px;" /></div>
+      <div><label>PP</label><br /><input type="number" v-model.number="currentCharacter.pp" style="width: 100%; padding: 8px;" /></div>
     </div>
 
-    <!-- 物品栏 -->
     <h2>物品栏</h2>
     <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 15px 0;">
       <div v-if="!currentCharacter.inventory || currentCharacter.inventory.length === 0" style="color: #888; margin-bottom: 15px;">
@@ -411,9 +448,5 @@ function backToHome() {
 
     <h2>备注 / 讯息栏</h2>
     <textarea v-model="currentCharacter.notes" rows="4" style="width: 100%; padding: 8px; margin-top: 8px;" placeholder="可以写一些临时状态、任务笔记等..."></textarea>
-
-    <p style="margin-top: 30px; color: #888; font-size: 14px;">
-      提示：修改属性或物品后，记得点右上角「保存」。
-    </p>
   </div>
 </template>
