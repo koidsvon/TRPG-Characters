@@ -35,6 +35,7 @@ const classTemplates = {
     description: '兼具一定输出能力和防御能力的平衡型职业，面对不同的敌人时可以以不同的架势灵巧应对。',
     mainAttribute: '力量',
     canUseBuff: true,
+    status: '完',
     initialATK: 12,
     initialSPD: 50,
     initialRES: 10,
@@ -46,11 +47,23 @@ const classTemplates = {
     allocatablePoints: 60,
     proficiency: '运动+3；洞悉+5；察觉+5；巧手+2',
     equipment: '长剑、轻甲、锁甲、小盾、护身符。最多同时使用一把武器',
-    level1: '可以使用buff。战斗中以特定架势招架敌人，可在长休时更换。',
+    levelRewards: [
+      { level: 1, content: '可以使用buff。可以装备长剑、轻甲、锁甲、小盾、护身符。最多同时使用一把武器。\n准备：战斗中以特定架势招架敌人，可在长休时更换。' },
+      { level: 2, content: '被动I：可从被动页I中选择一项。' },
+      { level: 3, content: '子职I：可选择是否转职为剑士的子职，或继续本职。\n剑士α：解锁反击架势。战斗中若受到伤害，则可以进行一次1d6判定，若结果≥3，则可以进行一次伤害等同于所受税后伤害一半的反击。' },
+      { level: 4, content: '被动I：可从被动页I中选择一项。' },
+      { level: 5, content: '子职II：\n剑士β：反击架势的反击伤害判定提升至100%。' },
+      { level: 6, content: '被动II：可从被动页II中选择一项。' },
+      { level: 7, content: '被动II：可从被动页II中选择一项。' },
+      { level: 8, content: '主属性增强：力量+10。' },
+      { level: 9, content: '子职III：\n剑士γ：反击伤害变为造成敌人造成的伤害而非自身收到的伤害。同时结果大于等于2即可判定为反击成功。' },
+      { level: 10, content: '被动III：可从被动页III中选择一项。' },
+      { level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
+    ],
     stances: [
       { name: '学徒的清击', desc: '在攻击时如果1d10的结果≥5，则伤害总值+6点。LVL3提升至8，LVL9提升至14，LVL15提升至25，同时结果只需≥4即可触发。' },
-      { name: '尤欧斯', desc: '倘若在自己的回合开始前有敌人以你为目标进行攻击，在其开始进行计算前你可以对该目标发动一次攻击。触发次数上限1次，自己的回合结束后刷新。' },
-      { name: '剑技铸造', desc: '在自己的回合可对自己无消耗使用buff“熔炉的加护”上限3次，短休补1长休补满。' }
+      { name: '尤欧斯', desc: '倘若在自己的回合开始前有敌人以你为目标进行攻击，在其开始进行计算前你可以对该目标发动一次攻击。触发次数上限1次，自己的回合结束后刷新。LVL6时判定百分比+1=10%，LVL12时次数上限+1。' },
+      { name: '剑技铸造', desc: '在自己的回合可对自己无消耗使用buff“熔炉的加护”上限3次，短休补1长休补满。LVL6时本次攻击判定百分比+1=10%，LVL13时额外造成一次等同于本次攻击税前伤害一半的物理伤害。' }
     ],
     subclasses: ['决斗者', '重剑士']
   },
@@ -59,18 +72,21 @@ const classTemplates = {
     description: '以毒辣手段打击目标的输出型职业，完成赏金任务后可以激活巨大增益。',
     mainAttribute: '敏捷',
     canUseBuff: false,
+    status: '完',
     initialATK: 10,
     initialSPD: 51,
     initialRES: 10,
     initialDEF: 2,
     initialHP: -5,
     initialMove: 4,
-    initialPP: 75,
+    initialPP: 100,
     attributeRequirement: '主属性成长值固定为2.4，次属性成长值固定为2.3',
     allocatablePoints: 60,
     proficiency: '隐匿+3；求生+4；驯兽+4；知识+2；说服+2；调查+5',
     equipment: '长剑、手斧、冲锋枪、轻甲。最多同时使用两把武器。额外获得25初始PP',
-    level1: '无法使用buff。赏金猎人的报酬：完成赏金任务后可以激活报酬获得增益。报酬分为永久生效和单场战斗生效的临时报酬两种类型。',
+    levelRewards: [
+      { level: 1, content: '无法使用buff。赏金猎人的报酬：完成赏金任务后可以激活报酬获得增益。报酬分为永久生效和单场战斗生效的临时报酬两种类型。' }
+    ],
     stances: [],
     subclasses: []
   },
@@ -79,6 +95,7 @@ const classTemplates = {
     description: 'Caster。使用魔术行驶魔道者。使用多种魔术的全能型职业。',
     mainAttribute: '智力',
     canUseBuff: false,
+    status: '完',
     initialATK: 0,
     initialSPD: 48,
     initialRES: 15,
@@ -90,13 +107,32 @@ const classTemplates = {
     allocatablePoints: 55,
     proficiency: '洞悉+2；巫毒-2；知识+4；医疗+2；调查+3',
     equipment: '魔导书、魔杖、轻甲。需同时装备魔导书和魔杖。',
-    level1: '无法使用buff。特异点锁明：从下列特异点中选择一项（7的战争 / 龙胭 / 厌花之蛇）。',
+    levelRewards: [
+      { level: 1, content: '无法使用buff。特异点锁明：从下列特异点中选择一项（7的战争 / 龙胭 / 厌花之蛇）。' }
+    ],
     stances: [],
     subclasses: []
-  }
+  },
+  // ===== 待补职业 =====
+  '决斗者': { name: '决斗者', description: '剑士子职。使用刺剑的剑士子职。可以使用buff。不仅可以靠灵活的机动性重创敌人的伤口为其带去大量麻烦，还可以发起决斗正面作战。', status: '待补', canUseBuff: true },
+  '重剑士': { name: '重剑士', description: '剑士子职。使用大剑的剑士子职。可以使用buff。虽然速度略慢，但是无与伦比的破坏力和防御能力是队伍最可靠的职业。', status: '待补', canUseBuff: true },
+  '长枪兵': { name: '长枪兵', description: '使用长枪的AoE攻击型角色。可以使用buff。以出色的速度和攻击范围见长。', status: '待补', canUseBuff: true },
+  '盾枪兵': { name: '盾枪兵', description: '长枪兵子职。使用长盾和骑枪的坦克型长枪兵子职。可以使用buff。是队友最可靠的守护者，还可通过精准防御为自己提供攻击增益。', status: '待补', canUseBuff: true },
+  '刃枪兵': { name: '刃枪兵', description: '长枪兵子职。将长剑改造为长枪，大剑改造为骑枪的奇异长枪兵子职。可以使用buff。', status: '待补', canUseBuff: true },
+  '格斗家': { name: '格斗家', description: '以拳法致胜的近身格斗型角色。可以使用buff。虽然攻击距离较近，但是凭借灵活冲刺的能力可以有效应对远距离的敌人。', status: '待补', canUseBuff: true },
+  '射手': { name: '射手', description: '使用手枪、冲锋枪、步枪、霰弹枪的远程输出型角色。无法使用buff。可携带三种枪械，具备全能的攻击性能。', status: '施工中', canUseBuff: false },
+  '狙击手': { name: '狙击手', description: '只能使用狙击枪、步枪、手枪的远距离打击特化型射手。无法使用buff。可携带两种枪械，擅长在远距离精准打击。', status: '待补', canUseBuff: false },
+  '指挥官': { name: '指挥官', description: '只能使用手枪和霰弹枪和刺剑的近距离作战特化型射手。无法使用buff。可携带两种枪械，能为周围的友军提供团队增益。', status: '待补', canUseBuff: false },
+  '斥候': { name: '斥候', description: '使用手枪和匕首的独行角色。无法使用buff。面对敌人时可以游刃有余的多次倾泻可怖的火力。', status: '待补', canUseBuff: false },
+  '忍者': { name: '忍者', description: '斥候子职。使用匕首和手里剑的隐秘型斥候子职。可以使用特殊的能力忍术。在面对海量的敌人时依然能从容应对。', status: '待补', canUseBuff: false },
+  '处刑者': { name: '处刑者', description: '使用巨斧的弱点特化型职业，可以使用buff。通过攻击造成伤口，进而通过伤口将敌人处决。', status: '待补', canUseBuff: true },
+  '术士': { name: '术士', description: 'Warlock。召唤者。使用魔导书和法杖施法，术士本人无需成为最强，只要使役最强的存在即可。', status: '待补', canUseBuff: false },
+  '萨满': { name: '萨满', description: '使用巫毒术之人。虽然不能使用魔术，但是只要满足条件即可使用特殊的巫毒术，使用不同的物品施法。', status: '待补', canUseBuff: false },
+  '堕落旅人': { name: '堕落旅人', description: '萨满子职。使用亡灵巫毒术的尸骸。独特的巫毒术给予其极强的生存能力和干扰能力。使用特殊的物品施法。不能直接出现在大多数大型人类活动区。', status: '待补', canUseBuff: false },
+  'Code Wizard': { name: 'Code Wizard', description: '虽然是魔术使，却使用buff之人。使用魔导键施法。根据掌握的buff不同定位而异的灵活职业。', status: '待补', canUseBuff: true }
 }
 
-// 简单魔术表示例（后续可扩展）
+// 简单魔术表示例
 const magicList = [
   { name: '道化机巧，其一', type: '控制', cost: 7, desc: '召唤一个具备30点HP的人型告示牌，嘲讽野兽目标。' },
   { name: '抽丝剥茧', type: '控制&防御', cost: 7, desc: '形成石墙，HP50，可束缚其中单位。' },
@@ -470,9 +506,37 @@ onUnmounted(() => {
         <label>职业</label><br />
         <select v-model="currentCharacter.class_name" style="width: 100%; padding: 8px;">
           <option value="未选择">未选择</option>
-          <option value="剑士">剑士</option>
-          <option value="赏金猎人">赏金猎人</option>
-          <option value="魔术师">魔术师</option>
+          <optgroup label="已完成">
+            <option value="剑士">剑士</option>
+            <option value="赏金猎人">赏金猎人</option>
+            <option value="魔术师">魔术师</option>
+          </optgroup>
+          <optgroup label="剑士子职">
+            <option value="决斗者">决斗者</option>
+            <option value="重剑士">重剑士</option>
+          </optgroup>
+          <optgroup label="近战（待补）">
+            <option value="长枪兵">长枪兵</option>
+            <option value="盾枪兵">盾枪兵</option>
+            <option value="刃枪兵">刃枪兵</option>
+            <option value="格斗家">格斗家</option>
+            <option value="处刑者">处刑者</option>
+          </optgroup>
+          <optgroup label="射手（待补）">
+            <option value="射手">射手</option>
+            <option value="狙击手">狙击手</option>
+            <option value="指挥官">指挥官</option>
+          </optgroup>
+          <optgroup label="特化（待补）">
+            <option value="斥候">斥候</option>
+            <option value="忍者">忍者</option>
+          </optgroup>
+          <optgroup label="魔术使（待补）">
+            <option value="术士">术士</option>
+            <option value="萨满">萨满</option>
+            <option value="堕落旅人">堕落旅人</option>
+            <option value="Code Wizard">Code Wizard</option>
+          </optgroup>
         </select>
       </div>
       <div>
@@ -483,40 +547,71 @@ onUnmounted(() => {
 
     <!-- 职业介绍卡片 -->
     <div v-if="currentClassInfo" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 10px; padding: 20px; margin-bottom: 30px;">
-      <h2 style="margin-top: 0;">{{ currentClassInfo.name }}</h2>
-      <p style="color: #555; line-height: 1.6;">{{ currentClassInfo.description }}</p>
-      
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 15px 0; font-size: 14px;">
-        <div><strong>主属性：</strong>{{ currentClassInfo.mainAttribute }}</div>
-        <div><strong>可使用Buff：</strong>{{ currentClassInfo.canUseBuff ? '是' : '否' }}</div>
-        <div><strong>初始ATK：</strong>{{ currentClassInfo.initialATK }}</div>
-        <div><strong>初始SPD：</strong>{{ currentClassInfo.initialSPD }}</div>
-        <div><strong>初始RES：</strong>{{ currentClassInfo.initialRES }}</div>
-        <div><strong>初始DEF：</strong>{{ currentClassInfo.initialDEF }}</div>
-        <div><strong>初始移动格：</strong>{{ currentClassInfo.initialMove }}</div>
-        <div><strong>初始PP：</strong>{{ currentClassInfo.initialPP }}</div>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="margin: 0;">{{ currentClassInfo.name }}</h2>
+        <span v-if="currentClassInfo.status === '待补' || currentClassInfo.status === '施工中'"
+              style="background: #ff9800; color: white; padding: 4px 10px; border-radius: 4px; font-size: 13px;">
+          {{ currentClassInfo.status }}
+        </span>
+        <span v-else-if="currentClassInfo.status === '完'"
+              style="background: #4CAF50; color: white; padding: 4px 10px; border-radius: 4px; font-size: 13px;">
+          已完成
+        </span>
       </div>
 
-      <p style="font-size: 14px;"><strong>属性要求：</strong>{{ currentClassInfo.attributeRequirement }}</p>
-      <p style="font-size: 14px;"><strong>可分配属性点：</strong>{{ currentClassInfo.allocatablePoints }}</p>
-      <p style="font-size: 14px;"><strong>职业精通：</strong>{{ currentClassInfo.proficiency }}</p>
-      <p style="font-size: 14px;"><strong>装备权限：</strong>{{ currentClassInfo.equipment }}</p>
-      <p style="font-size: 14px;"><strong>LVL1：</strong>{{ currentClassInfo.level1 }}</p>
+      <p style="color: #555; line-height: 1.6; margin-top: 12px;">{{ currentClassInfo.description }}</p>
 
-      <div v-if="currentClassInfo.stances && currentClassInfo.stances.length" style="margin-top: 15px;">
-        <strong>架势：</strong>
-        <ul style="margin: 8px 0; padding-left: 20px; font-size: 14px;">
-          <li v-for="(s, i) in currentClassInfo.stances" :key="i" style="margin-bottom: 6px;">
-            <strong>{{ s.name }}</strong>：{{ s.desc }}
-          </li>
-        </ul>
+      <!-- 已完成职业显示详细信息 -->
+      <template v-if="currentClassInfo.status === '完'">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 15px 0; font-size: 14px;">
+          <div><strong>主属性：</strong>{{ currentClassInfo.mainAttribute }}</div>
+          <div><strong>可使用Buff：</strong>{{ currentClassInfo.canUseBuff ? '是' : '否' }}</div>
+          <div><strong>初始ATK：</strong>{{ currentClassInfo.initialATK }}</div>
+          <div><strong>初始SPD：</strong>{{ currentClassInfo.initialSPD }}</div>
+          <div><strong>初始RES：</strong>{{ currentClassInfo.initialRES }}</div>
+          <div><strong>初始DEF：</strong>{{ currentClassInfo.initialDEF }}</div>
+          <div><strong>初始移动格：</strong>{{ currentClassInfo.initialMove }}</div>
+          <div><strong>初始PP：</strong>{{ currentClassInfo.initialPP }}</div>
+        </div>
+
+        <p style="font-size: 14px;"><strong>属性要求：</strong>{{ currentClassInfo.attributeRequirement }}</p>
+        <p style="font-size: 14px;"><strong>可分配属性点：</strong>{{ currentClassInfo.allocatablePoints }}</p>
+        <p style="font-size: 14px;"><strong>职业精通：</strong>{{ currentClassInfo.proficiency }}</p>
+        <p style="font-size: 14px;"><strong>装备权限：</strong>{{ currentClassInfo.equipment }}</p>
+
+        <!-- 等级奖励表 -->
+        <div v-if="currentClassInfo.levelRewards && currentClassInfo.levelRewards.length" style="margin-top: 20px;">
+          <strong>等级奖励：</strong>
+          <div v-for="r in currentClassInfo.levelRewards" :key="r.level"
+               style="margin: 10px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #2196F3;">
+            <strong>LVL {{ r.level }}</strong>
+            <div style="white-space: pre-line; font-size: 14px; margin-top: 4px;">{{ r.content }}</div>
+          </div>
+        </div>
+
+        <!-- 架势 -->
+        <div v-if="currentClassInfo.stances && currentClassInfo.stances.length" style="margin-top: 15px;">
+          <strong>架势：</strong>
+          <ul style="margin: 8px 0; padding-left: 20px; font-size: 14px;">
+            <li v-for="(s, i) in currentClassInfo.stances" :key="i" style="margin-bottom: 8px;">
+              <strong>{{ s.name }}</strong>：{{ s.desc }}
+            </li>
+          </ul>
+        </div>
+      </template>
+
+      <!-- 待补职业只显示提示 -->
+      <div v-else style="margin-top: 15px; padding: 15px; background: #fff3e0; border-radius: 6px; color: #e65100;">
+        该职业详细数据尚未补全，敬请期待。
       </div>
 
       <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-        <button v-if="currentClassInfo.canUseBuff" @click="openBuffTable" style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        <button v-if="currentClassInfo.canUseBuff" @click="openBuffTable"
+                style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
           查看 Buff 表
         </button>
-        <button v-if="currentCharacter.class_name === '魔术师'" @click="openMagicTable" style="padding: 8px 16px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        <button v-if="currentCharacter.class_name === '魔术师'" @click="openMagicTable"
+                style="padding: 8px 16px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
           查看魔术表
         </button>
       </div>
