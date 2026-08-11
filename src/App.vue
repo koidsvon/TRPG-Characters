@@ -251,15 +251,63 @@ const classTemplates = {
   }
 }
 
-// 简单魔术表示例
-const magicList = [
-  { name: '道化机巧，其一', type: '控制', cost: 7, desc: '召唤一个具备30点HP的人型告示牌，嘲讽野兽目标。' },
-  { name: '抽丝剥茧', type: '控制&防御', cost: 7, desc: '形成石墙，HP50，可束缚其中单位。' },
-  { name: '点火术', type: '伤害', cost: 5, desc: '对最远1格敌人造成14点火属性魔法伤害。' },
-  { name: '火焰箭', type: '伤害', cost: 10, desc: '对最远4格敌人造成28点火属性魔法伤害。' },
-  { name: '修复术', type: '回复', cost: 17, desc: '瞬间恢复自己或最远2格友军16点HP。' },
-  { name: '抽丝剥茧-锐', type: '伤害', cost: '高', desc: '造成80点魔法伤害，高roll可秒杀活体目标。' }
-]
+// 完整魔术表（按册 + 种类）
+const magicList = {
+  volume1: {
+    title: '一册魔术（日常）',
+    spells: [
+      { name: '道化机巧，其一', type: '控制', desc: '召唤一个具备30点HP，没有防御力，持续三回合的人型告示牌。告示牌将会嘲讽所有野兽目标，其他类型的单位也可能会视其为敌人。每名以告示牌为目标的单位死亡时额外掉落5PP（7）' },
+      { name: '抽丝剥茧', type: '控制&防御', desc: '提取大地中最为优质的岩石，将岩石升至地表形成一堵石墙。石墙具备50点HP并且没有防御力。若有单位处于石墙之中，则将被束缚（无法移动，施法）直到石墙消失。（7）' },
+      { name: '卷土重来', type: '防御', desc: '向后移动3格，并在地上留下移动的痕迹。处于移动痕迹上的单位将会减少12点ATK（10）' },
+      { name: '钻地术', type: '防御&回复', desc: '钻入地面之中。钻地期间DEF翻倍并获得一次状态异常免疫效果，结束钻地时回复4点HP。钻地持续1回合（10）' },
+      { name: '宁愈术', type: '回复', desc: '持续施法1~2回合。持续施法期间每回合回复自身以及周边4格内的所有友军10点HP（11）' },
+      { name: '酸腐兵械', type: '增益', desc: '赋予3格内的友军特殊状态“酸腐兵械”每次攻击后固定造成10点腐蚀魔法伤害。持续3回合（7）' },
+      { name: '灾厄化', type: '增益', desc: '赋予3格内的友军特殊状态“灾厄化”使其+8DEF -8RES。持续5回合（9）' },
+      { name: '伏特压流', type: '伤害', desc: '对最远5格外的单一目标造成10点电属性魔法伤害。每次使用后在本次战斗中+10本魔术造成的伤害上限，+1魔力消耗（8）' },
+      { name: '点火术', type: '伤害', desc: '对最远1格外的敌人造成14点火属性魔法伤害（5）' },
+      { name: '热熔术', type: '伤害', desc: '持续施法1回合后，召唤一颗熔岩球。随后可将熔岩球中的熔岩射出对最远7格的单一目标造成30点火属性魔法伤害，最多6次。或将完整的熔岩球射出对最远5格外的2×2范围造成10次6点火属性伤害（13）' }
+    ]
+  },
+  volume2: {
+    title: '二册魔术（日常）',
+    spells: [
+      { name: '胧影之潭', type: '伤害', desc: '将最远5格外的2×2区域变为胧影之潭。处于其中的敌人将会减少10点SPD，并且在回合结束时受到6点伤害（16）' },
+      { name: '金流', type: '伤害', desc: '召唤一缕锐利的金粉攻击前方4×3范围的敌人，造成40点物理伤害。（17）' },
+      { name: '焚化爆弹', type: '伤害', desc: '持续施法1回合凝练出一颗炽热的爆弹，随后爆弹将会对自身周围4格范围内的所有单位（包括友军）造成两次30点火属性魔法伤害。（20）' },
+      { name: '火焰箭', type: '伤害', desc: '对最远4格外的敌人造成28点火属性魔法伤害（10）' },
+      { name: '修复术', type: '回复', desc: '瞬间恢复自己或最远2格外的一名友军16点HP（17）' },
+      { name: '神智之楔', type: '回复', desc: '操控最远6格外的一名友军的神智，持续2回合。生效期间目标友军不会受到致死性伤害（15）' },
+      { name: '幻惑术', type: '控制', desc: '创造一个可控的自身幻象。幻象的HP等同于施法者，不具备防御力，移动格+2。敌人可能会以此幻象为目标（15）' },
+      { name: '歌达佩斯大饭店之门', type: '控制', desc: '在最远5格处召唤一扇门扉，经过门扉的敌人将强制停在门扉处投掷判定决定其命运。1~3：被眩晕一回合 4~6：被传送到地图上任意地点 7~9：每回合受到15点虚无伤害 10：受到100点物理伤害（22）' },
+      { name: '圣光术', type: '增益', desc: '以自身为中心周围3格的所有友军获得3回合的堕落免疫状态（15）' },
+      { name: '橡皮术', type: '防御', desc: '三回合内DEF+4，并且以你为目标的敌人在攻击时将会获得一次劣势（18）' }
+    ]
+  },
+  volume3: {
+    title: '三册魔术（专业）',
+    spells: [
+      { name: '毒香徊天', type: '伤害&控制', desc: '以自身为中心，在周围6格内释放酸雾云，酸雾云持续5回合。其中的敌人每在酸雾云内移动1格就会受到3点腐蚀魔法伤害，若敌人在酸雾云中结束回合，则下一次在酸雾云中移动时受到的伤害+1，最多叠加4次。（37）' },
+      { name: '希望信标', type: '增益', desc: '在自身所在位置召唤一个拥有10点HP，不具备防御力的信标。信标将会向全图的友军提供增益，使其受到的单次生命恢复效果必定为最大值（33）' },
+      { name: '降咒', type: '增益', desc: '持续施法1回合，随后对全场任意一名友方单位降咒。使其+10力量，+5 SPD，+8 ATK，并清除目标的所有精神异常（32）' },
+      { name: '战吼术', type: '防御', desc: '以自身为中心，在周边3格内发出战吼。范围内的友军+20 DEF。每15点力量可以增加1格作用范围（35）' },
+      { name: '假死术', type: '防御', desc: '对自己造成3点纯粹伤害。然后进入一回合假死状态，期间无法进行任何行动。所有以你为目标的敌人将改变目标（29）' }
+    ]
+  },
+  volume4: {
+    title: '四册魔术（军工）',
+    spells: [
+      { name: '抽丝剥茧-锐', type: '伤害', desc: '将单一目标的心脏从其体内剥出，造成80点魔法伤害。若投掷结果为1d10=9 or 10，则秒杀人类、野兽等活体目标。' }
+    ]
+  },
+  volume5: {
+    title: '五册魔术（军工）',
+    spells: []   // 目前空缺
+  },
+  volume6: {
+    title: '六册魔术（神域）',
+    spells: []   // 目前空缺
+  }
+}
 
 // Buff表（按附件三色分类）
 const buffList = {
@@ -811,21 +859,44 @@ onUnmounted(() => {
   </div>
 
   <!-- 魔术表页面 -->
-  <div v-else-if="page === 'magic'" style="max-width: 900px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <h1>魔术表</h1>
-      <button @click="backToCharacter" style="padding: 8px 16px;">返回角色</button>
-    </div>
-    <p style="color: #666; margin-bottom: 20px;">目前仅展示部分常用魔术，完整表后续补充。</p>
-    <div v-for="(m, i) in magicList" :key="i" style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 12px;">
-      <div style="display: flex; justify-content: space-between;">
-        <strong style="font-size: 16px;">{{ m.name }}</strong>
-        <span style="color: #9c27b0;">消耗：{{ m.cost }}</span>
+<div v-else-if="page === 'magic'" style="max-width: 1000px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h1>魔术表</h1>
+    <button @click="backToCharacter" style="padding: 8px 16px;">返回角色</button>
+  </div>
+
+  <p style="color: #666; margin-bottom: 25px; font-size: 14px;">
+    分级说明：一、二册 = 日常　｜　三册 = 专业　｜　四、五册 = 军工　｜　六册 = 神域
+  </p>
+
+  <!-- 循环显示每一册 -->
+  <div v-for="(vol, key) in magicList" :key="key" style="margin-bottom: 40px;">
+    <h2 style="border-bottom: 2px solid #9c27b0; padding-bottom: 8px; color: #7b1fa2;">
+      {{ vol.title }}
+    </h2>
+
+    <!-- 有魔术内容时显示 -->
+    <div v-if="vol.spells && vol.spells.length > 0">
+      <div v-for="(m, i) in vol.spells" :key="i"
+           style="border: 1px solid #e1bee7; border-radius: 8px; padding: 14px; margin: 12px 0; background: #faf5ff;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <strong style="font-size: 16px; color: #6a1b9a;">{{ m.name }}</strong>
+          <span style="background: #ce93d8; color: #4a148c; padding: 3px 10px; border-radius: 12px; font-size: 12px;">
+            {{ m.type }}
+          </span>
+        </div>
+        <div style="font-size: 14px; margin-top: 8px; line-height: 1.6; color: #333;">
+          {{ m.desc }}
+        </div>
       </div>
-      <div style="font-size: 13px; color: #666; margin: 4px 0;">类型：{{ m.type }}</div>
-      <div style="font-size: 14px;">{{ m.desc }}</div>
+    </div>
+
+    <!-- 空缺内容时显示提示 -->
+    <div v-else style="padding: 20px; background: #f3e5f5; border-radius: 8px; color: #7b1fa2; text-align: center;">
+      本册内容目前空缺，仅保留分类框架。
     </div>
   </div>
+</div>
 
   <!-- Buff表页面 -->
 <div v-else-if="page === 'buff'" style="max-width: 1100px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
