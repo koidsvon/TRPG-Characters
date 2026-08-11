@@ -745,12 +745,12 @@ function applyLevelGrowth() {
   currentCharacter.value.intelligence = (Number(currentCharacter.value.intelligence) || 0) + i
   currentCharacter.value.agility = (Number(currentCharacter.value.agility) || 0) + a
 
-  // 派生属性（全部向下取整）
-  currentCharacter.value.hp_max = Math.floor((Number(currentCharacter.value.hp_max) || 0) + s * 2)
-  currentCharacter.value.res = Math.floor((Number(currentCharacter.value.res) || 0) + i * 0.5)
-  currentCharacter.value.spd = Math.floor((Number(currentCharacter.value.spd) || 0) + a * 0.1)
+  // 派生属性：用完整小数累计（不在这里取整，让小数能累积）
+  currentCharacter.value.hp_max = (Number(currentCharacter.value.hp_max) || 0) + s * 2
+  currentCharacter.value.res = (Number(currentCharacter.value.res) || 0) + i * 0.5
+  currentCharacter.value.spd = (Number(currentCharacter.value.spd) || 0) + a * 0.1
 
-  // ATK 增加升级后主属性的 1/4，并向下取整
+  // ATK：增加升级后主属性的 1/4（完整小数累计）
   if (currentClassInfo.value) {
     const main = currentClassInfo.value.mainAttribute
     let newMain = 0
@@ -758,19 +758,11 @@ function applyLevelGrowth() {
     else if (main === '智力') newMain = currentCharacter.value.intelligence
     else if (main === '敏捷') newMain = currentCharacter.value.agility
 
-    const atkAdd = Math.floor(newMain / 4)
-    currentCharacter.value.atk = Math.floor((Number(currentCharacter.value.atk) || 0) + atkAdd)
+    const atkAdd = newMain / 4
+    currentCharacter.value.atk = (Number(currentCharacter.value.atk) || 0) + atkAdd
   }
 
-  // 其他可能存在小数的字段也统一取整
-  if (currentCharacter.value.hp_current !== undefined) {
-    currentCharacter.value.hp_current = Math.floor(Number(currentCharacter.value.hp_current) || 0)
-  }
-  if (currentCharacter.value.def !== undefined) {
-    currentCharacter.value.def = Math.floor(Number(currentCharacter.value.def) || 0)
-  }
-
-  alert('已应用本级成长值（属性保留小数，其他数值已向下取整）')
+  alert('已应用本级成长值（小数会累计，显示时再向下取整）')
 }
 
 function backToRoom() {
@@ -1039,10 +1031,12 @@ onUnmounted(() => {
 
     <!-- 核心属性 -->
 <h2>核心属性</h2>
+
+<!-- 三属性 + 成长值 -->
 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; margin: 15px 0 10px;">
   <div>
     <label>力量</label><br />
-    <input type="number" v-model.number="currentCharacter.strength" style="width: 100%; padding: 8px;" />
+    <input type="number" step="0.1" v-model.number="currentCharacter.strength" style="width: 100%; padding: 8px;" />
   </div>
   <div>
     <label>力量成长</label><br />
@@ -1050,7 +1044,7 @@ onUnmounted(() => {
   </div>
   <div>
     <label>智力</label><br />
-    <input type="number" v-model.number="currentCharacter.intelligence" style="width: 100%; padding: 8px;" />
+    <input type="number" step="0.1" v-model.number="currentCharacter.intelligence" style="width: 100%; padding: 8px;" />
   </div>
   <div>
     <label>智力成长</label><br />
@@ -1058,7 +1052,7 @@ onUnmounted(() => {
   </div>
   <div>
     <label>敏捷</label><br />
-    <input type="number" v-model.number="currentCharacter.agility" style="width: 100%; padding: 8px;" />
+    <input type="number" step="0.1" v-model.number="currentCharacter.agility" style="width: 100%; padding: 8px;" />
   </div>
   <div>
     <label>敏捷成长</label><br />
@@ -1066,30 +1060,49 @@ onUnmounted(() => {
   </div>
 </div>
 
+<!-- 派生属性（显示时向下取整） -->
 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; margin: 10px 0 20px;">
   <div>
     <label>HP 当前</label><br />
-    <input type="number" v-model.number="currentCharacter.hp_current" style="width: 100%; padding: 8px;" />
+    <input type="number"
+           :value="Math.floor(currentCharacter.hp_current || 0)"
+           @input="currentCharacter.hp_current = Number($event.target.value)"
+           style="width: 100%; padding: 8px;" />
   </div>
   <div>
     <label>HP 最大</label><br />
-    <input type="number" v-model.number="currentCharacter.hp_max" style="width: 100%; padding: 8px;" />
+    <input type="number"
+           :value="Math.floor(currentCharacter.hp_max || 0)"
+           @input="currentCharacter.hp_max = Number($event.target.value)"
+           style="width: 100%; padding: 8px;" />
   </div>
   <div>
     <label>ATK</label><br />
-    <input type="number" v-model.number="currentCharacter.atk" style="width: 100%; padding: 8px;" />
+    <input type="number"
+           :value="Math.floor(currentCharacter.atk || 0)"
+           @input="currentCharacter.atk = Number($event.target.value)"
+           style="width: 100%; padding: 8px;" />
   </div>
   <div>
     <label>DEF</label><br />
-    <input type="number" v-model.number="currentCharacter.def" style="width: 100%; padding: 8px;" />
+    <input type="number"
+           :value="Math.floor(currentCharacter.def || 0)"
+           @input="currentCharacter.def = Number($event.target.value)"
+           style="width: 100%; padding: 8px;" />
   </div>
   <div>
     <label>RES</label><br />
-    <input type="number" v-model.number="currentCharacter.res" style="width: 100%; padding: 8px;" />
+    <input type="number"
+           :value="Math.floor(currentCharacter.res || 0)"
+           @input="currentCharacter.res = Number($event.target.value)"
+           style="width: 100%; padding: 8px;" />
   </div>
   <div>
     <label>SPD</label><br />
-    <input type="number" v-model.number="currentCharacter.spd" style="width: 100%; padding: 8px;" />
+    <input type="number"
+           :value="Math.floor(currentCharacter.spd || 0)"
+           @input="currentCharacter.spd = Number($event.target.value)"
+           style="width: 100%; padding: 8px;" />
   </div>
   <div>
     <label>移动格</label><br />
