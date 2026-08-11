@@ -65,11 +65,14 @@ const classTemplates = {
       { name: '尤欧斯', desc: '倘若在自己的回合开始前有敌人以你为目标进行攻击，在其开始进行计算前你可以对该目标发动一次攻击。触发次数上限1次，自己的回合结束后刷新。LVL6时判定百分比+1=10%，LVL12时次数上限+1。' },
       { name: '剑技铸造', desc: '在自己的回合可对自己无消耗使用buff“熔炉的加护”上限3次，短休补1长休补满。LVL6时本次攻击判定百分比+1=10%，LVL13时额外造成一次等同于本次攻击税前伤害一半的物理伤害。' }
     ],
-    subclasses: ['决斗者', '重剑士']
+    subclasses: [
+      { name: '决斗者', desc: '使用刺剑的剑士子职。可以使用buff。不仅可以靠灵活的机动性重创敌人的伤口为其带去大量麻烦，还可以发起决斗正面作战。' },
+      { name: '重剑士', desc: '使用大剑的剑士子职。可以使用buff。虽然速度略慢，但是无与伦比的破坏力和防御能力是队伍最可靠的职业。' }
+    ]
   },
   '赏金猎人': {
     name: '赏金猎人',
-    description: '以毒辣手段打击目标的输出型职业，完成赏金任务后可以激活巨大增益。',
+    description: '以毒辣手段打击目标的输出型职业。完成赏金任务后可以激活报酬，为自己赚取巨大增益。无法使用buff。',
     mainAttribute: '敏捷',
     canUseBuff: false,
     status: '完',
@@ -85,8 +88,31 @@ const classTemplates = {
     proficiency: '隐匿+3；求生+4；驯兽+4；知识+2；说服+2；调查+5',
     equipment: '长剑、手斧、冲锋枪、轻甲。最多同时使用两把武器。额外获得25初始PP',
     levelRewards: [
-      { level: 1, content: '无法使用buff。赏金猎人的报酬：完成赏金任务后可以激活报酬获得增益。报酬分为永久生效和单场战斗生效的临时报酬两种类型。' }
+      { level: 1, content: '无法使用buff。\n赏金猎人的报酬：完成赏金任务后可以激活报酬获得增益。报酬分为「永久生效」和「单场战斗生效的临时报酬」两种类型。' },
+      { level: 2, content: '被动I：可从被动页I中选择一项。' },
+      { level: 3, content: '报酬强化I：永久报酬的效果提升。临时报酬的持续时间延长。' },
+      { level: 4, content: '被动I：可从被动页I中选择一项。' },
+      { level: 5, content: '报酬强化II：可同时激活的临时报酬数量+1。' },
+      { level: 6, content: '被动II：可从被动页II中选择一项。' },
+      { level: 7, content: '被动II：可从被动页II中选择一项。' },
+      { level: 8, content: '主属性增强：敏捷+10。' },
+      { level: 9, content: '报酬强化III：永久报酬效果进一步提升，部分高阶报酬解锁。' },
+      { level: 10, content: '被动III：可从被动页III中选择一项。' },
+      { level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
     ],
+    rewards: {
+      permanent: [
+        { name: '血的味道', desc: '永久+5 ATK。完成击杀类赏金任务后激活。' },
+        { name: '猎手的直觉', desc: '永久+3 察觉与隐匿。完成追踪类赏金任务后激活。' },
+        { name: '赏金积累', desc: '每完成一次赏金任务，永久+1 PP获取效率（最多叠加5次）。' }
+      ],
+      temporary: [
+        { name: '狂热追击', desc: '本场战斗中+15 ATK，+5 SPD。击杀目标后失效。' },
+        { name: '致命一击预备', desc: '下一次攻击必定暴击（1d10视为10）。使用后消失。' },
+        { name: '猎杀标记', desc: '指定一名敌人，对其造成的伤害+20%。持续至战斗结束或目标死亡。' },
+        { name: '冷静收割', desc: '本场战斗中每次击杀回复5点HP，最多触发3次。' }
+      ]
+    },
     stances: [],
     subclasses: []
   },
@@ -113,23 +139,84 @@ const classTemplates = {
     stances: [],
     subclasses: []
   },
-  // ===== 待补职业 =====
-  '决斗者': { name: '决斗者', description: '剑士子职。使用刺剑的剑士子职。可以使用buff。不仅可以靠灵活的机动性重创敌人的伤口为其带去大量麻烦，还可以发起决斗正面作战。', status: '待补', canUseBuff: true },
-  '重剑士': { name: '重剑士', description: '剑士子职。使用大剑的剑士子职。可以使用buff。虽然速度略慢，但是无与伦比的破坏力和防御能力是队伍最可靠的职业。', status: '待补', canUseBuff: true },
-  '长枪兵': { name: '长枪兵', description: '使用长枪的AoE攻击型角色。可以使用buff。以出色的速度和攻击范围见长。', status: '待补', canUseBuff: true },
-  '盾枪兵': { name: '盾枪兵', description: '长枪兵子职。使用长盾和骑枪的坦克型长枪兵子职。可以使用buff。是队友最可靠的守护者，还可通过精准防御为自己提供攻击增益。', status: '待补', canUseBuff: true },
-  '刃枪兵': { name: '刃枪兵', description: '长枪兵子职。将长剑改造为长枪，大剑改造为骑枪的奇异长枪兵子职。可以使用buff。', status: '待补', canUseBuff: true },
-  '格斗家': { name: '格斗家', description: '以拳法致胜的近身格斗型角色。可以使用buff。虽然攻击距离较近，但是凭借灵活冲刺的能力可以有效应对远距离的敌人。', status: '待补', canUseBuff: true },
-  '射手': { name: '射手', description: '使用手枪、冲锋枪、步枪、霰弹枪的远程输出型角色。无法使用buff。可携带三种枪械，具备全能的攻击性能。', status: '施工中', canUseBuff: false },
-  '狙击手': { name: '狙击手', description: '只能使用狙击枪、步枪、手枪的远距离打击特化型射手。无法使用buff。可携带两种枪械，擅长在远距离精准打击。', status: '待补', canUseBuff: false },
-  '指挥官': { name: '指挥官', description: '只能使用手枪和霰弹枪和刺剑的近距离作战特化型射手。无法使用buff。可携带两种枪械，能为周围的友军提供团队增益。', status: '待补', canUseBuff: false },
-  '斥候': { name: '斥候', description: '使用手枪和匕首的独行角色。无法使用buff。面对敌人时可以游刃有余的多次倾泻可怖的火力。', status: '待补', canUseBuff: false },
-  '忍者': { name: '忍者', description: '斥候子职。使用匕首和手里剑的隐秘型斥候子职。可以使用特殊的能力忍术。在面对海量的敌人时依然能从容应对。', status: '待补', canUseBuff: false },
-  '处刑者': { name: '处刑者', description: '使用巨斧的弱点特化型职业，可以使用buff。通过攻击造成伤口，进而通过伤口将敌人处决。', status: '待补', canUseBuff: true },
-  '术士': { name: '术士', description: 'Warlock。召唤者。使用魔导书和法杖施法，术士本人无需成为最强，只要使役最强的存在即可。', status: '待补', canUseBuff: false },
-  '萨满': { name: '萨满', description: '使用巫毒术之人。虽然不能使用魔术，但是只要满足条件即可使用特殊的巫毒术，使用不同的物品施法。', status: '待补', canUseBuff: false },
-  '堕落旅人': { name: '堕落旅人', description: '萨满子职。使用亡灵巫毒术的尸骸。独特的巫毒术给予其极强的生存能力和干扰能力。使用特殊的物品施法。不能直接出现在大多数大型人类活动区。', status: '待补', canUseBuff: false },
-  'Code Wizard': { name: 'Code Wizard', description: '虽然是魔术使，却使用buff之人。使用魔导键施法。根据掌握的buff不同定位而异的灵活职业。', status: '待补', canUseBuff: true }
+  // ===== 待补主职（子职嵌套在内）=====
+  '长枪兵': {
+    name: '长枪兵',
+    description: '使用长枪的AoE攻击型角色。可以使用buff。以出色的速度和攻击范围见长。',
+    status: '待补',
+    canUseBuff: true,
+    subclasses: [
+      { name: '盾枪兵', desc: '使用长盾和骑枪的坦克型长枪兵子职。可以使用buff。是队友最可靠的守护者，还可通过精准防御为自己提供攻击增益。' },
+      { name: '刃枪兵', desc: '将长剑改造为长枪，大剑改造为骑枪的奇异长枪兵子职。可以使用buff。' }
+    ]
+  },
+  '格斗家': {
+    name: '格斗家',
+    description: '以拳法致胜的近身格斗型角色。可以使用buff。虽然攻击距离较近，但是凭借灵活冲刺的能力可以有效应对远距离的敌人。',
+    status: '待补',
+    canUseBuff: true,
+    subclasses: []
+  },
+  '射手': {
+    name: '射手',
+    description: '使用手枪、冲锋枪、步枪、霰弹枪的远程输出型角色。无法使用buff。可携带三种枪械，具备全能的攻击性能。',
+    status: '施工中',
+    canUseBuff: false,
+    subclasses: []
+  },
+  '狙击手': {
+    name: '狙击手',
+    description: '只能使用狙击枪、步枪、手枪的远距离打击特化型射手。无法使用buff。可携带两种枪械，擅长在远距离精准打击。',
+    status: '待补',
+    canUseBuff: false,
+    subclasses: []
+  },
+  '指挥官': {
+    name: '指挥官',
+    description: '只能使用手枪和霰弹枪和刺剑的近距离作战特化型射手。无法使用buff。可携带两种枪械，能为周围的友军提供团队增益。',
+    status: '待补',
+    canUseBuff: false,
+    subclasses: []
+  },
+  '斥候': {
+    name: '斥候',
+    description: '使用手枪和匕首的独行角色。无法使用buff。面对敌人时可以游刃有余的多次倾泻可怖的火力。',
+    status: '待补',
+    canUseBuff: false,
+    subclasses: [
+      { name: '忍者', desc: '使用匕首和手里剑的隐秘型斥候子职。可以使用特殊的能力忍术。在面对海量的敌人时依然能从容应对。' }
+    ]
+  },
+  '处刑者': {
+    name: '处刑者',
+    description: '使用巨斧的弱点特化型职业，可以使用buff。通过攻击造成伤口，进而通过伤口将敌人处决。',
+    status: '待补',
+    canUseBuff: true,
+    subclasses: []
+  },
+  '术士': {
+    name: '术士',
+    description: 'Warlock。召唤者。使用魔导书和法杖施法，术士本人无需成为最强，只要使役最强的存在即可。',
+    status: '待补',
+    canUseBuff: false,
+    subclasses: []
+  },
+  '萨满': {
+    name: '萨满',
+    description: '使用巫毒术之人。虽然不能使用魔术，但是只要满足条件即可使用特殊的巫毒术，使用不同的物品施法。',
+    status: '待补',
+    canUseBuff: false,
+    subclasses: [
+      { name: '堕落旅人', desc: '使用亡灵巫毒术的尸骸。独特的巫毒术给予其极强的生存能力和干扰能力。使用特殊的物品施法。不能直接出现在大多数大型人类活动区。' }
+    ]
+  },
+  'Code Wizard': {
+    name: 'Code Wizard',
+    description: '虽然是魔术使，却使用buff之人。使用魔导键施法。根据掌握的buff不同定位而异的灵活职业。',
+    status: '待补',
+    canUseBuff: true,
+    subclasses: []
+  }
 }
 
 // 简单魔术表示例
@@ -511,14 +598,8 @@ onUnmounted(() => {
             <option value="赏金猎人">赏金猎人</option>
             <option value="魔术师">魔术师</option>
           </optgroup>
-          <optgroup label="剑士子职">
-            <option value="决斗者">决斗者</option>
-            <option value="重剑士">重剑士</option>
-          </optgroup>
           <optgroup label="近战（待补）">
             <option value="长枪兵">长枪兵</option>
-            <option value="盾枪兵">盾枪兵</option>
-            <option value="刃枪兵">刃枪兵</option>
             <option value="格斗家">格斗家</option>
             <option value="处刑者">处刑者</option>
           </optgroup>
@@ -529,12 +610,10 @@ onUnmounted(() => {
           </optgroup>
           <optgroup label="特化（待补）">
             <option value="斥候">斥候</option>
-            <option value="忍者">忍者</option>
           </optgroup>
           <optgroup label="魔术使（待补）">
             <option value="术士">术士</option>
             <option value="萨满">萨满</option>
-            <option value="堕落旅人">堕落旅人</option>
             <option value="Code Wizard">Code Wizard</option>
           </optgroup>
         </select>
@@ -589,6 +668,23 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <!-- 赏金猎人专属报酬 -->
+        <div v-if="currentClassInfo.rewards" style="margin-top: 20px;">
+          <strong>赏金猎人的报酬：</strong>
+          <div style="margin-top: 10px;">
+            <div style="font-weight: bold; color: #4CAF50; margin-bottom: 6px;">永久报酬</div>
+            <div v-for="(r, i) in currentClassInfo.rewards.permanent" :key="'p'+i"
+                 style="margin: 6px 0; padding: 8px; background: white; border-radius: 4px; font-size: 14px;">
+              <strong>{{ r.name }}</strong>：{{ r.desc }}
+            </div>
+            <div style="font-weight: bold; color: #ff9800; margin: 12px 0 6px;">临时报酬（单场战斗）</div>
+            <div v-for="(r, i) in currentClassInfo.rewards.temporary" :key="'t'+i"
+                 style="margin: 6px 0; padding: 8px; background: white; border-radius: 4px; font-size: 14px;">
+              <strong>{{ r.name }}</strong>：{{ r.desc }}
+            </div>
+          </div>
+        </div>
+
         <!-- 架势 -->
         <div v-if="currentClassInfo.stances && currentClassInfo.stances.length" style="margin-top: 15px;">
           <strong>架势：</strong>
@@ -603,6 +699,16 @@ onUnmounted(() => {
       <!-- 待补职业只显示提示 -->
       <div v-else style="margin-top: 15px; padding: 15px; background: #fff3e0; border-radius: 6px; color: #e65100;">
         该职业详细数据尚未补全，敬请期待。
+      </div>
+
+      <!-- 子职显示（所有职业通用） -->
+      <div v-if="currentClassInfo.subclasses && currentClassInfo.subclasses.length" style="margin-top: 20px;">
+        <strong>可转职子职：</strong>
+        <div v-for="(sub, i) in currentClassInfo.subclasses" :key="i"
+             style="margin: 8px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #9c27b0;">
+          <strong>{{ sub.name }}</strong>
+          <div style="font-size: 14px; margin-top: 4px; color: #555;">{{ sub.desc }}</div>
+        </div>
       </div>
 
       <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
