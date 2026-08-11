@@ -717,7 +717,7 @@ onUnmounted(() => {
         <div v-for="(sub, i) in currentClassInfo.subclasses" :key="i"
              style="margin: 8px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #9c27b0;">
           <strong>{{ sub.name }}</strong>
-          <div style="font-size: 14px; margin-top: 4px; color: #555;">{{ sub.desc }}</div>
+          <div style="font-size: 14px; margin-top: 4px; color: #555; white-space: pre-line;">{{ sub.desc }}</div>
         </div>
       </div>
 
