@@ -730,6 +730,24 @@ async function saveCharacter() {
   }
 }
 
+function applyLevelGrowth() {
+  if (!currentCharacter.value) return
+  const s = currentCharacter.value.strength_growth || 0
+  const i = currentCharacter.value.intelligence_growth || 0
+  const a = currentCharacter.value.agility_growth || 0
+
+  currentCharacter.value.strength = (currentCharacter.value.strength || 0) + s
+  currentCharacter.value.intelligence = (currentCharacter.value.intelligence || 0) + i
+  currentCharacter.value.agility = (currentCharacter.value.agility || 0) + a
+
+  // 派生属性
+  currentCharacter.value.hp_max = (currentCharacter.value.hp_max || 0) + s * 2
+  currentCharacter.value.res = (currentCharacter.value.res || 0) + i * 0.5
+  currentCharacter.value.spd = (currentCharacter.value.spd || 0) + a * 0.1
+
+  alert('已应用本级成长值（力量/智力/敏捷及对应派生属性）')
+}
+
 function backToRoom() {
   page.value = 'room'
   currentCharacter.value = null
@@ -885,9 +903,14 @@ onUnmounted(() => {
         </select>
       </div>
       <div>
-        <label>等级</label><br />
-        <input type="number" v-model.number="currentCharacter.level" style="width: 100%; padding: 8px;" />
-      </div>
+  <label>等级</label><br />
+  <div style="display: flex; gap: 8px; align-items: center;">
+    <input type="number" v-model.number="currentCharacter.level" style="width: 100%; padding: 8px;" />
+    <button @click="applyLevelGrowth" style="padding: 8px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+      应用本级成长
+    </button>
+  </div>
+</div>
     </div>
 
     <!-- 职业介绍卡片 -->
@@ -1058,7 +1081,7 @@ onUnmounted(() => {
   </div>
 </div>
 
-<!-- 检定技能栏（可折叠） -->
+<<!-- 检定技能栏（可折叠） -->
 <div style="margin: 30px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
   <div @click="skillsExpanded = !skillsExpanded"
        style="padding: 14px 18px; background: #f5f5f5; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;">
@@ -1071,101 +1094,186 @@ onUnmounted(() => {
   <div v-show="skillsExpanded" style="padding: 20px;">
     <!-- 力量相关 -->
     <h3 style="margin: 0 0 12px; color: #c62828; border-bottom: 1px solid #ffcdd2; padding-bottom: 6px;">与力量属性有关的能力</h3>
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 24px;">
-      <div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 24px;">
+      <div :style="{ background: isProficientSkill('athletics') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>运动</label><br />
         <input type="number" v-model.number="currentCharacter.skills.athletics" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">攀爬、游泳、跳跃、破门、摔跤等</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          攀爬、游泳、跳跃、破门、摔跤等
+          <span v-if="isMainAttrSkill('athletics')" style="color: #c62828;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.athletics || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
-      <div>
+      <div :style="{ background: isProficientSkill('toughness') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>坚韧</label><br />
         <input type="number" v-model.number="currentCharacter.skills.toughness" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">身体强韧程度，面对伤害的承受能力</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          身体强韧程度，面对伤害的承受能力
+          <span v-if="isMainAttrSkill('toughness')" style="color: #c62828;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.toughness || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
-      <div>
+      <div :style="{ background: isProficientSkill('voodoo') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>巫毒</label><br />
         <input type="number" v-model.number="currentCharacter.skills.voodoo" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">对巫毒仪式和造物的知识</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          对巫毒仪式和造物的知识
+          <span v-if="isMainAttrSkill('voodoo')" style="color: #c62828;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.voodoo || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
-      <div>
+      <div :style="{ background: isProficientSkill('intimidate') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>威吓</label><br />
         <input type="number" v-model.number="currentCharacter.skills.intimidate" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">威胁、逼问、震慑</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          威胁、逼问、震慑
+          <span v-if="isMainAttrSkill('intimidate')" style="color: #c62828;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.intimidate || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
     </div>
 
     <!-- 敏捷相关（绿色） -->
     <h3 style="margin: 0 0 12px; color: #2e7d32; border-bottom: 1px solid #c8e6c9; padding-bottom: 6px;">与敏捷属性有关的能力</h3>
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 24px;">
-      <div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 24px;">
+      <div :style="{ background: isProficientSkill('acrobatics') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>特技</label><br />
         <input type="number" v-model.number="currentCharacter.skills.acrobatics" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">平衡、翻滚、穿越困难地形</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          平衡、翻滚、穿越困难地形
+          <span v-if="isMainAttrSkill('acrobatics')" style="color: #2e7d32;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.acrobatics || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
-      <div>
+      <div :style="{ background: isProficientSkill('sleight') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>巧手</label><br />
         <input type="number" v-model.number="currentCharacter.skills.sleight" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">开锁、偷窃、解除陷阱、掉包</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          开锁、偷窃、解除陷阱、掉包
+          <span v-if="isMainAttrSkill('sleight')" style="color: #2e7d32;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.sleight || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
-      <div>
+      <div :style="{ background: isProficientSkill('stealth') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>隐匿</label><br />
         <input type="number" v-model.number="currentCharacter.skills.stealth" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">潜行、躲藏</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          潜行、躲藏
+          <span v-if="isMainAttrSkill('stealth')" style="color: #2e7d32;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.stealth || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
-      <div>
+      <div :style="{ background: isProficientSkill('survival') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>求生</label><br />
         <input type="number" v-model.number="currentCharacter.skills.survival" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">追踪、野外生存、找路、预测天气</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          追踪、野外生存、找路、预测天气
+          <span v-if="isMainAttrSkill('survival')" style="color: #2e7d32;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.survival || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
-      <div>
+      <div :style="{ background: isProficientSkill('animal') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>驯兽</label><br />
         <input type="number" v-model.number="currentCharacter.skills.animal" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">与动物互动、安抚、骑乘判断</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          与动物互动、安抚、骑乘判断
+          <span v-if="isMainAttrSkill('animal')" style="color: #2e7d32;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.animal || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
     </div>
 
     <!-- 智力相关（蓝色） -->
     <h3 style="margin: 0 0 12px; color: #1565c0; border-bottom: 1px solid #bbdefb; padding-bottom: 6px;">与智力属性有关的能力</h3>
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;">
-      <div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px;">
+      <div :style="{ background: isProficientSkill('insight') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>洞悉</label><br />
         <input type="number" v-model.number="currentCharacter.skills.insight" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">察觉谎言、情绪、意图</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          察觉谎言、情绪、意图
+          <span v-if="isMainAttrSkill('insight')" style="color: #1565c0;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.insight || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
-      <div>
+      <div :style="{ background: isProficientSkill('medicine') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>医疗</label><br />
         <input type="number" v-model.number="currentCharacter.skills.medicine" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">诊断伤势、疾病、稳定濒死</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          诊断伤势、疾病、稳定濒死
+          <span v-if="isMainAttrSkill('medicine')" style="color: #1565c0;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.medicine || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
-      <div>
+      <div :style="{ background: isProficientSkill('perception') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>察觉</label><br />
         <input type="number" v-model.number="currentCharacter.skills.perception" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">发现隐藏事物、听到动静、观察细节</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          发现隐藏事物、听到动静、观察细节
+          <span v-if="isMainAttrSkill('perception')" style="color: #1565c0;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.perception || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
-      <div>
+      <div :style="{ background: isProficientSkill('deception') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>欺瞒</label><br />
         <input type="number" v-model.number="currentCharacter.skills.deception" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">说谎、伪装、欺骗</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          说谎、伪装、欺骗
+          <span v-if="isMainAttrSkill('deception')" style="color: #1565c0;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.deception || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
-      <div>
+      <div :style="{ background: isProficientSkill('performance') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>表演</label><br />
         <input type="number" v-model.number="currentCharacter.skills.performance" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">演出、吸引注意、伪装成艺人</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          演出、吸引注意、伪装成艺人
+          <span v-if="isMainAttrSkill('performance')" style="color: #1565c0;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.performance || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
-      <div>
+      <div :style="{ background: isProficientSkill('persuasion') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>说服</label><br />
         <input type="number" v-model.number="currentCharacter.skills.persuasion" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">谈判、劝说、外交</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          谈判、劝说、外交
+          <span v-if="isMainAttrSkill('persuasion')" style="color: #1565c0;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.persuasion || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
-      <div>
+      <div :style="{ background: isProficientSkill('investigation') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>调查</label><br />
         <input type="number" v-model.number="currentCharacter.skills.investigation" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">推理</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          推理
+          <span v-if="isMainAttrSkill('investigation')" style="color: #1565c0;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.investigation || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
-      <div>
+      <div :style="{ background: isProficientSkill('knowledge') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
         <label>知识</label><br />
         <input type="number" v-model.number="currentCharacter.skills.knowledge" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">历史、神秘学、仪式、图书馆、科技</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">
+          历史、神秘学、仪式、图书馆、科技
+          <span v-if="isMainAttrSkill('knowledge')" style="color: #1565c0;">
+            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.knowledge || 0) + mainAttrBonus }}）
+          </span>
+        </div>
       </div>
     </div>
   </div>
