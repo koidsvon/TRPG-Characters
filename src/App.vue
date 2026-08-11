@@ -740,46 +740,26 @@ function applyLevelGrowth() {
   const i = Number(currentCharacter.value.intelligence_growth) || 0
   const a = Number(currentCharacter.value.agility_growth) || 0
 
-  // 记录升级前的主属性，用于计算 ATK 变化
-  const oldStrength = Number(currentCharacter.value.strength) || 0
-  const oldIntelligence = Number(currentCharacter.value.intelligence) || 0
-  const oldAgility = Number(currentCharacter.value.agility) || 0
-
   // 增加基础属性
-  currentCharacter.value.strength = oldStrength + s
-  currentCharacter.value.intelligence = oldIntelligence + i
-  currentCharacter.value.agility = oldAgility + a
+  currentCharacter.value.strength = (Number(currentCharacter.value.strength) || 0) + s
+  currentCharacter.value.intelligence = (Number(currentCharacter.value.intelligence) || 0) + i
+  currentCharacter.value.agility = (Number(currentCharacter.value.agility) || 0) + a
 
   // 派生属性
   currentCharacter.value.hp_max = (Number(currentCharacter.value.hp_max) || 0) + s * 2
   currentCharacter.value.res = (Number(currentCharacter.value.res) || 0) + i * 0.5
   currentCharacter.value.spd = (Number(currentCharacter.value.spd) || 0) + a * 0.1
 
-  // 根据主属性变化更新 ATK（主属性/2 向下取整）
+  // ATK 增加主属性成长值的一半
   if (currentClassInfo.value) {
     const main = currentClassInfo.value.mainAttribute
-    let oldMain = 0
-    let newMain = 0
+    let growth = 0
+    if (main === '力量') growth = s
+    else if (main === '智力') growth = i
+    else if (main === '敏捷') growth = a
 
-    if (main === '力量') {
-      oldMain = oldStrength
-      newMain = currentCharacter.value.strength
-    } else if (main === '智力') {
-      oldMain = oldIntelligence
-      newMain = currentCharacter.value.intelligence
-    } else if (main === '敏捷') {
-      oldMain = oldAgility
-      newMain = currentCharacter.value.agility
-    }
-
-    const atkIncrease = Math.floor(newMain / 2) - Math.floor(oldMain / 2)
-    currentCharacter.value.atk = (Number(currentCharacter.value.atk) || 0) + atkIncrease
+    currentCharacter.value.atk = (Number(currentCharacter.value.atk) || 0) + growth / 2
   }
-
-  // 成长值用完后清零（可选，如果你希望保留就删掉下面三行）
-  // currentCharacter.value.strength_growth = 0
-  // currentCharacter.value.intelligence_growth = 0
-  // currentCharacter.value.agility_growth = 0
 
   alert('已应用本级成长值（属性、派生数值和ATK已更新）')
 }
