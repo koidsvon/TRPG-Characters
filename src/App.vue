@@ -5,6 +5,9 @@ import { supabase } from './supabase.js'
 // 页面状态：home / room / character / magic / buff
 const page = ref('home')
 
+// 检定相关
+const skillsExpanded = ref(false)
+
 // 房间相关
 const roomName = ref('')
 const gmPassword = ref('')
@@ -493,14 +496,15 @@ async function createCharacter() {
       inventory: {
   items: [],
   equipment: {
-    helmet: '',
-    chest: '',
-    legs: '',
-    mainHand: '',
-    offHand: '',
-    amulet: '',
-    backpack: ''
+    helmet: '', chest: '', legs: '',
+    mainHand: '', offHand: '', amulet: '', backpack: ''
   }
+},
+skills: {
+  athletics: 4, toughness: 4, voodoo: 4, intimidate: 4,
+  acrobatics: 4, sleight: 4, stealth: 4, survival: 4, animal: 4,
+  insight: 4, medicine: 4, perception: 4, deception: 4,
+  performance: 4, persuasion: 4, investigation: 4, knowledge: 4
 }
     })
   if (error) {
@@ -514,10 +518,9 @@ async function createCharacter() {
 
 function enterCharacter(char) {
   const charCopy = { ...char }
-  
-  // 兼容旧数据，确保 inventory 结构正确
+
+  // ---------- inventory 兼容处理 ----------
   if (!charCopy.inventory || Array.isArray(charCopy.inventory)) {
-    // 旧格式是纯数组，转换成新格式
     const oldItems = Array.isArray(charCopy.inventory) ? charCopy.inventory : []
     charCopy.inventory = {
       items: oldItems,
@@ -532,21 +535,50 @@ function enterCharacter(char) {
       }
     }
   } else {
-    // 已经是新格式
     if (!charCopy.inventory.items) charCopy.inventory.items = []
     if (!charCopy.inventory.equipment) {
       charCopy.inventory.equipment = {
-        helmet: '',
-        chest: '',
-        legs: '',
-        mainHand: '',
-        offHand: '',
-        amulet: '',
-        backpack: ''
+        helmet: '', chest: '', legs: '',
+        mainHand: '', offHand: '', amulet: '', backpack: ''
       }
     }
   }
-  
+
+  // ---------- skills 兼容处理（默认值全部为4）----------
+  const defaultSkills = {
+    // 力量
+    athletics: 4,   // 运动
+    toughness: 4,   // 坚韧
+    voodoo: 4,      // 巫毒
+    intimidate: 4,  // 威吓
+    // 敏捷
+    acrobatics: 4,  // 特技
+    sleight: 4,     // 巧手
+    stealth: 4,     // 隐匿
+    survival: 4,    // 求生
+    animal: 4,      // 驯兽
+    // 智力
+    insight: 4,     // 洞悉
+    medicine: 4,    // 医疗
+    perception: 4,  // 察觉
+    deception: 4,   // 欺瞒
+    performance: 4, // 表演
+    persuasion: 4,  // 说服
+    investigation: 4, // 调查
+    knowledge: 4    // 知识
+  }
+
+  if (!charCopy.skills) {
+    charCopy.skills = { ...defaultSkills }
+  } else {
+    // 补全缺失的技能
+    for (const key in defaultSkills) {
+      if (charCopy.skills[key] === undefined || charCopy.skills[key] === null) {
+        charCopy.skills[key] = defaultSkills[key]
+      }
+    }
+  }
+
   currentCharacter.value = charCopy
   page.value = 'character'
 }
@@ -598,6 +630,7 @@ async function saveCharacter() {
       pp: currentCharacter.value.pp,
       notes: currentCharacter.value.notes,
       inventory: currentCharacter.value.inventory
+      skills: currentCharacter.value.skills,
     })
     .eq('id', currentCharacter.value.id)
   saving.value = false
@@ -885,6 +918,119 @@ onUnmounted(() => {
 
     <!-- 装备栏 -->
 <h2>装备栏</h2>
+
+<!-- 检定技能栏（可折叠） -->
+<div style="margin: 30px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+  <div @click="skillsExpanded = !skillsExpanded"
+       style="padding: 14px 18px; background: #f5f5f5; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;">
+    <strong style="font-size: 16px;">检定技能栏</strong>
+    <span style="color: #666; font-size: 14px;">
+      {{ skillsExpanded ? '▲ 收起' : '▼ 展开' }}
+    </span>
+  </div>
+
+  <div v-show="skillsExpanded" style="padding: 20px;">
+    <!-- 力量相关 -->
+    <h3 style="margin: 0 0 12px; color: #c62828; border-bottom: 1px solid #ffcdd2; padding-bottom: 6px;">与力量属性有关的能力</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 24px;">
+      <div>
+        <label>运动</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.athletics" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">攀爬、游泳、跳跃、破门、摔跤等</div>
+      </div>
+      <div>
+        <label>坚韧</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.toughness" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">身体强韧程度，面对伤害的承受能力</div>
+      </div>
+      <div>
+        <label>巫毒</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.voodoo" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">对巫毒仪式和造物的知识</div>
+      </div>
+      <div>
+        <label>威吓</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.intimidate" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">威胁、逼问、震慑</div>
+      </div>
+    </div>
+
+    <!-- 敏捷相关 -->
+    <h3 style="margin: 0 0 12px; color: #1565c0; border-bottom: 1px solid #bbdefb; padding-bottom: 6px;">与敏捷属性有关的能力</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 24px;">
+      <div>
+        <label>特技</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.acrobatics" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">平衡、翻滚、穿越困难地形</div>
+      </div>
+      <div>
+        <label>巧手</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.sleight" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">开锁、偷窃、解除陷阱、掉包</div>
+      </div>
+      <div>
+        <label>隐匿</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.stealth" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">潜行、躲藏</div>
+      </div>
+      <div>
+        <label>求生</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.survival" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">追踪、野外生存、找路、预测天气</div>
+      </div>
+      <div>
+        <label>驯兽</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.animal" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">与动物互动、安抚、骑乘判断</div>
+      </div>
+    </div>
+
+    <!-- 智力相关 -->
+    <h3 style="margin: 0 0 12px; color: #6a1b9a; border-bottom: 1px solid #e1bee7; padding-bottom: 6px;">与智力属性有关的能力</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;">
+      <div>
+        <label>洞悉</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.insight" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">察觉谎言、情绪、意图</div>
+      </div>
+      <div>
+        <label>医疗</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.medicine" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">诊断伤势、疾病、稳定濒死</div>
+      </div>
+      <div>
+        <label>察觉</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.perception" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">发现隐藏事物、听到动静、观察细节</div>
+      </div>
+      <div>
+        <label>欺瞒</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.deception" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">说谎、伪装、欺骗</div>
+      </div>
+      <div>
+        <label>表演</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.performance" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">演出、吸引注意、伪装成艺人</div>
+      </div>
+      <div>
+        <label>说服</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.persuasion" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">谈判、劝说、外交</div>
+      </div>
+      <div>
+        <label>调查</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.investigation" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">推理</div>
+      </div>
+      <div>
+        <label>知识</label><br />
+        <input type="number" v-model.number="currentCharacter.skills.knowledge" style="width: 100%; padding: 6px;" />
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">历史、神秘学、仪式、图书馆、科技</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- 可装备种类说明 -->
 <div v-if="currentClassInfo" style="margin-bottom: 12px; padding: 10px 14px; background: #e3f2fd; border-radius: 6px; font-size: 14px; color: #1565c0;">
