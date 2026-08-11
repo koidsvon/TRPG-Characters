@@ -1,8 +1,8 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { supabase } from './supabase.js'
 
-// 页面状态：home / room / character
+// 页面状态：home / room / character / magic / buff
 const page = ref('home')
 
 // 房间相关
@@ -27,6 +27,99 @@ const newItemQuantity = ref(1)
 
 // 实时订阅
 let realtimeChannel = null
+
+// ==================== 职业模板数据 ====================
+const classTemplates = {
+  '剑士': {
+    name: '剑士',
+    description: '兼具一定输出能力和防御能力的平衡型职业，面对不同的敌人时可以以不同的架势灵巧应对。',
+    mainAttribute: '力量',
+    canUseBuff: true,
+    initialATK: 12,
+    initialSPD: 50,
+    initialRES: 10,
+    initialDEF: 1,
+    initialHP: 0,
+    initialMove: 4,
+    initialPP: 75,
+    attributeRequirement: '初始力量≤30，次要属性的成长值≥1.6',
+    allocatablePoints: 60,
+    proficiency: '运动+3；洞悉+5；察觉+5；巧手+2',
+    equipment: '长剑、轻甲、锁甲、小盾、护身符。最多同时使用一把武器',
+    level1: '可以使用buff。战斗中以特定架势招架敌人，可在长休时更换。',
+    stances: [
+      { name: '学徒的清击', desc: '在攻击时如果1d10的结果≥5，则伤害总值+6点。LVL3提升至8，LVL9提升至14，LVL15提升至25，同时结果只需≥4即可触发。' },
+      { name: '尤欧斯', desc: '倘若在自己的回合开始前有敌人以你为目标进行攻击，在其开始进行计算前你可以对该目标发动一次攻击。触发次数上限1次，自己的回合结束后刷新。' },
+      { name: '剑技铸造', desc: '在自己的回合可对自己无消耗使用buff“熔炉的加护”上限3次，短休补1长休补满。' }
+    ],
+    subclasses: ['决斗者', '重剑士']
+  },
+  '赏金猎人': {
+    name: '赏金猎人',
+    description: '以毒辣手段打击目标的输出型职业，完成赏金任务后可以激活巨大增益。',
+    mainAttribute: '敏捷',
+    canUseBuff: false,
+    initialATK: 10,
+    initialSPD: 51,
+    initialRES: 10,
+    initialDEF: 2,
+    initialHP: -5,
+    initialMove: 4,
+    initialPP: 75,
+    attributeRequirement: '主属性成长值固定为2.4，次属性成长值固定为2.3',
+    allocatablePoints: 60,
+    proficiency: '隐匿+3；求生+4；驯兽+4；知识+2；说服+2；调查+5',
+    equipment: '长剑、手斧、冲锋枪、轻甲。最多同时使用两把武器。额外获得25初始PP',
+    level1: '无法使用buff。赏金猎人的报酬：完成赏金任务后可以激活报酬获得增益。报酬分为永久生效和单场战斗生效的临时报酬两种类型。',
+    stances: [],
+    subclasses: []
+  },
+  '魔术师': {
+    name: '魔术师',
+    description: 'Caster。使用魔术行驶魔道者。使用多种魔术的全能型职业。',
+    mainAttribute: '智力',
+    canUseBuff: false,
+    initialATK: 0,
+    initialSPD: 48,
+    initialRES: 15,
+    initialDEF: 1,
+    initialHP: 0,
+    initialMove: 4,
+    initialPP: 70,
+    attributeRequirement: '初始智力=31',
+    allocatablePoints: 55,
+    proficiency: '洞悉+2；巫毒-2；知识+4；医疗+2；调查+3',
+    equipment: '魔导书、魔杖、轻甲。需同时装备魔导书和魔杖。',
+    level1: '无法使用buff。特异点锁明：从下列特异点中选择一项（7的战争 / 龙胭 / 厌花之蛇）。',
+    stances: [],
+    subclasses: []
+  }
+}
+
+// 简单魔术表示例（后续可扩展）
+const magicList = [
+  { name: '道化机巧，其一', type: '控制', cost: 7, desc: '召唤一个具备30点HP的人型告示牌，嘲讽野兽目标。' },
+  { name: '抽丝剥茧', type: '控制&防御', cost: 7, desc: '形成石墙，HP50，可束缚其中单位。' },
+  { name: '点火术', type: '伤害', cost: 5, desc: '对最远1格敌人造成14点火属性魔法伤害。' },
+  { name: '火焰箭', type: '伤害', cost: 10, desc: '对最远4格敌人造成28点火属性魔法伤害。' },
+  { name: '修复术', type: '回复', cost: 17, desc: '瞬间恢复自己或最远2格友军16点HP。' },
+  { name: '抽丝剥茧-锐', type: '伤害', cost: '高', desc: '造成80点魔法伤害，高roll可秒杀活体目标。' }
+]
+
+// 简单Buff表示例
+const buffList = [
+  { name: '熔炉的加护', type: '红', cost: 10, desc: '为近战武器施加熔炉的加护，将下两次攻击的伤害类型变为火属性魔法伤害。' },
+  { name: '圣母之光', type: '绿', cost: 5, desc: '回复自身15点HP。' },
+  { name: '澄澈之心', type: '金', cost: 10, desc: '解除自身30层精神异常。' },
+  { name: '暴烈的果实', type: '红', cost: 10, desc: '本场战斗中+20ATK，受到伤害后失效。' },
+  { name: '不动之墙', type: '绿', cost: 13, desc: '获得三次DEF+10效果。' },
+  { name: '王道宣言', type: '金', cost: 10, desc: '本场战斗中免疫精神异常“堕落”。' }
+]
+
+const currentClassInfo = computed(() => {
+  if (!currentCharacter.value || !currentCharacter.value.class_name) return null
+  return classTemplates[currentCharacter.value.class_name] || null
+})
 
 function generateCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -69,9 +162,7 @@ async function createRoom() {
     message.value = '请输入房间名称'
     return
   }
-
   const code = generateCode()
-
   const { data, error } = await supabase
     .from('sessions')
     .insert({
@@ -99,7 +190,6 @@ async function joinRoom() {
     message.value = '请输入房间码'
     return
   }
-
   const { data, error } = await supabase
     .from('sessions')
     .select('*')
@@ -126,7 +216,6 @@ async function joinRoom() {
 
 async function loadCharacters() {
   if (!currentSession.value) return
-
   const { data, error } = await supabase
     .from('characters')
     .select('*')
@@ -140,11 +229,9 @@ async function loadCharacters() {
 
 function startRealtime() {
   if (!currentSession.value) return
-
   if (realtimeChannel) {
     supabase.removeChannel(realtimeChannel)
   }
-
   realtimeChannel = supabase
     .channel('room-' + currentSession.value.id)
     .on(
@@ -172,7 +259,6 @@ async function createCharacter() {
     alert('请输入角色名')
     return
   }
-
   const { error } = await supabase
     .from('characters')
     .insert({
@@ -183,7 +269,6 @@ async function createCharacter() {
       level: 1,
       inventory: []
     })
-
   if (error) {
     alert('创建角色失败：' + error.message)
   } else {
@@ -226,7 +311,6 @@ function removeItem(index) {
 async function saveCharacter() {
   if (!currentCharacter.value) return
   saving.value = true
-
   const { error } = await supabase
     .from('characters')
     .update({
@@ -249,9 +333,7 @@ async function saveCharacter() {
       inventory: currentCharacter.value.inventory
     })
     .eq('id', currentCharacter.value.id)
-
   saving.value = false
-
   if (error) {
     alert('保存失败：' + error.message)
   } else {
@@ -280,6 +362,18 @@ function leaveRoom() {
   joinGmPassword.value = ''
 }
 
+function openMagicTable() {
+  page.value = 'magic'
+}
+
+function openBuffTable() {
+  page.value = 'buff'
+}
+
+function backToCharacter() {
+  page.value = 'character'
+}
+
 onMounted(() => {
   restoreSessionFromLocal()
 })
@@ -295,10 +389,8 @@ onUnmounted(() => {
   <!-- 首页 -->
   <div v-if="page === 'home'" style="max-width: 500px; margin: 50px auto; font-family: sans-serif;">
     <h1>跑团角色工具</h1>
-    <p style="color: #666;">私用多人在线角色卡</p>
-
+    <p style="color: #666;">私用多人在线角色卡 · 解体熔炉</p>
     <hr style="margin: 30px 0;" />
-
     <h2>创建房间</h2>
     <div style="margin-bottom: 15px;">
       <label>房间名称：</label><br />
@@ -308,25 +400,18 @@ onUnmounted(() => {
       <label>GM 密码（可选）：</label><br />
       <input v-model="gmPassword" type="password" placeholder="设置后只有知道密码的人是GM" style="width: 100%; padding: 8px; margin-top: 5px;" />
     </div>
-    <button @click="createRoom" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; cursor: pointer;">
-      创建房间
-    </button>
-
+    <button @click="createRoom" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; cursor: pointer;">创建房间</button>
     <hr style="margin: 40px 0;" />
-
     <h2>加入房间</h2>
     <div style="margin-bottom: 15px;">
       <label>房间码：</label><br />
       <input v-model="joinCode" placeholder="输入6位房间码" style="width: 100%; padding: 8px; margin-top: 5px;" />
     </div>
     <div style="margin-bottom: 15px;">
-      <label>GM 密码（可选，知道密码就是GM）：</label><br />
-      <input v-model="joinGmPassword" type="password" placeholder="如果有GM密码就填这里" style="width: 100%; padding: 8px; margin-top: 5px;" />
+      <label>GM 密码（可选）：</label><br />
+      <input v-model="joinGmPassword" type="password" placeholder="知道密码就是GM" style="width: 100%; padding: 8px; margin-top: 5px;" />
     </div>
-    <button @click="joinRoom" style="padding: 10px 20px; background: #2196F3; color: white; border: none; cursor: pointer;">
-      加入房间
-    </button>
-
+    <button @click="joinRoom" style="padding: 10px 20px; background: #2196F3; color: white; border: none; cursor: pointer;">加入房间</button>
     <p style="margin-top: 30px; color: #c00;">{{ message }}</p>
   </div>
 
@@ -339,43 +424,28 @@ onUnmounted(() => {
       </div>
       <button @click="leaveRoom" style="padding: 8px 16px;">退出房间</button>
     </div>
-
     <hr style="margin: 20px 0;" />
-
     <h2>角色列表</h2>
-
-    <div v-if="characters.length === 0" style="color: #888; margin: 20px 0;">
-      目前还没有角色，创建一个吧。
-    </div>
-
-    <div v-for="char in characters" :key="char.id" 
-         style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+    <div v-if="characters.length === 0" style="color: #888; margin: 20px 0;">目前还没有角色，创建一个吧。</div>
+    <div v-for="char in characters" :key="char.id" style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
       <div>
         <strong style="font-size: 18px;">{{ char.name }}</strong>
         <span style="color: #666; margin-left: 10px;">（{{ char.player_name }}）</span>
-        <div style="font-size: 14px; color: #888; margin-top: 4px;">
-          职业：{{ char.class_name || '未选择' }}　|　等级：{{ char.level || 1 }}
-        </div>
+        <div style="font-size: 14px; color: #888; margin-top: 4px;">职业：{{ char.class_name || '未选择' }}　|　等级：{{ char.level || 1 }}</div>
       </div>
-      <button @click="enterCharacter(char)" style="padding: 6px 12px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">
-        扮演角色
-      </button>
+      <button @click="enterCharacter(char)" style="padding: 6px 12px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">扮演角色</button>
     </div>
-
     <hr style="margin: 30px 0;" />
-
     <h3>创建新角色</h3>
     <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
       <input v-model="newCharacterName" placeholder="角色名" style="padding: 8px; flex: 1; min-width: 150px;" />
       <input v-model="newPlayerName" placeholder="玩家昵称（可选）" style="padding: 8px; flex: 1; min-width: 150px;" />
-      <button @click="createCharacter" style="padding: 8px 20px; background: #4CAF50; color: white; border: none; cursor: pointer;">
-        创建角色
-      </button>
+      <button @click="createCharacter" style="padding: 8px 20px; background: #4CAF50; color: white; border: none; cursor: pointer;">创建角色</button>
     </div>
   </div>
 
   <!-- 角色详情页 -->
-  <div v-else-if="page === 'character'" style="max-width: 900px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
+  <div v-else-if="page === 'character'" style="max-width: 950px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
       <h1>扮演角色</h1>
       <div>
@@ -386,7 +456,8 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px;">
+    <!-- 基础信息 -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
       <div>
         <label>角色名</label><br />
         <input v-model="currentCharacter.name" style="width: 100%; padding: 8px;" />
@@ -397,7 +468,12 @@ onUnmounted(() => {
       </div>
       <div>
         <label>职业</label><br />
-        <input v-model="currentCharacter.class_name" style="width: 100%; padding: 8px;" />
+        <select v-model="currentCharacter.class_name" style="width: 100%; padding: 8px;">
+          <option value="未选择">未选择</option>
+          <option value="剑士">剑士</option>
+          <option value="赏金猎人">赏金猎人</option>
+          <option value="魔术师">魔术师</option>
+        </select>
       </div>
       <div>
         <label>等级</label><br />
@@ -405,6 +481,48 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- 职业介绍卡片 -->
+    <div v-if="currentClassInfo" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 10px; padding: 20px; margin-bottom: 30px;">
+      <h2 style="margin-top: 0;">{{ currentClassInfo.name }}</h2>
+      <p style="color: #555; line-height: 1.6;">{{ currentClassInfo.description }}</p>
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 15px 0; font-size: 14px;">
+        <div><strong>主属性：</strong>{{ currentClassInfo.mainAttribute }}</div>
+        <div><strong>可使用Buff：</strong>{{ currentClassInfo.canUseBuff ? '是' : '否' }}</div>
+        <div><strong>初始ATK：</strong>{{ currentClassInfo.initialATK }}</div>
+        <div><strong>初始SPD：</strong>{{ currentClassInfo.initialSPD }}</div>
+        <div><strong>初始RES：</strong>{{ currentClassInfo.initialRES }}</div>
+        <div><strong>初始DEF：</strong>{{ currentClassInfo.initialDEF }}</div>
+        <div><strong>初始移动格：</strong>{{ currentClassInfo.initialMove }}</div>
+        <div><strong>初始PP：</strong>{{ currentClassInfo.initialPP }}</div>
+      </div>
+
+      <p style="font-size: 14px;"><strong>属性要求：</strong>{{ currentClassInfo.attributeRequirement }}</p>
+      <p style="font-size: 14px;"><strong>可分配属性点：</strong>{{ currentClassInfo.allocatablePoints }}</p>
+      <p style="font-size: 14px;"><strong>职业精通：</strong>{{ currentClassInfo.proficiency }}</p>
+      <p style="font-size: 14px;"><strong>装备权限：</strong>{{ currentClassInfo.equipment }}</p>
+      <p style="font-size: 14px;"><strong>LVL1：</strong>{{ currentClassInfo.level1 }}</p>
+
+      <div v-if="currentClassInfo.stances && currentClassInfo.stances.length" style="margin-top: 15px;">
+        <strong>架势：</strong>
+        <ul style="margin: 8px 0; padding-left: 20px; font-size: 14px;">
+          <li v-for="(s, i) in currentClassInfo.stances" :key="i" style="margin-bottom: 6px;">
+            <strong>{{ s.name }}</strong>：{{ s.desc }}
+          </li>
+        </ul>
+      </div>
+
+      <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <button v-if="currentClassInfo.canUseBuff" @click="openBuffTable" style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          查看 Buff 表
+        </button>
+        <button v-if="currentCharacter.class_name === '魔术师'" @click="openMagicTable" style="padding: 8px 16px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          查看魔术表
+        </button>
+      </div>
+    </div>
+
+    <!-- 核心属性 -->
     <h2>核心属性</h2>
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; margin: 15px 0 30px;">
       <div><label>力量</label><br /><input type="number" v-model.number="currentCharacter.strength" style="width: 100%; padding: 8px;" /></div>
@@ -420,33 +538,55 @@ onUnmounted(() => {
       <div><label>PP</label><br /><input type="number" v-model.number="currentCharacter.pp" style="width: 100%; padding: 8px;" /></div>
     </div>
 
+    <!-- 物品栏 -->
     <h2>物品栏</h2>
     <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 15px 0;">
-      <div v-if="!currentCharacter.inventory || currentCharacter.inventory.length === 0" style="color: #888; margin-bottom: 15px;">
-        目前没有物品
+      <div v-if="!currentCharacter.inventory || currentCharacter.inventory.length === 0" style="color: #888; margin-bottom: 15px;">目前没有物品</div>
+      <div v-for="(item, index) in currentCharacter.inventory" :key="item.id" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee;">
+        <div><strong>{{ item.name }}</strong><span style="color: #666; margin-left: 10px;">× {{ item.quantity }}</span></div>
+        <button @click="removeItem(index)" style="padding: 4px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">删除</button>
       </div>
-
-      <div v-for="(item, index) in currentCharacter.inventory" :key="item.id"
-           style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee;">
-        <div>
-          <strong>{{ item.name }}</strong>
-          <span style="color: #666; margin-left: 10px;">× {{ item.quantity }}</span>
-        </div>
-        <button @click="removeItem(index)" style="padding: 4px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">
-          删除
-        </button>
-      </div>
-
       <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
         <input v-model="newItemName" placeholder="物品名称" style="padding: 8px; flex: 2; min-width: 150px;" />
         <input type="number" v-model.number="newItemQuantity" placeholder="数量" style="padding: 8px; width: 80px;" />
-        <button @click="addItem" style="padding: 8px 16px; background: #2196F3; color: white; border: none; cursor: pointer;">
-          添加物品
-        </button>
+        <button @click="addItem" style="padding: 8px 16px; background: #2196F3; color: white; border: none; cursor: pointer;">添加物品</button>
       </div>
     </div>
 
     <h2>备注 / 讯息栏</h2>
-    <textarea v-model="currentCharacter.notes" rows="4" style="width: 100%; padding: 8px; margin-top: 8px;" placeholder="可以写一些临时状态、任务笔记等..."></textarea>
+    <textarea v-model="currentCharacter.notes" rows="4" style="width: 100%; padding: 8px; margin-top: 8px;" placeholder="临时状态、任务笔记等..."></textarea>
+  </div>
+
+  <!-- 魔术表页面 -->
+  <div v-else-if="page === 'magic'" style="max-width: 900px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h1>魔术表</h1>
+      <button @click="backToCharacter" style="padding: 8px 16px;">返回角色</button>
+    </div>
+    <p style="color: #666; margin-bottom: 20px;">目前仅展示部分常用魔术，完整表后续补充。</p>
+    <div v-for="(m, i) in magicList" :key="i" style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between;">
+        <strong style="font-size: 16px;">{{ m.name }}</strong>
+        <span style="color: #9c27b0;">消耗：{{ m.cost }}</span>
+      </div>
+      <div style="font-size: 13px; color: #666; margin: 4px 0;">类型：{{ m.type }}</div>
+      <div style="font-size: 14px;">{{ m.desc }}</div>
+    </div>
+  </div>
+
+  <!-- Buff表页面 -->
+  <div v-else-if="page === 'buff'" style="max-width: 900px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h1>Buff 表</h1>
+      <button @click="backToCharacter" style="padding: 8px 16px;">返回角色</button>
+    </div>
+    <p style="color: #666; margin-bottom: 20px;">目前仅展示部分常用Buff，完整表后续补充。</p>
+    <div v-for="(b, i) in buffList" :key="i" style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between;">
+        <strong style="font-size: 16px;">{{ b.name }}</strong>
+        <span :style="{ color: b.type === '红' ? '#f44336' : b.type === '绿' ? '#4CAF50' : '#ff9800' }">{{ b.type }} · 消耗 {{ b.cost }}</span>
+      </div>
+      <div style="font-size: 14px; margin-top: 6px;">{{ b.desc }}</div>
+    </div>
   </div>
 </template>
