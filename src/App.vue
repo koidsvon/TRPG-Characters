@@ -471,10 +471,47 @@ function startRealtime() {
       (payload) => {
         loadCharacters()
         if (currentCharacter.value && payload.new && payload.new.id === currentCharacter.value.id) {
-          const updated = { ...payload.new }
-          if (!Array.isArray(updated.inventory)) updated.inventory = []
-          currentCharacter.value = updated
-        }
+  const updated = { ...payload.new }
+
+  // 处理 inventory 结构
+  if (!updated.inventory || Array.isArray(updated.inventory)) {
+    const oldItems = Array.isArray(updated.inventory) ? updated.inventory : []
+    updated.inventory = {
+      items: oldItems,
+      equipment: {
+        helmet: '', chest: '', legs: '',
+        mainHand: '', offHand: '', amulet: '', backpack: ''
+      }
+    }
+  } else {
+    if (!updated.inventory.items) updated.inventory.items = []
+    if (!updated.inventory.equipment) {
+      updated.inventory.equipment = {
+        helmet: '', chest: '', legs: '',
+        mainHand: '', offHand: '', amulet: '', backpack: ''
+      }
+    }
+  }
+
+  // 处理 skills 结构
+  const defaultSkills = {
+    athletics: 4, toughness: 4, voodoo: 4, intimidate: 4,
+    acrobatics: 4, sleight: 4, stealth: 4, survival: 4, animal: 4,
+    insight: 4, medicine: 4, perception: 4, deception: 4,
+    performance: 4, persuasion: 4, investigation: 4, knowledge: 4
+  }
+  if (!updated.skills) {
+    updated.skills = { ...defaultSkills }
+  } else {
+    for (const key in defaultSkills) {
+      if (updated.skills[key] === undefined || updated.skills[key] === null) {
+        updated.skills[key] = defaultSkills[key]
+      }
+    }
+  }
+
+  currentCharacter.value = updated
+}
       }
     )
     .subscribe()
