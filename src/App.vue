@@ -49,6 +49,12 @@ const classTemplates = {
     attributeRequirement: '初始力量≤30，次要属性的成长值≥1.6',
     allocatablePoints: 60,
     proficiency: '运动+3；洞悉+5；察觉+5；巧手+2',
+    skillBonuses: {
+  athletics: 3,   // 运动+3
+  insight: 5,     // 洞悉+5
+  perception: 5,  // 察觉+5
+  sleight: 2      // 巧手+2
+},
     equipment: '长剑、轻甲、锁甲、小盾、护身符。最多同时使用一把武器',
     levelRewards: [
       { level: 1, content: '可以使用buff。可以装备长剑、轻甲、锁甲、小盾、护身符。最多同时使用一把武器。\n准备：战斗中以特定架势招架敌人，可在长休时更换。' },
@@ -95,6 +101,14 @@ const classTemplates = {
     attributeRequirement: '主属性成长值固定为2.4，次属性成长值固定为2.3',
     allocatablePoints: 60,
     proficiency: '隐匿+3；求生+4；驯兽+4；知识+2；说服+2；调查+5',
+    skillBonuses: {
+  stealth: 3,
+  survival: 4,
+  animal: 4,
+  knowledge: 2,
+  persuasion: 2,
+  investigation: 5
+},
     equipment: '长剑、手斧、冲锋枪、轻甲。最多同时使用两把武器。额外获得25初始PP',
     levelRewards: [
       { level: 1, content: '无法使用buff。\n赏金猎人的报酬：完成赏金任务后可以激活报酬获得增益。报酬分为「永久生效」和「单场战斗生效的临时报酬」两种类型。' },
@@ -145,6 +159,13 @@ const classTemplates = {
     attributeRequirement: '初始智力=31',
     allocatablePoints: 55,
     proficiency: '洞悉+2；巫毒-2；知识+4；医疗+2；调查+3',
+    skillBonuses: {
+  insight: 2,
+  voodoo: -2,
+  knowledge: 4,
+  medicine: 2,
+  investigation: 3
+},
     equipment: '魔导书、魔杖、轻甲。需同时装备魔导书和魔杖。',
     levelRewards: [
   { 
@@ -346,6 +367,37 @@ const currentClassInfo = computed(() => {
   if (!currentCharacter.value || !currentCharacter.value.class_name) return null
   return classTemplates[currentCharacter.value.class_name] || null
 })
+
+// 主属性加值 = 当前主属性 / 10 向下取整
+const mainAttrBonus = computed(() => {
+  if (!currentCharacter.value || !currentClassInfo.value) return 0
+  const main = currentClassInfo.value.mainAttribute
+  let val = 0
+  if (main === '力量') val = currentCharacter.value.strength || 0
+  else if (main === '智力') val = currentCharacter.value.intelligence || 0
+  else if (main === '敏捷') val = currentCharacter.value.agility || 0
+  return Math.floor(val / 10)
+})
+
+// 判断某个技能是否属于当前主属性
+function isMainAttrSkill(skillKey) {
+  if (!currentClassInfo.value) return false
+  const main = currentClassInfo.value.mainAttribute
+  const strengthSkills = ['athletics', 'toughness', 'voodoo', 'intimidate']
+  const agilitySkills = ['acrobatics', 'sleight', 'stealth', 'survival', 'animal']
+  const intelSkills = ['insight', 'medicine', 'perception', 'deception', 'performance', 'persuasion', 'investigation', 'knowledge']
+  
+  if (main === '力量') return strengthSkills.includes(skillKey)
+  if (main === '敏捷') return agilitySkills.includes(skillKey)
+  if (main === '智力') return intelSkills.includes(skillKey)
+  return false
+}
+
+// 判断是否是职业精通技能（用于高亮）
+function isProficientSkill(skillKey) {
+  if (!currentClassInfo.value || !currentClassInfo.value.skillBonuses) return false
+  return currentClassInfo.value.skillBonuses[skillKey] !== undefined
+}
 
 function generateCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -938,20 +990,73 @@ onUnmounted(() => {
     </div>
 
     <!-- 核心属性 -->
-    <h2>核心属性</h2>
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; margin: 15px 0 30px;">
-      <div><label>力量</label><br /><input type="number" v-model.number="currentCharacter.strength" style="width: 100%; padding: 8px;" /></div>
-      <div><label>智力</label><br /><input type="number" v-model.number="currentCharacter.intelligence" style="width: 100%; padding: 8px;" /></div>
-      <div><label>敏捷</label><br /><input type="number" v-model.number="currentCharacter.agility" style="width: 100%; padding: 8px;" /></div>
-      <div><label>HP 当前</label><br /><input type="number" v-model.number="currentCharacter.hp_current" style="width: 100%; padding: 8px;" /></div>
-      <div><label>HP 最大</label><br /><input type="number" v-model.number="currentCharacter.hp_max" style="width: 100%; padding: 8px;" /></div>
-      <div><label>ATK</label><br /><input type="number" v-model.number="currentCharacter.atk" style="width: 100%; padding: 8px;" /></div>
-      <div><label>DEF</label><br /><input type="number" v-model.number="currentCharacter.def" style="width: 100%; padding: 8px;" /></div>
-      <div><label>RES</label><br /><input type="number" v-model.number="currentCharacter.res" style="width: 100%; padding: 8px;" /></div>
-      <div><label>SPD</label><br /><input type="number" v-model.number="currentCharacter.spd" style="width: 100%; padding: 8px;" /></div>
-      <div><label>移动格</label><br /><input type="number" v-model.number="currentCharacter.move_range" style="width: 100%; padding: 8px;" /></div>
-      <div><label>PP</label><br /><input type="number" v-model.number="currentCharacter.pp" style="width: 100%; padding: 8px;" /></div>
-    </div>
+<h2>核心属性</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; margin: 15px 0 10px;">
+  <div>
+    <label>力量</label><br />
+    <input type="number" v-model.number="currentCharacter.strength" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>力量成长</label><br />
+    <input type="number" step="0.1" v-model.number="currentCharacter.strength_growth" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>智力</label><br />
+    <input type="number" v-model.number="currentCharacter.intelligence" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>智力成长</label><br />
+    <input type="number" step="0.1" v-model.number="currentCharacter.intelligence_growth" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>敏捷</label><br />
+    <input type="number" v-model.number="currentCharacter.agility" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>敏捷成长</label><br />
+    <input type="number" step="0.1" v-model.number="currentCharacter.agility_growth" style="width: 100%; padding: 8px;" />
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; margin: 10px 0 20px;">
+  <div>
+    <label>HP 当前</label><br />
+    <input type="number" v-model.number="currentCharacter.hp_current" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>HP 最大</label><br />
+    <input type="number" v-model.number="currentCharacter.hp_max" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>ATK</label><br />
+    <input type="number" v-model.number="currentCharacter.atk" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>DEF</label><br />
+    <input type="number" v-model.number="currentCharacter.def" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>RES</label><br />
+    <input type="number" v-model.number="currentCharacter.res" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>SPD</label><br />
+    <input type="number" v-model.number="currentCharacter.spd" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>移动格</label><br />
+    <input type="number" v-model.number="currentCharacter.move_range" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>PP</label><br />
+    <input type="number" v-model.number="currentCharacter.pp" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>主属性加值</label><br />
+    <input type="number" :value="mainAttrBonus" disabled style="width: 100%; padding: 8px; background: #f0f0f0;" />
+    <div style="font-size: 12px; color: #666;">主属性÷10（向下取整）</div>
+  </div>
+</div>
 
 <!-- 检定技能栏（可折叠） -->
 <div style="margin: 30px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
