@@ -58,16 +58,32 @@ function addTestItem() {
   testItemQty.value = 1
 }
 
-const mainHandExpanded = ref('')   // 当前展开的主手大类
-const offHandExpanded = ref('')    // 当前展开的副手大类
+const mainHandExpanded = ref(false)   // 主手是否展开选择面板
+const offHandExpanded = ref(false)    // 副手是否展开选择面板
+const otherSlotExpanded = ref('')     // 其他栏位展开状态
 
-// 主手可用的大类
-const mainHandCategories = ['刀剑', '长枪', '枪械', '斧子', '魔导用具']
+// 获取背包中某个栏位实际拥有的大类
+function getOwnedCategories(slot) {
+  if (!currentCharacter.value?.inventory?.items) return []
+  const cats = new Set()
+  currentCharacter.value.inventory.items.forEach(entry => {
+    const item = getItemById(entry.item_id)
+    if (!item) return
+    if (slot === 'mainHand' && item.slot === 'mainHand') {
+      cats.add(item.category)
+    } else if (slot === 'offHand') {
+      // 副手可用的分类
+      if (['刀剑', '枪械', '斧子', '魔导用具', '盾牌'].includes(item.category)) {
+        cats.add(item.category)
+      }
+    } else if (item.slot === slot) {
+      cats.add(item.category)
+    }
+  })
+  return Array.from(cats)
+}
 
-// 副手可用的大类
-const offHandCategories = ['刀剑', '枪械', '斧子', '魔导用具', '盾牌']
-
-// 获取背包中属于某个大类且可用于指定栏位的物品
+// 获取背包中属于某个大类的物品（用于指定栏位）
 function getItemsByCategory(slot, category) {
   if (!currentCharacter.value?.inventory?.items) return []
   return currentCharacter.value.inventory.items
@@ -75,10 +91,13 @@ function getItemsByCategory(slot, category) {
       const item = getItemById(entry.item_id)
       return item ? { ...entry, item } : null
     })
-    .filter(x => x && x.item.category === category && (
-      x.item.slot === slot ||
-      (slot === 'offHand' && ['刀剑', '枪械', '斧子', '魔导用具', '盾牌'].includes(x.item.category))
-    ))
+    .filter(x => {
+      if (!x) return false
+      if (x.item.category !== category) return false
+      if (slot === 'mainHand') return x.item.slot === 'mainHand'
+      if (slot === 'offHand') return ['刀剑', '枪械', '斧子', '魔导用具', '盾牌'].includes(x.item.category)
+      return x.item.slot === slot
+    })
 }
 
 function toggleMainCategory(cat) {
@@ -1490,83 +1509,79 @@ onUnmounted(() => {
     </div>
   </div>
 
-  <!-- 主手栏 -->
+<!-- 主手栏 -->
 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
   <label style="font-weight: bold;">主手栏</label>
-  
-  <!-- 当前已装备 -->
-  <div v-if="getItemById(currentCharacter.inventory.equipment.mainHand)" 
-       style="margin: 8px 0; padding: 8px; background: #f3e5f5; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-    <span>
+
+  <!-- 未装备 / 已装备 显示 -->
+  <div @click="mainHandExpanded = !mainHandExpanded"
+       style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+    <span v-if="getItemById(currentCharacter.inventory.equipment.mainHand)">
       <strong>{{ getItemById(currentCharacter.inventory.equipment.mainHand).name }}</strong>
       <span style="color: #888; margin-left: 6px;">{{ getItemById(currentCharacter.inventory.equipment.mainHand).category }}</span>
     </span>
-    <button @click="unequipItem('mainHand')" style="padding: 4px 10px; font-size: 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      卸下
-    </button>
+    <span v-else style="color: #999;">无物品</span>
+    <span style="color: #888; font-size: 13px;">{{ mainHandExpanded ? '收起' : '选择' }}</span>
   </div>
-  <div v-else style="margin: 8px 0; color: #999; font-size: 13px;">未装备</div>
 
-  <!-- 大类折叠选择 -->
-  <div style="margin-top: 10px;">
-    <div v-for="cat in mainHandCategories" :key="cat" style="margin-bottom: 6px;">
-      <div @click="toggleMainCategory(cat)"
-           style="padding: 8px 10px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; user-select: none;">
-        <span>{{ cat }}</span>
-        <span style="color: #888;">{{ mainHandExpanded === cat ? '▲' : '▼' }}</span>
-      </div>
-      <div v-show="mainHandExpanded === cat" style="padding: 8px 10px; background: #fafafa; border: 1px solid #eee; border-top: none; border-radius: 0 0 4px 4px;">
-        <div v-if="getItemsByCategory('mainHand', cat).length === 0" style="color: #bbb; font-size: 13px;">
-          背包中没有此类物品
-        </div>
-        <div v-for="entry in getItemsByCategory('mainHand', cat)" :key="entry.item_id"
-             @click="equipItem('mainHand', entry.item_id); mainHandExpanded = ''"
-             style="padding: 6px 0; cursor: pointer; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between;">
-          <span>{{ entry.item.name }}</span>
-          <span style="color: #888;">×{{ entry.quantity }}</span>
-        </div>
+  <!-- 选择面板（点击后才出现） -->
+  <div v-if="mainHandExpanded" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; background: #fff;">
+    <div v-if="getOwnedCategories('mainHand').length === 0" style="color: #bbb; font-size: 13px;">
+      背包中没有可装备的主手物品
+    </div>
+
+    <div v-for="cat in getOwnedCategories('mainHand')" :key="cat" style="margin-bottom: 8px;">
+      <div style="font-size: 13px; color: #666; margin-bottom: 4px;">{{ cat }}</div>
+      <div v-for="entry in getItemsByCategory('mainHand', cat)" :key="entry.item_id"
+           @click="equipItem('mainHand', entry.item_id); mainHandExpanded = false"
+           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;">
+        <span>{{ entry.item.name }}</span>
+        <span style="color: #888;">×{{ entry.quantity }}</span>
       </div>
     </div>
+
+    <button v-if="currentCharacter.inventory.equipment.mainHand"
+            @click="unequipItem('mainHand'); mainHandExpanded = false"
+            style="margin-top: 6px; padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+      卸下
+    </button>
   </div>
 </div>
 
 <!-- 副手栏 -->
 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
   <label style="font-weight: bold;">副手栏</label>
-  
-  <!-- 当前已装备 -->
-  <div v-if="getItemById(currentCharacter.inventory.equipment.offHand)" 
-       style="margin: 8px 0; padding: 8px; background: #e3f2fd; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-    <span>
+
+  <div @click="offHandExpanded = !offHandExpanded"
+       style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+    <span v-if="getItemById(currentCharacter.inventory.equipment.offHand)">
       <strong>{{ getItemById(currentCharacter.inventory.equipment.offHand).name }}</strong>
       <span style="color: #888; margin-left: 6px;">{{ getItemById(currentCharacter.inventory.equipment.offHand).category }}</span>
     </span>
-    <button @click="unequipItem('offHand')" style="padding: 4px 10px; font-size: 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      卸下
-    </button>
+    <span v-else style="color: #999;">无物品</span>
+    <span style="color: #888; font-size: 13px;">{{ offHandExpanded ? '收起' : '选择' }}</span>
   </div>
-  <div v-else style="margin: 8px 0; color: #999; font-size: 13px;">未装备</div>
 
-  <!-- 大类折叠选择 -->
-  <div style="margin-top: 10px;">
-    <div v-for="cat in offHandCategories" :key="cat" style="margin-bottom: 6px;">
-      <div @click="toggleOffCategory(cat)"
-           style="padding: 8px 10px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; user-select: none;">
-        <span>{{ cat }}</span>
-        <span style="color: #888;">{{ offHandExpanded === cat ? '▲' : '▼' }}</span>
-      </div>
-      <div v-show="offHandExpanded === cat" style="padding: 8px 10px; background: #fafafa; border: 1px solid #eee; border-top: none; border-radius: 0 0 4px 4px;">
-        <div v-if="getItemsByCategory('offHand', cat).length === 0" style="color: #bbb; font-size: 13px;">
-          背包中没有此类物品
-        </div>
-        <div v-for="entry in getItemsByCategory('offHand', cat)" :key="entry.item_id"
-             @click="equipItem('offHand', entry.item_id); offHandExpanded = ''"
-             style="padding: 6px 0; cursor: pointer; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between;">
-          <span>{{ entry.item.name }}</span>
-          <span style="color: #888;">×{{ entry.quantity }}</span>
-        </div>
+  <div v-if="offHandExpanded" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; background: #fff;">
+    <div v-if="getOwnedCategories('offHand').length === 0" style="color: #bbb; font-size: 13px;">
+      背包中没有可装备的副手物品
+    </div>
+
+    <div v-for="cat in getOwnedCategories('offHand')" :key="cat" style="margin-bottom: 8px;">
+      <div style="font-size: 13px; color: #666; margin-bottom: 4px;">{{ cat }}</div>
+      <div v-for="entry in getItemsByCategory('offHand', cat)" :key="entry.item_id"
+           @click="equipItem('offHand', entry.item_id); offHandExpanded = false"
+           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;">
+        <span>{{ entry.item.name }}</span>
+        <span style="color: #888;">×{{ entry.quantity }}</span>
       </div>
     </div>
+
+    <button v-if="currentCharacter.inventory.equipment.offHand"
+            @click="unequipItem('offHand'); offHandExpanded = false"
+            style="margin-top: 6px; padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+      卸下
+    </button>
   </div>
 </div>
 
