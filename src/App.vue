@@ -8,6 +8,10 @@ const page = ref('home')
 // 检定相关
 const skillsExpanded = ref(false)
 
+// 所有物品库
+const itemCatalog = ref([])          
+const loadingItems = ref(false)
+
 // 房间相关
 const roomName = ref('')
 const gmPassword = ref('')
@@ -608,59 +612,42 @@ skills: {
 function enterCharacter(char) {
   const charCopy = { ...char }
 
-  // ---------- inventory 兼容处理 ----------
+  // ---------- inventory 新结构 ----------
+  // { items: [{ id, item_id, quantity }], equipment: { mainHand: item_id|null, ... } }
   if (!charCopy.inventory || Array.isArray(charCopy.inventory)) {
-    const oldItems = Array.isArray(charCopy.inventory) ? charCopy.inventory : []
+    // 兼容旧数据
     charCopy.inventory = {
-      items: oldItems,
+      items: [],
       equipment: {
-        helmet: '',
-        chest: '',
-        legs: '',
-        mainHand: '',
-        offHand: '',
-        amulet: '',
-        backpack: ''
+        helmet: null,
+        chest: null,
+        legs: null,
+        mainHand: null,
+        offHand: null,
+        amulet: null,
+        backpack: null
       }
     }
   } else {
     if (!charCopy.inventory.items) charCopy.inventory.items = []
     if (!charCopy.inventory.equipment) {
       charCopy.inventory.equipment = {
-        helmet: '', chest: '', legs: '',
-        mainHand: '', offHand: '', amulet: '', backpack: ''
+        helmet: null, chest: null, legs: null,
+        mainHand: null, offHand: null, amulet: null, backpack: null
       }
     }
   }
 
-  // ---------- skills 兼容处理（默认值全部为4）----------
+  // ---------- skills 兼容处理（保持原来的）----------
   const defaultSkills = {
-    // 力量
-    athletics: 4,   // 运动
-    toughness: 4,   // 坚韧
-    voodoo: 4,      // 巫毒
-    intimidate: 4,  // 威吓
-    // 敏捷
-    acrobatics: 4,  // 特技
-    sleight: 4,     // 巧手
-    stealth: 4,     // 隐匿
-    survival: 4,    // 求生
-    animal: 4,      // 驯兽
-    // 智力
-    insight: 4,     // 洞悉
-    medicine: 4,    // 医疗
-    perception: 4,  // 察觉
-    deception: 4,   // 欺瞒
-    performance: 4, // 表演
-    persuasion: 4,  // 说服
-    investigation: 4, // 调查
-    knowledge: 4    // 知识
+    athletics: 4, toughness: 4, voodoo: 4, intimidate: 4,
+    acrobatics: 4, sleight: 4, stealth: 4, survival: 4, animal: 4,
+    insight: 4, medicine: 4, perception: 4, deception: 4,
+    performance: 4, persuasion: 4, investigation: 4, knowledge: 4
   }
-
   if (!charCopy.skills) {
     charCopy.skills = { ...defaultSkills }
   } else {
-    // 补全缺失的技能
     for (const key in defaultSkills) {
       if (charCopy.skills[key] === undefined || charCopy.skills[key] === null) {
         charCopy.skills[key] = defaultSkills[key]
@@ -765,6 +752,36 @@ function applyLevelGrowth() {
   alert('已应用本级成长值（小数会累计，显示时再向下取整）')
 }
 
+// 根据 item_id 从物品库找到物品信息
+function getItemById(itemId) {
+  if (!itemId) return null
+  return itemCatalog.value.find(i => i.id === itemId) || null
+}
+
+// 获取角色背包里可用于某个装备位的物品
+function getEquippableItems(slot) {
+  if (!currentCharacter.value?.inventory?.items) return []
+  return currentCharacter.value.inventory.items
+    .map(entry => {
+      const item = getItemById(entry.item_id)
+      return item ? { ...entry, item } : null
+    })
+    .filter(x => x && (x.item.slot === slot || x.item.slot === 'mainHand' && slot === 'offHand'))
+    // 上面简单处理：部分主手物品也可副手（以后可再精细化）
+}
+
+// 装备物品到指定栏位
+function equipItem(slot, itemId) {
+  if (!currentCharacter.value?.inventory?.equipment) return
+  currentCharacter.value.inventory.equipment[slot] = itemId || null
+}
+
+// 卸下装备
+function unequipItem(slot) {
+  if (!currentCharacter.value?.inventory?.equipment) return
+  currentCharacter.value.inventory.equipment[slot] = null
+}
+
 function backToRoom() {
   page.value = 'room'
   currentCharacter.value = null
@@ -800,7 +817,25 @@ function backToCharacter() {
 
 onMounted(() => {
   restoreSessionFromLocal()
+  loadItemCatalog()
 })
+
+async function loadItemCatalog() {
+  loadingItems.value = true
+  const { data, error } = await supabase
+    .from('items')
+    .select('*')
+    .order('category')
+    .order('name')
+  
+  if (error) {
+    console.error('加载物品库失败', error)
+    alert('加载物品库失败：' + error.message)
+  } else {
+    itemCatalog.value = data || []
+  }
+  loadingItems.value = false
+}
 
 onUnmounted(() => {
   if (realtimeChannel) {
