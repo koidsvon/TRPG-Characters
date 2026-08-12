@@ -28,35 +28,85 @@ const newPlayerName = ref('')
 const currentCharacter = ref(null)
 const saving = ref(false)
 
+// GM 发放物品相关
+const showGrantPanel = ref(false)
+const grantTargetId = ref('')      // 目标角色 id
+const grantItemId = ref('')        // 要发放的物品 id
+const grantQuantity = ref(1)
+
+async function grantItemToCharacter() {
+  if (!isGM.value) {
+    alert('只有 GM 可以发放物品')
+    return
+  }
+  if (!grantTargetId.value) {
+    alert('请选择目标角色')
+    return
+  }
+  if (!grantItemId.value) {
+    alert('请选择要发放的物品')
+    return
+  }
+  const qty = grantQuantity.value || 1
+  if (qty < 1) {
+    alert('数量至少为 1')
+    return
+  }
+
+  // 找到目标角色
+  const target = characters.value.find(c => c.id === grantTargetId.value)
+  if (!target) {
+    alert('找不到目标角色')
+    return
+  }
+
+  // 确保 inventory 结构正确
+  let inv = target.inventory
+  if (!inv || Array.isArray(inv)) {
+    inv = { items: [], equipment: { helmet: null, chest: null, legs: null, mainHand: null, offHand: null, amulet: null, backpack: null } }
+  }
+  if (!inv.items) inv.items = []
+
+  // 如果已有该物品则增加数量，否则新增
+  const existing = inv.items.find(i => i.item_id === grantItemId.value)
+  if (existing) {
+    existing.quantity = (existing.quantity || 0) + qty
+  } else {
+    inv.items.push({
+      id: Date.now(),
+      item_id: grantItemId.value,
+      quantity: qty
+    })
+  }
+
+  // 保存到数据库
+  const { error } = await supabase
+    .from('characters')
+    .update({ inventory: inv })
+    .eq('id', grantTargetId.value)
+
+  if (error) {
+    alert('发放失败：' + error.message)
+    return
+  }
+
+  // 如果当前正在查看这个角色，同步更新界面
+  if (currentCharacter.value && currentCharacter.value.id === grantTargetId.value) {
+    currentCharacter.value.inventory = inv
+  }
+
+  // 刷新角色列表
+  await loadCharacters()
+
+  alert('发放成功！')
+  grantItemId.value = ''
+  grantQuantity.value = 1
+  showGrantPanel.value = false
+}
+
 // 物品栏相关
 const newItemName = ref('')
 const newItemQuantity = ref(1)
-
-const testItemId = ref('')
-const testItemQty = ref(1)
-
-function addTestItem() {
-  if (!testItemId.value) {
-    alert('请先选择物品')
-    return
-  }
-  if (!currentCharacter.value.inventory.items) {
-    currentCharacter.value.inventory.items = []
-  }
-  // 如果已经有这个物品，就增加数量
-  const existing = currentCharacter.value.inventory.items.find(i => i.item_id === testItemId.value)
-  if (existing) {
-    existing.quantity += (testItemQty.value || 1)
-  } else {
-    currentCharacter.value.inventory.items.push({
-      id: Date.now(),
-      item_id: testItemId.value,
-      quantity: testItemQty.value || 1
-    })
-  }
-  testItemId.value = ''
-  testItemQty.value = 1
-}
 
 const mainHandExpanded = ref(false)   // 主手是否展开选择面板
 const offHandExpanded = ref(false)    // 副手是否展开选择面板
@@ -966,6 +1016,44 @@ onUnmounted(() => {
     <p style="margin-top: 30px; color: #c00;">{{ message }}</p>
   </div>
 
+  <!-- GM 发放物品 -->
+<div v-if="isGM" style="margin: 20px 0; padding: 16px; background: #fff3e0; border: 1px solid #ffb74d; border-radius: 8px;">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <strong style="color: #e65100;">GM 功能：发放物品</strong>
+    <button @click="showGrantPanel = !showGrantPanel" style="padding: 6px 12px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      {{ showGrantPanel ? '收起' : '打开' }}
+    </button>
+  </div>
+
+  <div v-if="showGrantPanel" style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+    <div>
+      <label style="font-size: 13px; color: #666;">目标角色</label><br />
+      <select v-model="grantTargetId" style="padding: 8px; min-width: 160px;">
+        <option value="">选择角色</option>
+        <option v-for="c in characters" :key="c.id" :value="c.id">
+          {{ c.name }}（{{ c.player_name || '未知玩家' }}）
+        </option>
+      </select>
+    </div>
+    <div>
+      <label style="font-size: 13px; color: #666;">物品</label><br />
+      <select v-model="grantItemId" style="padding: 8px; min-width: 180px;">
+        <option value="">选择物品</option>
+        <option v-for="item in itemCatalog" :key="item.id" :value="item.id">
+          {{ item.name }}（{{ item.category }}）
+        </option>
+      </select>
+    </div>
+    <div>
+      <label style="font-size: 13px; color: #666;">数量</label><br />
+      <input type="number" v-model.number="grantQuantity" min="1" style="padding: 8px; width: 80px;" />
+    </div>
+    <button @click="grantItemToCharacter" style="padding: 8px 18px; background: #e65100; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      确认发放
+    </button>
+  </div>
+</div>
+
   <!-- 角色列表页 -->
   <div v-else-if="page === 'room'" style="max-width: 800px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1668,23 +1756,6 @@ onUnmounted(() => {
     </div>
     <div style="font-size: 13px; color: #888;">
       {{ getItemById(entry.item_id)?.description || '' }}
-    </div>
-  </div>
-
-  <!-- 临时测试：手动添加物品到背包（方便你现在测试，以后会改成只有 GM 能发） -->
-  <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ccc;">
-    <div style="font-size: 13px; color: #666; margin-bottom: 8px;">【临时测试】添加物品到背包（正式版会改成 GM 发放）：</div>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-      <select v-model="testItemId" style="padding: 8px; min-width: 180px;">
-        <option value="">选择物品</option>
-        <option v-for="item in itemCatalog" :key="item.id" :value="item.id">
-          {{ item.name }}（{{ item.category }}）
-        </option>
-      </select>
-      <input type="number" v-model.number="testItemQty" min="1" style="padding: 8px; width: 70px;" placeholder="数量" />
-      <button @click="addTestItem" style="padding: 8px 16px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">
-        添加到背包
-      </button>
     </div>
   </div>
 </div>
