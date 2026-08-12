@@ -32,6 +32,32 @@ const saving = ref(false)
 const newItemName = ref('')
 const newItemQuantity = ref(1)
 
+const testItemId = ref('')
+const testItemQty = ref(1)
+
+function addTestItem() {
+  if (!testItemId.value) {
+    alert('请先选择物品')
+    return
+  }
+  if (!currentCharacter.value.inventory.items) {
+    currentCharacter.value.inventory.items = []
+  }
+  // 如果已经有这个物品，就增加数量
+  const existing = currentCharacter.value.inventory.items.find(i => i.item_id === testItemId.value)
+  if (existing) {
+    existing.quantity += (testItemQty.value || 1)
+  } else {
+    currentCharacter.value.inventory.items.push({
+      id: Date.now(),
+      item_id: testItemId.value,
+      quantity: testItemQty.value || 1
+    })
+  }
+  testItemId.value = ''
+  testItemQty.value = 1
+}
+
 // 实时订阅
 let realtimeChannel = null
 
@@ -1352,75 +1378,222 @@ onUnmounted(() => {
   </div>
 </div>
 
-    <!-- 装备栏 -->
+  <!-- 装备栏 -->
 <h2>装备栏</h2>
 
-
-
-<!-- 可装备种类说明 -->
 <div v-if="currentClassInfo" style="margin-bottom: 12px; padding: 10px 14px; background: #e3f2fd; border-radius: 6px; font-size: 14px; color: #1565c0;">
   <strong>本职业可装备：</strong>
-  {{ currentClassInfo.equipment || '暂无详细说明（待补职业默认使用通用模板）' }}
+  {{ currentClassInfo.equipment || '暂无详细说明' }}
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
-  <div>
-    <label>头盔</label><br />
-    <input v-model="currentCharacter.inventory.equipment.helmet" placeholder="头盔" style="width: 100%; padding: 8px;" />
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+  <!-- 头盔 -->
+  <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+    <label style="font-weight: bold;">头盔</label>
+    <div style="margin-top: 8px;">
+      <select
+        :value="currentCharacter.inventory.equipment.helmet || ''"
+        @change="equipItem('helmet', $event.target.value || null)"
+        style="width: 100%; padding: 8px;"
+      >
+        <option value="">— 未装备 —</option>
+        <option
+          v-for="entry in getEquippableItems('helmet')"
+          :key="entry.item_id"
+          :value="entry.item_id"
+        >
+          {{ entry.item.name }} ×{{ entry.quantity }}
+        </option>
+      </select>
+      <div v-if="getItemById(currentCharacter.inventory.equipment.helmet)" style="margin-top: 6px; font-size: 13px; color: #555;">
+        {{ getItemById(currentCharacter.inventory.equipment.helmet).name }}
+      </div>
+    </div>
   </div>
-  <div>
-    <label>胸甲</label><br />
-    <input v-model="currentCharacter.inventory.equipment.chest" placeholder="胸甲" style="width: 100%; padding: 8px;" />
+
+  <!-- 胸甲 -->
+  <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+    <label style="font-weight: bold;">胸甲</label>
+    <div style="margin-top: 8px;">
+      <select
+        :value="currentCharacter.inventory.equipment.chest || ''"
+        @change="equipItem('chest', $event.target.value || null)"
+        style="width: 100%; padding: 8px;"
+      >
+        <option value="">— 未装备 —</option>
+        <option
+          v-for="entry in getEquippableItems('chest')"
+          :key="entry.item_id"
+          :value="entry.item_id"
+        >
+          {{ entry.item.name }} ×{{ entry.quantity }}
+        </option>
+      </select>
+      <div v-if="getItemById(currentCharacter.inventory.equipment.chest)" style="margin-top: 6px; font-size: 13px; color: #555;">
+        {{ getItemById(currentCharacter.inventory.equipment.chest).name }}
+      </div>
+    </div>
   </div>
-  <div>
-    <label>护腿</label><br />
-    <input v-model="currentCharacter.inventory.equipment.legs" placeholder="护腿" style="width: 100%; padding: 8px;" />
+
+  <!-- 护腿 -->
+  <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+    <label style="font-weight: bold;">护腿</label>
+    <div style="margin-top: 8px;">
+      <select
+        :value="currentCharacter.inventory.equipment.legs || ''"
+        @change="equipItem('legs', $event.target.value || null)"
+        style="width: 100%; padding: 8px;"
+      >
+        <option value="">— 未装备 —</option>
+        <option
+          v-for="entry in getEquippableItems('legs')"
+          :key="entry.item_id"
+          :value="entry.item_id"
+        >
+          {{ entry.item.name }} ×{{ entry.quantity }}
+        </option>
+      </select>
+      <div v-if="getItemById(currentCharacter.inventory.equipment.legs)" style="margin-top: 6px; font-size: 13px; color: #555;">
+        {{ getItemById(currentCharacter.inventory.equipment.legs).name }}
+      </div>
+    </div>
   </div>
-  <div>
-    <label>主手栏</label><br />
-    <input v-model="currentCharacter.inventory.equipment.mainHand" placeholder="主手武器" style="width: 100%; padding: 8px;" />
+
+  <!-- 主手栏 -->
+  <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+    <label style="font-weight: bold;">主手栏</label>
+    <div style="margin-top: 8px;">
+      <select
+        :value="currentCharacter.inventory.equipment.mainHand || ''"
+        @change="equipItem('mainHand', $event.target.value || null)"
+        style="width: 100%; padding: 8px;"
+      >
+        <option value="">— 未装备 —</option>
+        <option
+          v-for="entry in getEquippableItems('mainHand')"
+          :key="entry.item_id"
+          :value="entry.item_id"
+        >
+          {{ entry.item.name }}（{{ entry.item.category }}）×{{ entry.quantity }}
+        </option>
+      </select>
+      <div v-if="getItemById(currentCharacter.inventory.equipment.mainHand)" style="margin-top: 6px; font-size: 13px; color: #555;">
+        {{ getItemById(currentCharacter.inventory.equipment.mainHand).name }}
+        <span style="color: #888;">· {{ getItemById(currentCharacter.inventory.equipment.mainHand).category }}</span>
+      </div>
+    </div>
   </div>
-  <div>
-    <label>副手栏</label><br />
-    <input v-model="currentCharacter.inventory.equipment.offHand" placeholder="副手 / 盾牌" style="width: 100%; padding: 8px;" />
+
+  <!-- 副手栏 -->
+  <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+    <label style="font-weight: bold;">副手栏</label>
+    <div style="margin-top: 8px;">
+      <select
+        :value="currentCharacter.inventory.equipment.offHand || ''"
+        @change="equipItem('offHand', $event.target.value || null)"
+        style="width: 100%; padding: 8px;"
+      >
+        <option value="">— 未装备 —</option>
+        <option
+          v-for="entry in getEquippableItems('offHand')"
+          :key="entry.item_id"
+          :value="entry.item_id"
+        >
+          {{ entry.item.name }}（{{ entry.item.category }}）×{{ entry.quantity }}
+        </option>
+      </select>
+      <div v-if="getItemById(currentCharacter.inventory.equipment.offHand)" style="margin-top: 6px; font-size: 13px; color: #555;">
+        {{ getItemById(currentCharacter.inventory.equipment.offHand).name }}
+        <span style="color: #888;">· {{ getItemById(currentCharacter.inventory.equipment.offHand).category }}</span>
+      </div>
+    </div>
   </div>
-  
-  <!-- 只有可使用 Buff 的职业才显示护身符 -->
-  <div v-if="currentClassInfo && currentClassInfo.canUseBuff">
-    <label>护身符</label><br />
-    <input v-model="currentCharacter.inventory.equipment.amulet" placeholder="护身符" style="width: 100%; padding: 8px;" />
+
+  <!-- 护身符（仅可使用 buff 的职业） -->
+  <div v-if="currentClassInfo && currentClassInfo.canUseBuff" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+    <label style="font-weight: bold;">护身符</label>
+    <div style="margin-top: 8px;">
+      <select
+        :value="currentCharacter.inventory.equipment.amulet || ''"
+        @change="equipItem('amulet', $event.target.value || null)"
+        style="width: 100%; padding: 8px;"
+      >
+        <option value="">— 未装备 —</option>
+        <option
+          v-for="entry in getEquippableItems('amulet')"
+          :key="entry.item_id"
+          :value="entry.item_id"
+        >
+          {{ entry.item.name }} ×{{ entry.quantity }}
+        </option>
+      </select>
+      <div v-if="getItemById(currentCharacter.inventory.equipment.amulet)" style="margin-top: 6px; font-size: 13px; color: #555;">
+        {{ getItemById(currentCharacter.inventory.equipment.amulet).name }}
+      </div>
+    </div>
   </div>
-  
-  <div>
-    <label>背包</label><br />
-    <input v-model="currentCharacter.inventory.equipment.backpack" placeholder="背包" style="width: 100%; padding: 8px;" />
+
+  <!-- 背包（装备位） -->
+  <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+    <label style="font-weight: bold;">背包</label>
+    <div style="margin-top: 8px;">
+      <select
+        :value="currentCharacter.inventory.equipment.backpack || ''"
+        @change="equipItem('backpack', $event.target.value || null)"
+        style="width: 100%; padding: 8px;"
+      >
+        <option value="">— 未装备 —</option>
+        <option
+          v-for="entry in getEquippableItems('backpack')"
+          :key="entry.item_id"
+          :value="entry.item_id"
+        >
+          {{ entry.item.name }} ×{{ entry.quantity }}
+        </option>
+      </select>
+      <div v-if="getItemById(currentCharacter.inventory.equipment.backpack)" style="margin-top: 6px; font-size: 13px; color: #555;">
+        {{ getItemById(currentCharacter.inventory.equipment.backpack).name }}
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- 物品栏（背包内物品） -->
+<!-- 物品栏（背包内） -->
 <h2>物品栏（背包内）</h2>
 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 15px 0;">
   <div v-if="!currentCharacter.inventory?.items || currentCharacter.inventory.items.length === 0" style="color: #888; margin-bottom: 15px;">
-    目前没有物品
+    目前没有物品（需要 GM 发放后才会出现）
   </div>
 
-  <div v-for="(item, index) in currentCharacter.inventory.items" :key="item.id"
-       style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee;">
+  <div v-for="(entry, index) in currentCharacter.inventory.items" :key="entry.id || index"
+       style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee;">
     <div>
-      <strong>{{ item.name }}</strong>
-      <span style="color: #666; margin-left: 10px;">× {{ item.quantity }}</span>
+      <strong>{{ getItemById(entry.item_id)?.name || '未知物品' }}</strong>
+      <span style="color: #666; margin-left: 8px;">× {{ entry.quantity }}</span>
+      <span v-if="getItemById(entry.item_id)" style="color: #999; margin-left: 8px; font-size: 13px;">
+        （{{ getItemById(entry.item_id).category }} · {{ getItemById(entry.item_id).sub_type }}）
+      </span>
     </div>
-    <button @click="removeItem(index)" style="padding: 4px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      删除
-    </button>
+    <div style="font-size: 13px; color: #888;">
+      {{ getItemById(entry.item_id)?.description || '' }}
+    </div>
   </div>
 
-  <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
-    <input v-model="newItemName" placeholder="物品名称" style="padding: 8px; flex: 2; min-width: 150px;" />
-    <input type="number" v-model.number="newItemQuantity" placeholder="数量" style="padding: 8px; width: 80px;" />
-    <button @click="addItem" style="padding: 8px 16px; background: #2196F3; color: white; border: none; cursor: pointer;">
-      添加物品
-    </button>
+  <!-- 临时测试：手动添加物品到背包（方便你现在测试，以后会改成只有 GM 能发） -->
+  <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ccc;">
+    <div style="font-size: 13px; color: #666; margin-bottom: 8px;">【临时测试】添加物品到背包（正式版会改成 GM 发放）：</div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <select v-model="testItemId" style="padding: 8px; min-width: 180px;">
+        <option value="">选择物品</option>
+        <option v-for="item in itemCatalog" :key="item.id" :value="item.id">
+          {{ item.name }}（{{ item.category }}）
+        </option>
+      </select>
+      <input type="number" v-model.number="testItemQty" min="1" style="padding: 8px; width: 70px;" placeholder="数量" />
+      <button @click="addTestItem" style="padding: 8px 16px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        添加到背包
+      </button>
+    </div>
   </div>
 </div>
 
