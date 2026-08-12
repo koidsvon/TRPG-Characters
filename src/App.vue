@@ -83,9 +83,17 @@ function getSubTypesByCategory(topCategory, midCategory) {
 
 // 根据中间分类名（如「刀剑」）和具体小类找物品
 // 数据库里 category 存的是「刀剑」「长枪」等
-function getItemsByCategoryAndSub(midCategory, subType) {
+function getItemsByCategoryAndSub(topCategory, midCategory, subType) {
+  if (topCategory === '武器') {
+    // 武器：数据库 category = 刀剑/长枪/... ，sub_type = 长剑/手枪/...
+    return itemCatalog.value.filter(i =>
+      i.category === midCategory && (i.sub_type || '未分类') === subType
+    )
+  }
+  // 素材 / 防具 / 物品 / 食物：
+  // 数据库 category = 素材/防具/... ，sub_type = Rarität/头盔/...
   return itemCatalog.value.filter(i =>
-    i.category === midCategory && (i.sub_type || '未分类') === subType
+    i.category === topCategory && (i.sub_type || '未分类') === subType
   )
 }
 
@@ -1227,11 +1235,11 @@ onUnmounted(() => {
 
             <!-- 第四层：具体物品 -->
             <div v-show="grantExpandedSubType === sub" style="background: #fafafa;">
-              <div v-if="getItemsByCategoryAndSub(mid, sub).length === 0"
+              <div v-if="getItemsByCategoryAndSub(top, mid, sub).length === 0"
                    style="padding: 4px 12px 4px 48px; font-size: 12px; color: #bbb;">
                 （暂无物品）
               </div>
-              <div v-for="item in getItemsByCategoryAndSub(mid, sub)" :key="item.id"
+              <div v-for="item in getItegetItemsByCategoryAndSub(top, mid, sub)msByCategoryAndSub(mid, sub)" :key="item.id"
                    @click.stop="selectGrantItem(item.id)"
                    style="padding: 5px 12px 5px 48px; cursor: pointer; border-bottom: 1px solid #f0f0f0; font-size: 13px;">
                 {{ item.name }}
