@@ -1236,14 +1236,14 @@ onUnmounted(() => {
             <!-- 第四层：具体物品 -->
             <div v-show="grantExpandedSubType === sub" style="background: #fafafa;">
               <div v-if="getItemsByCategoryAndSub(top, mid, sub).length === 0"
-                   style="padding: 4px 12px 4px 48px; font-size: 12px; color: #bbb;">
-                （暂无物品）
-              </div>
-              <div v-for="item in getItegetItemsByCategoryAndSub(top, mid, sub)msByCategoryAndSub(mid, sub)" :key="item.id"
-                   @click.stop="selectGrantItem(item.id)"
-                   style="padding: 5px 12px 5px 48px; cursor: pointer; border-bottom: 1px solid #f0f0f0; font-size: 13px;">
-                {{ item.name }}
-              </div>
+     style="padding: 4px 12px 4px 48px; font-size: 12px; color: #bbb;">
+  （暂无物品）
+</div>
+              <div v-for="item in getItemsByCategoryAndSub(top, mid, sub)" :key="item.id"
+     @click.stop="selectGrantItem(item.id)"
+     style="padding: 5px 12px 5px 48px; cursor: pointer; border-bottom: 1px solid #f0f0f0; font-size: 13px;">
+  {{ item.name }}
+</div>
             </div>
           </div>
         </div>
