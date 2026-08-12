@@ -1180,10 +1180,6 @@ onUnmounted(() => {
     <p style="margin-top: 30px; color: #c00;">{{ message }}</p>
   </div>
 
-  <button @click="openHandbook('room')" style="padding: 8px 14px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;">
-  查看员工手册
-</button>
-
   <!-- 角色列表页 -->
   <div v-else-if="page === 'room'" style="max-width: 800px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1304,19 +1300,19 @@ onUnmounted(() => {
   </div>
 
   <!-- 角色详情页 -->
-  <button @click="openHandbook('character')" style="padding: 8px 14px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;">
-  查看员工手册
-</button>
-  <div v-else-if="page === 'character'" style="max-width: 950px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <h1>扮演角色</h1>
-      <div>
-        <button @click="saveCharacter" :disabled="saving" style="padding: 8px 20px; background: #4CAF50; color: white; border: none; margin-right: 10px; cursor: pointer;">
-          {{ saving ? '保存中...' : '保存' }}
-        </button>
-        <button @click="backToRoom" style="padding: 8px 16px;">返回列表</button>
-      </div>
+<div v-else-if="page === 'character'" style="max-width: 950px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h1>扮演角色</h1>
+    <div>
+      <button @click="openHandbook('character')" style="padding: 8px 14px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">
+        查看员工手册
+      </button>
+      <button @click="saveCharacter" :disabled="saving" style="padding: 8px 20px; background: #4CAF50; color: white; border: none; margin-right: 10px; cursor: pointer;">
+        {{ saving ? '保存中...' : '保存' }}
+      </button>
+      <button @click="backToRoom" style="padding: 8px 16px;">返回列表</button>
     </div>
+  </div>
 
     <!-- 基础信息 -->
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
@@ -1557,7 +1553,7 @@ onUnmounted(() => {
   </div>
 </div>
 
-<<!-- 检定技能栏（可折叠） -->
+<!-- 检定技能栏（可折叠） -->
 <div style="margin: 30px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
   <div @click="skillsExpanded = !skillsExpanded"
        style="padding: 14px 18px; background: #f5f5f5; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;">
@@ -1987,131 +1983,7 @@ onUnmounted(() => {
     <textarea v-model="currentCharacter.notes" rows="4" style="width: 100%; padding: 8px; margin-top: 8px;" placeholder="临时状态、任务笔记等..."></textarea>
   </div>
 
-<!-- 员工手册 -->
-<div v-else-if="page === 'handbook'" style="max-width: 900px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <h1>解体熔炉 · 员工手册</h1>
-    <button @click="backFromHandbook" style="padding: 8px 16px;">
-      {{ handbookClass ? '返回手册' : '返回' }}
-    </button>
-  </div>
 
-  <!-- 职业详细介绍（点击职业名后显示） -->
-  <div v-if="handbookClass">
-    <h2>{{ handbookClass }}</h2>
-    <div v-if="classTemplates[handbookClass]" style="padding: 16px; background: #fafafa; border-radius: 8px; border: 1px solid #eee;">
-      <p style="color: #666;">{{ classTemplates[handbookClass].description || '暂无简介' }}</p>
-      <p><strong>主属性：</strong>{{ classTemplates[handbookClass].mainAttribute }}</p>
-      <p><strong>可装备：</strong>{{ classTemplates[handbookClass].equipment }}</p>
-      <p><strong>状态：</strong>{{ classTemplates[handbookClass].status || '待补' }}</p>
-
-      <div v-if="classTemplates[handbookClass].levelRewards?.length" style="margin-top: 16px;">
-        <strong>等级奖励：</strong>
-        <div v-for="(r, i) in classTemplates[handbookClass].levelRewards" :key="i"
-             style="margin: 10px 0; padding: 10px; background: white; border-radius: 6px; white-space: pre-line;">
-          <strong>LVL {{ r.level }}</strong><br />
-          {{ r.content }}
-        </div>
-      </div>
-
-      <div v-if="classTemplates[handbookClass].subclasses?.length" style="margin-top: 16px;">
-        <strong>子职：</strong>
-        <div v-for="(sub, i) in classTemplates[handbookClass].subclasses" :key="i"
-             style="margin: 8px 0; padding: 10px; background: white; border-left: 4px solid #9c27b0; border-radius: 4px; white-space: pre-line;">
-          <strong>{{ sub.name }}</strong><br />
-          {{ sub.desc }}
-        </div>
-      </div>
-    </div>
-    <div v-else style="padding: 20px; color: #888;">
-      「{{ handbookClass }}」职业详细数据待补。
-    </div>
-  </div>
-
-  <!-- 手册目录与正文 -->
-  <div v-else>
-    <p style="color: #666; margin-bottom: 24px;">Chapter I & II（先观察，再行动）</p>
-
-    <!-- Chapter I -->
-    <details open style="margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; padding: 12px 16px;">
-      <summary style="font-size: 18px; font-weight: bold; cursor: pointer;">Chapter I：工作概论 & 注意事项</summary>
-      <div style="margin-top: 12px; line-height: 1.7; color: #333;">
-        <p>21世纪，科技与神秘共存。本公司旨在解决影响人类日常生活的有害神秘——无论是神秘现象、空想种、邪教集团还是神秘犯罪者。</p>
-        <p><strong>工作内容：</strong></p>
-        <ol>
-          <li>维护本公司的利益</li>
-          <li>解决用户遇到的神秘事件</li>
-          <li>协助当地警方处理神秘相关案件</li>
-        </ol>
-        <p>请勿轻信所谓「革命」恐怖计划。发现可疑人员，请立即联系当地警方。</p>
-        <p style="color: #888; font-size: 14px;">—— 战火不会敲响丧钟，未知与恐惧会</p>
-      </div>
-    </details>
-
-    <!-- Chapter II -->
-    <details open style="margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; padding: 12px 16px;">
-      <summary style="font-size: 18px; font-weight: bold; cursor: pointer;">Chapter II：工作流程 & 模范示例</summary>
-      <div style="margin-top: 12px; line-height: 1.7; color: #333;">
-
-        <h3>可聘用职业</h3>
-        <p style="font-size: 14px; color: #666;">点击职业名可查看详细介绍（已完成的会显示等级与子职）</p>
-
-        <p><strong>近战型</strong></p>
-        <ul>
-          <li>
-            <a href="#" @click.prevent="openClassInHandbook('剑士')" style="color: #5c6bc0;">剑士（完）</a>
-            — 使用长剑的标准型。可使用 buff，以不同架势应对。
-            <ul>
-              <li><a href="#" @click.prevent="openClassInHandbook('剑士')" style="color: #9c27b0;">决斗者</a> — 刺剑子职</li>
-              <li><a href="#" @click.prevent="openClassInHandbook('剑士')" style="color: #9c27b0;">重剑士</a> — 大剑子职</li>
-            </ul>
-          </li>
-          <li><a href="#" @click.prevent="openClassInHandbook('长枪兵')" style="color: #5c6bc0;">长枪兵（补）</a> — AoE 攻击型，可使用 buff</li>
-          <li><a href="#" @click.prevent="openClassInHandbook('格斗家')" style="color: #5c6bc0;">格斗家（补）</a> — 近身拳法，可使用 buff</li>
-        </ul>
-
-        <p><strong>射手型</strong></p>
-        <ul>
-          <li><a href="#" @click.prevent="openClassInHandbook('射手')" style="color: #5c6bc0;">射手（施工）</a> — 多枪械远程，无法使用 buff</li>
-          <li><a href="#" @click.prevent="openClassInHandbook('狙击手')" style="color: #5c6bc0;">狙击手（补）</a></li>
-          <li><a href="#" @click.prevent="openClassInHandbook('指挥官')" style="color: #5c6bc0;">指挥官（补）</a></li>
-        </ul>
-
-        <p><strong>特化型</strong></p>
-        <ul>
-          <li><a href="#" @click.prevent="openClassInHandbook('斥候')" style="color: #5c6bc0;">斥候（补）</a></li>
-          <li><a href="#" @click.prevent="openClassInHandbook('处刑者')" style="color: #5c6bc0;">处刑者（补）</a></li>
-          <li><a href="#" @click.prevent="openClassInHandbook('赏金猎人')" style="color: #5c6bc0;">赏金猎人（完）</a> — 完成赏金任务激活报酬</li>
-        </ul>
-
-        <p><strong>魔术使</strong></p>
-        <ul>
-          <li><a href="#" @click.prevent="openClassInHandbook('魔术师')" style="color: #5c6bc0;">魔术师（完）</a> — Caster，魔导书 + 法杖</li>
-          <li><a href="#" @click.prevent="openClassInHandbook('术士')" style="color: #5c6bc0;">术士（补）</a></li>
-          <li><a href="#" @click.prevent="openClassInHandbook('萨满')" style="color: #5c6bc0;">萨满（补）</a></li>
-          <li><a href="#" @click.prevent="openClassInHandbook('Code Wizard')" style="color: #5c6bc0;">Code Wizard（补）</a></li>
-        </ul>
-
-        <h3>属性说明（摘要）</h3>
-        <ul>
-          <li>力量：1点 = 2 HP</li>
-          <li>智力：1点 = 1 魔力 + 0.5 RES</li>
-          <li>敏捷：1点 = 0.1 SPD</li>
-          <li>ATK = 默认ATK + 主属性/4（向下取整）+ 武器加值</li>
-          <li>检定技能默认值 4；主属性相关技能可加 主属性÷10</li>
-          <li>检定用 1d20：小于技能值成功，小于一半为困难成功</li>
-        </ul>
-
-        <h3>装备栏</h3>
-        <p>头盔 / 胸甲 / 护腿 · 主手 / 副手 · 背包 · 护身符（可使用 buff 的职业）</p>
-        <p>重型武器会占用副手。装备在装备栏的物品不占背包格。</p>
-
-        <h3>工作准则</h3>
-        <p><strong>先观察，再行动。</strong> 一回合内可：移动、使用一次 buff、使用一次道具、食用一次食物，最后发动一次攻击。</p>
-      </div>
-    </details>
-  </div>
-</div>
 
   <!-- 魔术表页面 -->
 <div v-else-if="page === 'magic'" style="max-width: 1000px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
@@ -2190,6 +2062,108 @@ onUnmounted(() => {
         <div style="font-size: 13px; margin-top: 6px; line-height: 1.5;">{{ b.desc }}</div>
       </div>
     </div>
+  </div>
+</div>
+<!-- 员工手册 -->
+<div v-else-if="page === 'handbook'" style="max-width: 900px; margin: 30px auto; font-family: sans-serif; padding: 0 20px 40px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h1>解体熔炉 · 员工手册</h1>
+    <button @click="backFromHandbook" style="padding: 8px 16px;">
+      {{ handbookClass ? '返回手册' : '返回' }}
+    </button>
+  </div>
+
+  <!-- 职业介绍 -->
+  <div v-if="handbookClass">
+    <h2>{{ handbookClass }}</h2>
+    <div v-if="classTemplates[handbookClass]" style="padding: 16px; background: #fafafa; border-radius: 8px; border: 1px solid #eee;">
+      <p style="color: #666;">{{ classTemplates[handbookClass].description || '暂无简介' }}</p>
+      <p><strong>主属性：</strong>{{ classTemplates[handbookClass].mainAttribute || '—' }}</p>
+      <p><strong>可装备：</strong>{{ classTemplates[handbookClass].equipment || '—' }}</p>
+
+      <div v-if="classTemplates[handbookClass].levelRewards && classTemplates[handbookClass].levelRewards.length" style="margin-top: 16px;">
+        <strong>等级奖励</strong>
+        <div v-for="(r, i) in classTemplates[handbookClass].levelRewards" :key="i"
+             style="margin: 10px 0; padding: 10px; background: white; border-radius: 6px; white-space: pre-line;">
+          <strong>LVL {{ r.level }}</strong>
+          <div>{{ r.content }}</div>
+        </div>
+      </div>
+
+      <div v-if="classTemplates[handbookClass].subclasses && classTemplates[handbookClass].subclasses.length" style="margin-top: 16px;">
+        <strong>子职</strong>
+        <div v-for="(sub, i) in classTemplates[handbookClass].subclasses" :key="i"
+             style="margin: 8px 0; padding: 10px; background: white; border-left: 4px solid #9c27b0; white-space: pre-line;">
+          <strong>{{ sub.name }}</strong>
+          <div>{{ sub.desc }}</div>
+        </div>
+      </div>
+    </div>
+    <div v-else style="padding: 20px; color: #888;">
+      「{{ handbookClass }}」职业详细数据待补。
+    </div>
+  </div>
+
+  <!-- 目录正文 -->
+  <div v-else>
+    <h2 style="border-bottom: 2px solid #5c6bc0; padding-bottom: 8px;">Chapter I：工作概论</h2>
+    <p>本公司旨在解决影响人类日常生活的有害神秘。工作内容包括：维护公司利益、解决神秘事件、协助警方处理神秘相关案件。</p>
+    <p>发现可疑人员请立即联系当地警方。工作准则：<strong>先观察，再行动。</strong></p>
+
+    <h2 style="border-bottom: 2px solid #5c6bc0; padding-bottom: 8px; margin-top: 32px;">Chapter II：工作流程</h2>
+    <p style="color: #666; font-size: 14px;">点击职业名可查看详细介绍</p>
+
+    <h3>近战型</h3>
+    <p>
+      <button type="button" @click="openClassInHandbook('剑士')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">剑士（完）</button>
+      — 长剑，可使用 buff。子职：决斗者、重剑士
+    </p>
+    <p>
+      <button type="button" @click="openClassInHandbook('长枪兵')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">长枪兵（补）</button>
+      — AoE，可使用 buff
+    </p>
+    <p>
+      <button type="button" @click="openClassInHandbook('格斗家')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">格斗家（补）</button>
+      — 近身拳法，可使用 buff
+    </p>
+
+    <h3>射手型</h3>
+    <p>
+      <button type="button" @click="openClassInHandbook('射手')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">射手（施工）</button>
+      ·
+      <button type="button" @click="openClassInHandbook('狙击手')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">狙击手（补）</button>
+      ·
+      <button type="button" @click="openClassInHandbook('指挥官')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">指挥官（补）</button>
+    </p>
+
+    <h3>特化型</h3>
+    <p>
+      <button type="button" @click="openClassInHandbook('斥候')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">斥候（补）</button>
+      ·
+      <button type="button" @click="openClassInHandbook('处刑者')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">处刑者（补）</button>
+      ·
+      <button type="button" @click="openClassInHandbook('赏金猎人')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">赏金猎人（完）</button>
+    </p>
+
+    <h3>魔术使</h3>
+    <p>
+      <button type="button" @click="openClassInHandbook('魔术师')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">魔术师（完）</button>
+      ·
+      <button type="button" @click="openClassInHandbook('术士')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">术士（补）</button>
+      ·
+      <button type="button" @click="openClassInHandbook('萨满')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">萨满（补）</button>
+      ·
+      <button type="button" @click="openClassInHandbook('Code Wizard')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">Code Wizard（补）</button>
+    </p>
+
+    <h3>属性与检定（摘要）</h3>
+    <p>力量 1点 = 2 HP　｜　智力 1点 = 1 魔力 + 0.5 RES　｜　敏捷 1点 = 0.1 SPD</p>
+    <p>ATK = 默认ATK + 主属性/4（向下取整）+ 武器加值</p>
+    <p>检定技能默认 4；主属性相关技能可加 主属性÷10。使用 1d20 判定。</p>
+
+    <h3>装备</h3>
+    <p>头盔 / 胸甲 / 护腿 · 主手 / 副手 · 背包 · 护身符（可使用 buff 的职业）</p>
+    <p>一回合可：移动、使用一次 buff、使用一次道具、食用一次食物，最后发动攻击。</p>
   </div>
 </div>
 </template>
