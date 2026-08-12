@@ -36,32 +36,77 @@ const grantQuantity = ref(1)
 const grantExpandedCategory = ref('')
 const grantExpandedSubType = ref('')
 
-const grantCategories = computed(() => {
-  const set = new Set(itemCatalog.value.map(i => i.category))
-  return Array.from(set).sort()
-})
-
-function getSubTypesByCategory(category) {
-  const set = new Set(
-    itemCatalog.value
-      .filter(i => i.category === category)
-      .map(i => i.sub_type || '未分类')
-  )
-  return Array.from(set).sort()
+// 固定分类树
+// 第一层：武器 / 防具 / 素材 / 物品 / 食物
+// 武器下面再分：刀剑、长枪、枪械、斧子、魔导用具、盾牌
+const categoryTree = {
+  '武器': {
+    '刀剑': ['长剑', '刺剑', '大剑', '匕首'],
+    '长枪': ['长枪', '骑枪'],
+    '枪械': ['手枪', '冲锋枪', '霰弹枪', '步枪', '狙击枪'],
+    '斧子': ['巨斧', '手斧'],
+    '魔导用具': ['魔杖', '活体魔导书', '硬册魔导书', '魔导键'],
+    '盾牌': ['长盾', '小盾']
+  },
+  '防具': {
+    '头盔': ['头盔'],
+    '胸甲': ['胸甲'],
+    '护腿': ['护腿']
+  },
+  '素材': {
+    '常见素材': ['常见素材'],
+    '稀有素材': ['稀有素材'],
+    'Rarität': ['Rarität']
+  },
+  '物品': {
+    '药物': ['药物'],
+    '军工': ['军工'],
+    '任务用品': ['任务用品'],
+    '其他': ['其他']
+  },
+  '食物': {
+    '食物': ['食物']
+  }
 }
 
-function getItemsByCategoryAndSub(category, subType) {
+const grantCategories = computed(() => Object.keys(categoryTree))
+
+const grantExpandedWeaponType = ref('')  // 武器下的第二层（刀剑/长枪等）
+
+function getWeaponTypes(topCategory) {
+  return Object.keys(categoryTree[topCategory] || {})
+}
+
+function getSubTypesByCategory(topCategory, midCategory) {
+  return (categoryTree[topCategory] && categoryTree[topCategory][midCategory]) || []
+}
+
+// 根据中间分类名（如「刀剑」）和具体小类找物品
+// 数据库里 category 存的是「刀剑」「长枪」等
+function getItemsByCategoryAndSub(midCategory, subType) {
   return itemCatalog.value.filter(i =>
-    i.category === category && (i.sub_type || '未分类') === subType
+    i.category === midCategory && (i.sub_type || '未分类') === subType
   )
 }
 
 function toggleGrantCategory(cat) {
   if (grantExpandedCategory.value === cat) {
     grantExpandedCategory.value = ''
+    grantExpandedWeaponType.value = ''
     grantExpandedSubType.value = ''
   } else {
     grantExpandedCategory.value = cat
+    grantExpandedWeaponType.value = ''
+    grantExpandedSubType.value = ''
+  }
+}
+
+function toggleGrantWeaponType(type) {
+  if (grantExpandedWeaponType.value === type) {
+    grantExpandedWeaponType.value = ''
+    grantExpandedSubType.value = ''
+  } else {
+    grantExpandedWeaponType.value = type
     grantExpandedSubType.value = ''
   }
 }
@@ -73,6 +118,7 @@ function toggleGrantSubType(sub) {
 function selectGrantItem(itemId) {
   grantItemId.value = itemId
   grantExpandedCategory.value = ''
+  grantExpandedWeaponType.value = ''
   grantExpandedSubType.value = ''
 }
 
@@ -1152,33 +1198,51 @@ onUnmounted(() => {
   </div>
 
   <!-- 未选择时显示分类树 -->
-  <div v-else style="margin-top: 6px; border: 1px solid #e0e0e0; border-radius: 6px; max-height: 320px; overflow-y: auto;">
-    <div v-for="cat in grantCategories" :key="cat">
-      <div @click="toggleGrantCategory(cat)"
-           style="padding: 8px 12px; background: #f5f5f5; cursor: pointer; display: flex; justify-content: space-between; border-bottom: 1px solid #eee; user-select: none;">
-        <span style="font-weight: 500;">{{ cat }}</span>
-        <span style="color: #888;">{{ grantExpandedCategory === cat ? '▲' : '▼' }}</span>
-      </div>
+  <div v-else style="margin-top: 6px; border: 1px solid #e0e0e0; border-radius: 6px; max-height: 360px; overflow-y: auto;">
+  <div v-for="top in grantCategories" :key="top">
+    <!-- 第一层：武器 / 防具 / 素材 ... -->
+    <div @click="toggleGrantCategory(top)"
+         style="padding: 8px 12px; background: #f5f5f5; cursor: pointer; display: flex; justify-content: space-between; border-bottom: 1px solid #eee; user-select: none;">
+      <span style="font-weight: 600;">{{ top }}</span>
+      <span style="color: #888;">{{ grantExpandedCategory === top ? '▲' : '▼' }}</span>
+    </div>
 
-      <div v-show="grantExpandedCategory === cat" style="background: #fafafa;">
-        <div v-for="sub in getSubTypesByCategory(cat)" :key="sub">
-          <div @click.stop="toggleGrantSubType(sub)"
-               style="padding: 6px 12px 6px 24px; cursor: pointer; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; font-size: 13px; color: #555; user-select: none;">
-            <span>{{ sub }}</span>
-            <span style="color: #aaa;">{{ grantExpandedSubType === sub ? '▲' : '▼' }}</span>
-          </div>
+    <div v-show="grantExpandedCategory === top" style="background: #fafafa;">
+      <!-- 第二层：刀剑 / 头盔 / 常见素材 ... -->
+      <div v-for="mid in getWeaponTypes(top)" :key="mid">
+        <div @click.stop="toggleGrantWeaponType(mid)"
+             style="padding: 6px 12px 6px 20px; cursor: pointer; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; font-size: 13px; color: #444; user-select: none;">
+          <span>{{ mid }}</span>
+          <span style="color: #aaa;">{{ grantExpandedWeaponType === mid ? '▲' : '▼' }}</span>
+        </div>
 
-          <div v-show="grantExpandedSubType === sub" style="background: #fff;">
-            <div v-for="item in getItemsByCategoryAndSub(cat, sub)" :key="item.id"
-                 @click.stop="selectGrantItem(item.id)"
-                 style="padding: 6px 12px 6px 40px; cursor: pointer; border-bottom: 1px solid #f5f5f5; font-size: 13px;">
-              {{ item.name }}
+        <div v-show="grantExpandedWeaponType === mid" style="background: #fff;">
+          <!-- 第三层：具体小类 -->
+          <div v-for="sub in getSubTypesByCategory(top, mid)" :key="sub">
+            <div @click.stop="toggleGrantSubType(sub)"
+                 style="padding: 5px 12px 5px 36px; cursor: pointer; display: flex; justify-content: space-between; border-bottom: 1px solid #f5f5f5; font-size: 12px; color: #666; user-select: none;">
+              <span>{{ sub }}</span>
+              <span style="color: #ccc;">{{ grantExpandedSubType === sub ? '▲' : '▼' }}</span>
+            </div>
+
+            <!-- 第四层：具体物品 -->
+            <div v-show="grantExpandedSubType === sub" style="background: #fafafa;">
+              <div v-if="getItemsByCategoryAndSub(mid, sub).length === 0"
+                   style="padding: 4px 12px 4px 48px; font-size: 12px; color: #bbb;">
+                （暂无物品）
+              </div>
+              <div v-for="item in getItemsByCategoryAndSub(mid, sub)" :key="item.id"
+                   @click.stop="selectGrantItem(item.id)"
+                   style="padding: 5px 12px 5px 48px; cursor: pointer; border-bottom: 1px solid #f0f0f0; font-size: 13px;">
+                {{ item.name }}
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
   </div>
+</div>
 </div>
     <div>
       <label style="font-size: 13px; color: #666;">数量</label><br />
