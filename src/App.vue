@@ -33,6 +33,48 @@ const showGrantPanel = ref(false)
 const grantTargetId = ref('')      // 目标角色 id
 const grantItemId = ref('')        // 要发放的物品 id
 const grantQuantity = ref(1)
+const grantExpandedCategory = ref('')
+const grantExpandedSubType = ref('')
+
+const grantCategories = computed(() => {
+  const set = new Set(itemCatalog.value.map(i => i.category))
+  return Array.from(set).sort()
+})
+
+function getSubTypesByCategory(category) {
+  const set = new Set(
+    itemCatalog.value
+      .filter(i => i.category === category)
+      .map(i => i.sub_type || '未分类')
+  )
+  return Array.from(set).sort()
+}
+
+function getItemsByCategoryAndSub(category, subType) {
+  return itemCatalog.value.filter(i =>
+    i.category === category && (i.sub_type || '未分类') === subType
+  )
+}
+
+function toggleGrantCategory(cat) {
+  if (grantExpandedCategory.value === cat) {
+    grantExpandedCategory.value = ''
+    grantExpandedSubType.value = ''
+  } else {
+    grantExpandedCategory.value = cat
+    grantExpandedSubType.value = ''
+  }
+}
+
+function toggleGrantSubType(sub) {
+  grantExpandedSubType.value = grantExpandedSubType.value === sub ? '' : sub
+}
+
+function selectGrantItem(itemId) {
+  grantItemId.value = itemId
+  grantExpandedCategory.value = ''
+  grantExpandedSubType.value = ''
+}
 
 async function grantItemToCharacter() {
   if (!isGM.value) {
@@ -89,6 +131,53 @@ async function grantItemToCharacter() {
     alert('发放失败：' + error.message)
     return
   }
+
+  const grantExpandedCategory = ref('')   // 当前展开的大类
+const grantExpandedSubType = ref('')    // 当前展开的小类
+
+// 获取所有大类（去重）
+const grantCategories = computed(() => {
+  const set = new Set(itemCatalog.value.map(i => i.category))
+  return Array.from(set).sort()
+})
+
+// 某个大类下的所有小类
+function getSubTypesByCategory(category) {
+  const set = new Set(
+    itemCatalog.value
+      .filter(i => i.category === category)
+      .map(i => i.sub_type || '未分类')
+  )
+  return Array.from(set).sort()
+}
+
+// 某个大类 + 小类下的物品
+function getItemsByCategoryAndSub(category, subType) {
+  return itemCatalog.value.filter(i =>
+    i.category === category && (i.sub_type || '未分类') === subType
+  )
+}
+
+function toggleGrantCategory(cat) {
+  if (grantExpandedCategory.value === cat) {
+    grantExpandedCategory.value = ''
+    grantExpandedSubType.value = ''
+  } else {
+    grantExpandedCategory.value = cat
+    grantExpandedSubType.value = ''
+  }
+}
+
+function toggleGrantSubType(sub) {
+  grantExpandedSubType.value = grantExpandedSubType.value === sub ? '' : sub
+}
+
+function selectGrantItem(itemId) {
+  grantItemId.value = itemId
+  // 选中后自动收起，保持界面简洁
+  grantExpandedCategory.value = ''
+  grantExpandedSubType.value = ''
+}
 
   // 如果当前正在查看这个角色，同步更新界面
   if (currentCharacter.value && currentCharacter.value.id === grantTargetId.value) {
