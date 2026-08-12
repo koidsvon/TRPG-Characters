@@ -1135,15 +1135,51 @@ onUnmounted(() => {
         </option>
       </select>
     </div>
-    <div>
-      <label style="font-size: 13px; color: #666;">物品</label><br />
-      <select v-model="grantItemId" style="padding: 8px; min-width: 180px;">
-        <option value="">选择物品</option>
-        <option v-for="item in itemCatalog" :key="item.id" :value="item.id">
-          {{ item.name }}（{{ item.category }}）
-        </option>
-      </select>
+   <div style="min-width: 260px; flex: 1;">
+  <label style="font-size: 13px; color: #666;">物品</label>
+
+  <!-- 已选中的物品显示 -->
+  <div v-if="grantItemId" style="margin-top: 6px; padding: 8px 10px; background: #fff8e1; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+    <span>
+      <strong>{{ getItemById(grantItemId)?.name }}</strong>
+      <span style="color: #888; margin-left: 6px; font-size: 13px;">
+        {{ getItemById(grantItemId)?.category }} · {{ getItemById(grantItemId)?.sub_type }}
+      </span>
+    </span>
+    <button @click="grantItemId = ''" style="padding: 2px 8px; font-size: 12px; background: #eee; border: none; border-radius: 4px; cursor: pointer;">
+      清除
+    </button>
+  </div>
+
+  <!-- 未选择时显示分类树 -->
+  <div v-else style="margin-top: 6px; border: 1px solid #e0e0e0; border-radius: 6px; max-height: 320px; overflow-y: auto;">
+    <div v-for="cat in grantCategories" :key="cat">
+      <div @click="toggleGrantCategory(cat)"
+           style="padding: 8px 12px; background: #f5f5f5; cursor: pointer; display: flex; justify-content: space-between; border-bottom: 1px solid #eee; user-select: none;">
+        <span style="font-weight: 500;">{{ cat }}</span>
+        <span style="color: #888;">{{ grantExpandedCategory === cat ? '▲' : '▼' }}</span>
+      </div>
+
+      <div v-show="grantExpandedCategory === cat" style="background: #fafafa;">
+        <div v-for="sub in getSubTypesByCategory(cat)" :key="sub">
+          <div @click.stop="toggleGrantSubType(sub)"
+               style="padding: 6px 12px 6px 24px; cursor: pointer; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; font-size: 13px; color: #555; user-select: none;">
+            <span>{{ sub }}</span>
+            <span style="color: #aaa;">{{ grantExpandedSubType === sub ? '▲' : '▼' }}</span>
+          </div>
+
+          <div v-show="grantExpandedSubType === sub" style="background: #fff;">
+            <div v-for="item in getItemsByCategoryAndSub(cat, sub)" :key="item.id"
+                 @click.stop="selectGrantItem(item.id)"
+                 style="padding: 6px 12px 6px 40px; cursor: pointer; border-bottom: 1px solid #f5f5f5; font-size: 13px;">
+              {{ item.name }}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+  </div>
+</div>
     <div>
       <label style="font-size: 13px; color: #666;">数量</label><br />
       <input type="number" v-model.number="grantQuantity" min="1" style="padding: 8px; width: 80px;" />
