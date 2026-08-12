@@ -868,12 +868,6 @@ function getEquippableItems(slot) {
     // 上面简单处理：部分主手物品也可副手（以后可再精细化）
 }
 
-// 装备物品到指定栏位
-function equipItem(slot, itemId) {
-  if (!currentCharacter.value?.inventory?.equipment) return
-  currentCharacter.value.inventory.equipment[slot] = itemId || null
-}
-
 // 卸下装备
 function unequipItem(slot) {
   if (!currentCharacter.value?.inventory?.equipment) return
