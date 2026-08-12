@@ -1016,7 +1016,19 @@ onUnmounted(() => {
     <p style="margin-top: 30px; color: #c00;">{{ message }}</p>
   </div>
 
-  <!-- GM 发放物品 -->
+  
+
+  <!-- 角色列表页 -->
+  <div v-else-if="page === 'room'" style="max-width: 800px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h1>{{ currentSession?.name }}</h1>
+        <p>房间码：<strong>{{ currentSession?.code }}</strong>　|　{{ isGM ? '你是 GM' : '你是玩家' }}</p>
+      </div>
+      <button @click="leaveRoom" style="padding: 8px 16px;">退出房间</button>
+    </div>
+    <hr style="margin: 20px 0;" />
+    <!-- GM 发放物品 -->
 <div v-if="isGM" style="margin: 20px 0; padding: 16px; background: #fff3e0; border: 1px solid #ffb74d; border-radius: 8px;">
   <div style="display: flex; justify-content: space-between; align-items: center;">
     <strong style="color: #e65100;">GM 功能：发放物品</strong>
@@ -1024,7 +1036,6 @@ onUnmounted(() => {
       {{ showGrantPanel ? '收起' : '打开' }}
     </button>
   </div>
-
   <div v-if="showGrantPanel" style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
     <div>
       <label style="font-size: 13px; color: #666;">目标角色</label><br />
@@ -1053,17 +1064,6 @@ onUnmounted(() => {
     </button>
   </div>
 </div>
-
-  <!-- 角色列表页 -->
-  <div v-else-if="page === 'room'" style="max-width: 800px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <div>
-        <h1>{{ currentSession?.name }}</h1>
-        <p>房间码：<strong>{{ currentSession?.code }}</strong>　|　{{ isGM ? '你是 GM' : '你是玩家' }}</p>
-      </div>
-      <button @click="leaveRoom" style="padding: 8px 16px;">退出房间</button>
-    </div>
-    <hr style="margin: 20px 0;" />
     <h2>角色列表</h2>
     <div v-if="characters.length === 0" style="color: #888; margin: 20px 0;">目前还没有角色，创建一个吧。</div>
     <div v-for="char in characters" :key="char.id" style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
