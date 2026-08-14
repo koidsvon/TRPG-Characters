@@ -5,6 +5,8 @@ import { supabase } from './supabase.js'
 // 页面状态：home / room / character / magic / buff
 const page = ref('home')
 
+const slotExpanded = ref('')  // 当前展开的栏位：helmet / chest / legs / amulet / backpack
+
 // 检定相关
 const skillsExpanded = ref(false)
 
@@ -1760,77 +1762,95 @@ onUnmounted(() => {
 </div>
 
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
-  <!-- 头盔 -->
-  <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
-    <label style="font-weight: bold;">头盔</label>
-    <div style="margin-top: 8px;">
-      <select
-        :value="currentCharacter.inventory.equipment.helmet || ''"
-        @change="equipItem('helmet', $event.target.value || null)"
-        style="width: 100%; padding: 8px;"
-      >
-        <option value="">— 未装备 —</option>
-        <option
-          v-for="entry in getEquippableItems('helmet')"
-          :key="entry.item_id"
-          :value="entry.item_id"
-        >
-          {{ entry.item.name }} ×{{ entry.quantity }}
-        </option>
-      </select>
-      <div v-if="getItemById(currentCharacter.inventory.equipment.helmet)" style="margin-top: 6px; font-size: 13px; color: #555;">
-        {{ getItemById(currentCharacter.inventory.equipment.helmet).name }}
+<!-- 头盔 -->
+<div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+  <label style="font-weight: bold;">头盔</label>
+  <div @click="slotExpanded = slotExpanded === 'helmet' ? '' : 'helmet'"
+       style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+    <span v-if="getItemById(currentCharacter.inventory.equipment.helmet)">
+      <strong>{{ getItemById(currentCharacter.inventory.equipment.helmet).name }}</strong>
+    </span>
+    <span v-else style="color: #999;">无物品</span>
+    <span style="color: #888; font-size: 13px;">{{ slotExpanded === 'helmet' ? '收起' : '选择' }}</span>
+  </div>
+  <div v-if="slotExpanded === 'helmet'" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; background: #fff;">
+    <div v-if="getOwnedCategories('helmet').length === 0" style="color: #bbb; font-size: 13px;">背包中没有可装备的头盔</div>
+    <div v-for="cat in getOwnedCategories('helmet')" :key="cat" style="margin-bottom: 8px;">
+      <div style="font-size: 13px; color: #666; margin-bottom: 4px;">{{ cat }}</div>
+      <div v-for="entry in getItemsByCategory('helmet', cat)" :key="entry.item_id"
+           @click="equipItem('helmet', entry.item_id); slotExpanded = ''"
+           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;">
+        <span>{{ entry.item.name }}</span>
+        <span style="color: #888;">×{{ entry.quantity }}</span>
       </div>
     </div>
+    <button v-if="currentCharacter.inventory.equipment.helmet"
+            @click="unequipItem('helmet'); slotExpanded = ''"
+            style="margin-top: 6px; padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+      卸下
+    </button>
   </div>
+</div>
 
-  <!-- 胸甲 -->
-  <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
-    <label style="font-weight: bold;">胸甲</label>
-    <div style="margin-top: 8px;">
-      <select
-        :value="currentCharacter.inventory.equipment.chest || ''"
-        @change="equipItem('chest', $event.target.value || null)"
-        style="width: 100%; padding: 8px;"
-      >
-        <option value="">— 未装备 —</option>
-        <option
-          v-for="entry in getEquippableItems('chest')"
-          :key="entry.item_id"
-          :value="entry.item_id"
-        >
-          {{ entry.item.name }} ×{{ entry.quantity }}
-        </option>
-      </select>
-      <div v-if="getItemById(currentCharacter.inventory.equipment.chest)" style="margin-top: 6px; font-size: 13px; color: #555;">
-        {{ getItemById(currentCharacter.inventory.equipment.chest).name }}
+<!-- 胸甲 -->
+<div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+  <label style="font-weight: bold;">胸甲</label>
+  <div @click="slotExpanded = slotExpanded === 'chest' ? '' : 'chest'"
+       style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+    <span v-if="getItemById(currentCharacter.inventory.equipment.chest)">
+      <strong>{{ getItemById(currentCharacter.inventory.equipment.chest).name }}</strong>
+    </span>
+    <span v-else style="color: #999;">无物品</span>
+    <span style="color: #888; font-size: 13px;">{{ slotExpanded === 'chest' ? '收起' : '选择' }}</span>
+  </div>
+  <div v-if="slotExpanded === 'chest'" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; background: #fff;">
+    <div v-if="getOwnedCategories('chest').length === 0" style="color: #bbb; font-size: 13px;">背包中没有可装备的胸甲</div>
+    <div v-for="cat in getOwnedCategories('chest')" :key="cat" style="margin-bottom: 8px;">
+      <div style="font-size: 13px; color: #666; margin-bottom: 4px;">{{ cat }}</div>
+      <div v-for="entry in getItemsByCategory('chest', cat)" :key="entry.item_id"
+           @click="equipItem('chest', entry.item_id); slotExpanded = ''"
+           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;">
+        <span>{{ entry.item.name }}</span>
+        <span style="color: #888;">×{{ entry.quantity }}</span>
       </div>
     </div>
+    <button v-if="currentCharacter.inventory.equipment.chest"
+            @click="unequipItem('chest'); slotExpanded = ''"
+            style="margin-top: 6px; padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+      卸下
+    </button>
   </div>
+</div>
 
-  <!-- 护腿 -->
-  <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
-    <label style="font-weight: bold;">护腿</label>
-    <div style="margin-top: 8px;">
-      <select
-        :value="currentCharacter.inventory.equipment.legs || ''"
-        @change="equipItem('legs', $event.target.value || null)"
-        style="width: 100%; padding: 8px;"
-      >
-        <option value="">— 未装备 —</option>
-        <option
-          v-for="entry in getEquippableItems('legs')"
-          :key="entry.item_id"
-          :value="entry.item_id"
-        >
-          {{ entry.item.name }} ×{{ entry.quantity }}
-        </option>
-      </select>
-      <div v-if="getItemById(currentCharacter.inventory.equipment.legs)" style="margin-top: 6px; font-size: 13px; color: #555;">
-        {{ getItemById(currentCharacter.inventory.equipment.legs).name }}
+<!-- 护腿 -->
+<div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+  <label style="font-weight: bold;">护腿</label>
+  <div @click="slotExpanded = slotExpanded === 'legs' ? '' : 'legs'"
+       style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+    <span v-if="getItemById(currentCharacter.inventory.equipment.legs)">
+      <strong>{{ getItemById(currentCharacter.inventory.equipment.legs).name }}</strong>
+    </span>
+    <span v-else style="color: #999;">无物品</span>
+    <span style="color: #888; font-size: 13px;">{{ slotExpanded === 'legs' ? '收起' : '选择' }}</span>
+  </div>
+  <div v-if="slotExpanded === 'legs'" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; background: #fff;">
+    <div v-if="getOwnedCategories('legs').length === 0" style="color: #bbb; font-size: 13px;">背包中没有可装备的护腿</div>
+    <div v-for="cat in getOwnedCategories('legs')" :key="cat" style="margin-bottom: 8px;">
+      <div style="font-size: 13px; color: #666; margin-bottom: 4px;">{{ cat }}</div>
+      <div v-for="entry in getItemsByCategory('legs', cat)" :key="entry.item_id"
+           @click="equipItem('legs', entry.item_id); slotExpanded = ''"
+           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;">
+        <span>{{ entry.item.name }}</span>
+        <span style="color: #888;">×{{ entry.quantity }}</span>
       </div>
     </div>
+    <button v-if="currentCharacter.inventory.equipment.legs"
+            @click="unequipItem('legs'); slotExpanded = ''"
+            style="margin-top: 6px; padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+      卸下
+    </button>
   </div>
+</div>
 
 <!-- 主手栏 -->
 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
@@ -1909,51 +1929,62 @@ onUnmounted(() => {
 </div>
 
   <!-- 护身符（仅可使用 buff 的职业） -->
-  <div v-if="currentClassInfo && currentClassInfo.canUseBuff" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
-    <label style="font-weight: bold;">护身符</label>
-    <div style="margin-top: 8px;">
-      <select
-        :value="currentCharacter.inventory.equipment.amulet || ''"
-        @change="equipItem('amulet', $event.target.value || null)"
-        style="width: 100%; padding: 8px;"
-      >
-        <option value="">— 未装备 —</option>
-        <option
-          v-for="entry in getEquippableItems('amulet')"
-          :key="entry.item_id"
-          :value="entry.item_id"
-        >
-          {{ entry.item.name }} ×{{ entry.quantity }}
-        </option>
-      </select>
-      <div v-if="getItemById(currentCharacter.inventory.equipment.amulet)" style="margin-top: 6px; font-size: 13px; color: #555;">
-        {{ getItemById(currentCharacter.inventory.equipment.amulet).name }}
-      </div>
-    </div>
+<div v-if="currentClassInfo && currentClassInfo.canUseBuff" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+  <label style="font-weight: bold;">护身符</label>
+  <div @click="slotExpanded = slotExpanded === 'amulet' ? '' : 'amulet'"
+       style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+    <span v-if="getItemById(currentCharacter.inventory.equipment.amulet)">
+      <strong>{{ getItemById(currentCharacter.inventory.equipment.amulet).name }}</strong>
+    </span>
+    <span v-else style="color: #999;">无物品</span>
+    <span style="color: #888; font-size: 13px;">{{ slotExpanded === 'amulet' ? '收起' : '选择' }}</span>
   </div>
-
-  <!-- 背包（装备位） -->
-  <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
-    <label style="font-weight: bold;">背包</label>
-    <div style="margin-top: 8px;">
-      <select
-        :value="currentCharacter.inventory.equipment.backpack || ''"
-        @change="equipItem('backpack', $event.target.value || null)"
-        style="width: 100%; padding: 8px;"
-      >
-        <option value="">— 未装备 —</option>
-        <option
-          v-for="entry in getEquippableItems('backpack')"
-          :key="entry.item_id"
-          :value="entry.item_id"
-        >
-          {{ entry.item.name }} ×{{ entry.quantity }}
-        </option>
-      </select>
-      <div v-if="getItemById(currentCharacter.inventory.equipment.backpack)" style="margin-top: 6px; font-size: 13px; color: #555;">
-        {{ getItemById(currentCharacter.inventory.equipment.backpack).name }}
+  <div v-if="slotExpanded === 'amulet'" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; background: #fff;">
+    <div v-if="getOwnedCategories('amulet').length === 0" style="color: #bbb; font-size: 13px;">背包中没有可装备的护身符</div>
+    <div v-for="cat in getOwnedCategories('amulet')" :key="cat" style="margin-bottom: 8px;">
+      <div style="font-size: 13px; color: #666; margin-bottom: 4px;">{{ cat }}</div>
+      <div v-for="entry in getItemsByCategory('amulet', cat)" :key="entry.item_id"
+           @click="equipItem('amulet', entry.item_id); slotExpanded = ''"
+           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;">
+        <span>{{ entry.item.name }}</span>
+        <span style="color: #888;">×{{ entry.quantity }}</span>
       </div>
     </div>
+    <button v-if="currentCharacter.inventory.equipment.amulet"
+            @click="unequipItem('amulet'); slotExpanded = ''"
+            style="margin-top: 6px; padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+      卸下
+    </button>
+  </div>
+</div>
+
+<!-- 背包（装备位） -->
+<div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+  <label style="font-weight: bold;">背包</label>
+  <div @click="slotExpanded = slotExpanded === 'backpack' ? '' : 'backpack'"
+       style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+    <span v-if="getItemById(currentCharacter.inventory.equipment.backpack)">
+      <strong>{{ getItemById(currentCharacter.inventory.equipment.backpack).name }}</strong>
+    </span>
+    <span v-else style="color: #999;">无物品</span>
+    <span style="color: #888; font-size: 13px;">{{ slotExpanded === 'backpack' ? '收起' : '选择' }}</span>
+  </div>
+  <div v-if="slotExpanded === 'backpack'" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; background: #fff;">
+    <div v-if="getOwnedCategories('backpack').length === 0" style="color: #bbb; font-size: 13px;">背包中没有可装备的背包</div>
+    <div v-for="cat in getOwnedCategories('backpack')" :key="cat" style="margin-bottom: 8px;">
+      <div style="font-size: 13px; color: #666; margin-bottom: 4px;">{{ cat }}</div>
+      <div v-for="entry in getItemsByCategory('backpack', cat)" :key="entry.item_id"
+           @click="equipItem('backpack', entry.item_id); slotExpanded = ''"
+           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;">
+        <span>{{ entry.item.name }}</span>
+        <span style="color: #888;">×{{ entry.quantity }}</span>
+      </div>
+    </div>
+    <button v-if="currentCharacter.inventory.equipment.backpack"
+            @click="unequipItem('backpack'); slotExpanded = ''"
+            style="margin-top: 6px; padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+      卸下
+    </button>
   </div>
 </div>
 
