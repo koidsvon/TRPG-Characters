@@ -51,6 +51,48 @@ const newPlayerName = ref('')
 const currentCharacter = ref(null)
 const saving = ref(false)
 
+const backpackCapacity = computed(() => {
+  if (!currentCharacter.value?.inventory?.equipment) return 5
+  const bpId = currentCharacter.value.inventory.equipment.backpack
+  if (!bpId) return 5
+  const item = getItemById(bpId)
+  return (item && item.capacity > 0) ? item.capacity : 5
+})
+
+const overweightCapacity = computed(() => {
+  if (!currentCharacter.value?.inventory?.equipment) return 0
+  const bpId = currentCharacter.value.inventory.equipment.backpack
+  if (!bpId) return 0
+  const item = getItemById(bpId)
+  return (item && item.overweight_capacity) ? item.overweight_capacity : 0
+})
+
+const backpackUsed = computed(() => {
+  if (!currentCharacter.value?.inventory?.items) return 0
+  let total = 0
+  for (const entry of currentCharacter.value.inventory.items) {
+    const item = getItemById(entry.item_id)
+    const per = (item && item.slots) ? item.slots : 1
+    total += per * (entry.quantity || 1)
+  }
+  return total
+})
+
+// 正常格占用（不超过容量）
+const normalUsed = computed(() => Math.min(backpackUsed.value, backpackCapacity.value))
+
+// 超重格占用
+const overweightUsed = computed(() => Math.max(0, backpackUsed.value - backpackCapacity.value))
+
+// 总可装：正常 + 超重
+const totalCapacity = computed(() => backpackCapacity.value + overweightCapacity.value)
+
+function canFitItem(itemId, quantity = 1) {
+  const item = getItemById(itemId)
+  const need = ((item && item.slots) ? item.slots : 1) * quantity
+  return backpackUsed.value + need <= totalCapacity.value
+}
+
 // GM 发放物品相关
 const showGrantPanel = ref(false)
 const grantTargetId = ref('')      // 目标角色 id
@@ -197,6 +239,26 @@ async function grantItemToCharacter() {
       quantity: qty
     })
   }
+
+const bpId = inv.equipment?.backpack
+const bpItem = bpId ? itemCatalog.value.find(i => i.id === bpId) : null
+const capacity = (bpItem && bpItem.capacity > 0) ? bpItem.capacity : 5
+const overCap = (bpItem && bpItem.overweight_capacity) ? bpItem.overweight_capacity : 0
+const totalCap = capacity + overCap
+
+let used = 0
+for (const entry of inv.items) {
+  const it = itemCatalog.value.find(i => i.id === entry.item_id)
+  used += ((it && it.slots) ? it.slots : 1) * (entry.quantity || 1)
+}
+
+const grantItem = itemCatalog.value.find(i => i.id === grantItemId.value)
+const need = ((grantItem && grantItem.slots) ? grantItem.slots : 1) * qty
+
+if (used + need > totalCap) {
+  alert(`空间不足：需要 ${need} 格，剩余 ${totalCap - used} 格（含超重格）`)
+  return
+}
 
   // 保存到数据库
   const { error } = await supabase
@@ -1991,6 +2053,25 @@ onUnmounted(() => {
 
 <!-- 物品栏（背包内） -->
 <h2>物品栏（背包内）</h2>
+<div style="margin-bottom: 12px; padding: 10px 14px; background: #f5f5f5; border-radius: 6px; font-size: 14px; line-height: 1.6;">
+  <div>
+    背包格：
+    <strong>{{ normalUsed }}</strong> / {{ backpackCapacity }}
+    <span v-if="!currentCharacter.inventory.equipment.backpack" style="color: #888; font-size: 12px; margin-left: 6px;">
+      （未装备背包，默认 5 格）
+    </span>
+  </div>
+  <div>
+    超重格：
+    <strong :style="{ color: overweightUsed > 0 ? '#e65100' : '#333' }">
+      {{ overweightUsed }}
+    </strong>
+    / {{ overweightCapacity }}
+    <span v-if="overweightUsed > 0" style="color: #e65100; font-size: 12px; margin-left: 6px;">
+      （超重中，SPD 将受惩罚）
+    </span>
+  </div>
+</div>
 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 15px 0;">
   <div v-if="!currentCharacter.inventory?.items || currentCharacter.inventory.items.length === 0" style="color: #888; margin-bottom: 15px;">
     目前没有物品（需要 GM 发放后才会出现）
