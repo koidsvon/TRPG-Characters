@@ -14,6 +14,55 @@ const skillsExpanded = ref(false)
 const itemCatalog = ref([])          
 const loadingItems = ref(false)
 
+// 物品种类迷你图标
+// 武器：按大类（category）
+// 防具/素材/物品：按小类（sub_type）
+// 食物：统一一个
+const itemTypeIcons = {
+  // ===== 武器（大类）=====
+  '刀剑': '/items/刀剑.png',
+  '长枪': '/items/长枪.png',
+  '斧子': '/items/斧子.png',
+  '枪械': '/items/枪械.png',
+  '魔导用具': '/items/魔导用具.png',
+  '盾牌': '/items/盾牌.png',
+
+  // ===== 防具（小类）=====
+  '头盔': '/items/头盔.png',
+  '胸甲': '/items/胸甲.png',
+  '护腿': '/items/护腿.png',
+  '背包': '/items/背包.png',
+
+  // ===== 素材（小类）=====
+  '常见素材': '/items/常见素材.png',
+  '稀有素材': '/items/稀有素材.png',
+  'Rarität': '/items/罕世遗物.png',   // 文件名可按你实际命名改
+
+  // ===== 物品（小类）=====
+  '药物': '/items/药物.png',
+  '军工': '/items/军工.png',
+  '任务用品': '/items/任务用品.png',
+  '其他': '/items/其他.png',
+
+  // ===== 食物 =====
+  '食物': '/items/食物.png',
+}
+
+function getItemIcon(item) {
+  if (!item) return ''
+  // 先匹配小类（头盔、药物、Rarität 等）
+  if (item.sub_type && itemTypeIcons[item.sub_type]) {
+    return itemTypeIcons[item.sub_type]
+  }
+  // 再匹配大类（刀剑、枪械、食物等）
+  if (item.category && itemTypeIcons[item.category]) {
+    return itemTypeIcons[item.category]
+  }
+  // 物品单独指定的 icon（可选）
+  if (item.icon) return item.icon
+  return ''
+}
+
 // 房间相关
 const roomName = ref('')
 const gmPassword = ref('')
@@ -1830,7 +1879,12 @@ onUnmounted(() => {
   <label style="font-weight: bold;">头盔</label>
   <div @click="slotExpanded = slotExpanded === 'helmet' ? '' : 'helmet'"
        style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-    <span v-if="getItemById(currentCharacter.inventory.equipment.helmet)">
+    <span v-if="getItemById(currentCharacter.inventory.equipment.helmet)" style="display: flex; align-items: center; gap: 6px;">
+      <img
+        v-if="getItemIcon(getItemById(currentCharacter.inventory.equipment.helmet))"
+        :src="getItemIcon(getItemById(currentCharacter.inventory.equipment.helmet))"
+        style="width: 32px; height: 32px; image-rendering: pixelated;"
+      />
       <strong>{{ getItemById(currentCharacter.inventory.equipment.helmet).name }}</strong>
     </span>
     <span v-else style="color: #999;">无物品</span>
@@ -1842,8 +1896,15 @@ onUnmounted(() => {
       <div style="font-size: 13px; color: #666; margin-bottom: 4px;">{{ cat }}</div>
       <div v-for="entry in getItemsByCategory('helmet', cat)" :key="entry.item_id"
            @click="equipItem('helmet', entry.item_id); slotExpanded = ''"
-           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;">
-        <span>{{ entry.item.name }}</span>
+           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+        <span style="display: flex; align-items: center; gap: 6px;">
+          <img
+            v-if="getItemIcon(entry.item)"
+            :src="getItemIcon(entry.item)"
+            style="width: 24px; height: 24px; image-rendering: pixelated;"
+          />
+          {{ entry.item.name }}
+        </span>
         <span style="color: #888;">×{{ entry.quantity }}</span>
       </div>
     </div>
@@ -1860,7 +1921,12 @@ onUnmounted(() => {
   <label style="font-weight: bold;">胸甲</label>
   <div @click="slotExpanded = slotExpanded === 'chest' ? '' : 'chest'"
        style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-    <span v-if="getItemById(currentCharacter.inventory.equipment.chest)">
+    <span v-if="getItemById(currentCharacter.inventory.equipment.chest)" style="display: flex; align-items: center; gap: 6px;">
+      <img
+        v-if="getItemIcon(getItemById(currentCharacter.inventory.equipment.chest))"
+        :src="getItemIcon(getItemById(currentCharacter.inventory.equipment.chest))"
+        style="width: 32px; height: 32px; image-rendering: pixelated;"
+      />
       <strong>{{ getItemById(currentCharacter.inventory.equipment.chest).name }}</strong>
     </span>
     <span v-else style="color: #999;">无物品</span>
@@ -1872,8 +1938,11 @@ onUnmounted(() => {
       <div style="font-size: 13px; color: #666; margin-bottom: 4px;">{{ cat }}</div>
       <div v-for="entry in getItemsByCategory('chest', cat)" :key="entry.item_id"
            @click="equipItem('chest', entry.item_id); slotExpanded = ''"
-           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;">
-        <span>{{ entry.item.name }}</span>
+           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+        <span style="display: flex; align-items: center; gap: 6px;">
+          <img v-if="getItemIcon(entry.item)" :src="getItemIcon(entry.item)" style="width: 24px; height: 24px; image-rendering: pixelated;" />
+          {{ entry.item.name }}
+        </span>
         <span style="color: #888;">×{{ entry.quantity }}</span>
       </div>
     </div>
@@ -1890,7 +1959,12 @@ onUnmounted(() => {
   <label style="font-weight: bold;">护腿</label>
   <div @click="slotExpanded = slotExpanded === 'legs' ? '' : 'legs'"
        style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-    <span v-if="getItemById(currentCharacter.inventory.equipment.legs)">
+    <span v-if="getItemById(currentCharacter.inventory.equipment.legs)" style="display: flex; align-items: center; gap: 6px;">
+      <img
+        v-if="getItemIcon(getItemById(currentCharacter.inventory.equipment.legs))"
+        :src="getItemIcon(getItemById(currentCharacter.inventory.equipment.legs))"
+        style="width: 32px; height: 32px; image-rendering: pixelated;"
+      />
       <strong>{{ getItemById(currentCharacter.inventory.equipment.legs).name }}</strong>
     </span>
     <span v-else style="color: #999;">无物品</span>
@@ -1902,8 +1976,11 @@ onUnmounted(() => {
       <div style="font-size: 13px; color: #666; margin-bottom: 4px;">{{ cat }}</div>
       <div v-for="entry in getItemsByCategory('legs', cat)" :key="entry.item_id"
            @click="equipItem('legs', entry.item_id); slotExpanded = ''"
-           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;">
-        <span>{{ entry.item.name }}</span>
+           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+        <span style="display: flex; align-items: center; gap: 6px;">
+          <img v-if="getItemIcon(entry.item)" :src="getItemIcon(entry.item)" style="width: 24px; height: 24px; image-rendering: pixelated;" />
+          {{ entry.item.name }}
+        </span>
         <span style="color: #888;">×{{ entry.quantity }}</span>
       </div>
     </div>
@@ -1918,34 +1995,36 @@ onUnmounted(() => {
 <!-- 主手栏 -->
 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
   <label style="font-weight: bold;">主手栏</label>
-
-  <!-- 未装备 / 已装备 显示 -->
   <div @click="mainHandExpanded = !mainHandExpanded"
        style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-    <span v-if="getItemById(currentCharacter.inventory.equipment.mainHand)">
-      <strong>{{ getItemById(currentCharacter.inventory.equipment.mainHand).name }}</strong>
-      <span style="color: #888; margin-left: 6px;">{{ getItemById(currentCharacter.inventory.equipment.mainHand).category }}</span>
+    <span v-if="getItemById(currentCharacter.inventory.equipment.mainHand)" style="display: flex; align-items: center; gap: 6px;">
+      <img
+        v-if="getItemIcon(getItemById(currentCharacter.inventory.equipment.mainHand))"
+        :src="getItemIcon(getItemById(currentCharacter.inventory.equipment.mainHand))"
+        style="width: 32px; height: 32px; image-rendering: pixelated;"
+      />
+      <span>
+        <strong>{{ getItemById(currentCharacter.inventory.equipment.mainHand).name }}</strong>
+        <span style="color: #888; margin-left: 6px;">{{ getItemById(currentCharacter.inventory.equipment.mainHand).category }}</span>
+      </span>
     </span>
     <span v-else style="color: #999;">无物品</span>
     <span style="color: #888; font-size: 13px;">{{ mainHandExpanded ? '收起' : '选择' }}</span>
   </div>
-
-  <!-- 选择面板（点击后才出现） -->
   <div v-if="mainHandExpanded" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; background: #fff;">
-    <div v-if="getOwnedCategories('mainHand').length === 0" style="color: #bbb; font-size: 13px;">
-      背包中没有可装备的主手物品
-    </div>
-
+    <div v-if="getOwnedCategories('mainHand').length === 0" style="color: #bbb; font-size: 13px;">背包中没有可装备的主手物品</div>
     <div v-for="cat in getOwnedCategories('mainHand')" :key="cat" style="margin-bottom: 8px;">
       <div style="font-size: 13px; color: #666; margin-bottom: 4px;">{{ cat }}</div>
       <div v-for="entry in getItemsByCategory('mainHand', cat)" :key="entry.item_id"
            @click="equipItem('mainHand', entry.item_id); mainHandExpanded = false"
-           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;">
-        <span>{{ entry.item.name }}</span>
+           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+        <span style="display: flex; align-items: center; gap: 6px;">
+          <img v-if="getItemIcon(entry.item)" :src="getItemIcon(entry.item)" style="width: 24px; height: 24px; image-rendering: pixelated;" />
+          {{ entry.item.name }}
+        </span>
         <span style="color: #888;">×{{ entry.quantity }}</span>
       </div>
     </div>
-
     <button v-if="currentCharacter.inventory.equipment.mainHand"
             @click="unequipItem('mainHand'); mainHandExpanded = false"
             style="margin-top: 6px; padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
@@ -1957,32 +2036,36 @@ onUnmounted(() => {
 <!-- 副手栏 -->
 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
   <label style="font-weight: bold;">副手栏</label>
-
   <div @click="offHandExpanded = !offHandExpanded"
        style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-    <span v-if="getItemById(currentCharacter.inventory.equipment.offHand)">
-      <strong>{{ getItemById(currentCharacter.inventory.equipment.offHand).name }}</strong>
-      <span style="color: #888; margin-left: 6px;">{{ getItemById(currentCharacter.inventory.equipment.offHand).category }}</span>
+    <span v-if="getItemById(currentCharacter.inventory.equipment.offHand)" style="display: flex; align-items: center; gap: 6px;">
+      <img
+        v-if="getItemIcon(getItemById(currentCharacter.inventory.equipment.offHand))"
+        :src="getItemIcon(getItemById(currentCharacter.inventory.equipment.offHand))"
+        style="width: 32px; height: 32px; image-rendering: pixelated;"
+      />
+      <span>
+        <strong>{{ getItemById(currentCharacter.inventory.equipment.offHand).name }}</strong>
+        <span style="color: #888; margin-left: 6px;">{{ getItemById(currentCharacter.inventory.equipment.offHand).category }}</span>
+      </span>
     </span>
     <span v-else style="color: #999;">无物品</span>
     <span style="color: #888; font-size: 13px;">{{ offHandExpanded ? '收起' : '选择' }}</span>
   </div>
-
   <div v-if="offHandExpanded" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; background: #fff;">
-    <div v-if="getOwnedCategories('offHand').length === 0" style="color: #bbb; font-size: 13px;">
-      背包中没有可装备的副手物品
-    </div>
-
+    <div v-if="getOwnedCategories('offHand').length === 0" style="color: #bbb; font-size: 13px;">背包中没有可装备的副手物品</div>
     <div v-for="cat in getOwnedCategories('offHand')" :key="cat" style="margin-bottom: 8px;">
       <div style="font-size: 13px; color: #666; margin-bottom: 4px;">{{ cat }}</div>
       <div v-for="entry in getItemsByCategory('offHand', cat)" :key="entry.item_id"
            @click="equipItem('offHand', entry.item_id); offHandExpanded = false"
-           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;">
-        <span>{{ entry.item.name }}</span>
+           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+        <span style="display: flex; align-items: center; gap: 6px;">
+          <img v-if="getItemIcon(entry.item)" :src="getItemIcon(entry.item)" style="width: 24px; height: 24px; image-rendering: pixelated;" />
+          {{ entry.item.name }}
+        </span>
         <span style="color: #888;">×{{ entry.quantity }}</span>
       </div>
     </div>
-
     <button v-if="currentCharacter.inventory.equipment.offHand"
             @click="unequipItem('offHand'); offHandExpanded = false"
             style="margin-top: 6px; padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
@@ -1991,12 +2074,17 @@ onUnmounted(() => {
   </div>
 </div>
 
-  <!-- 护身符（仅可使用 buff 的职业） -->
+<!-- 护身符 -->
 <div v-if="currentClassInfo && currentClassInfo.canUseBuff" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
   <label style="font-weight: bold;">护身符</label>
   <div @click="slotExpanded = slotExpanded === 'amulet' ? '' : 'amulet'"
        style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-    <span v-if="getItemById(currentCharacter.inventory.equipment.amulet)">
+    <span v-if="getItemById(currentCharacter.inventory.equipment.amulet)" style="display: flex; align-items: center; gap: 6px;">
+      <img
+        v-if="getItemIcon(getItemById(currentCharacter.inventory.equipment.amulet))"
+        :src="getItemIcon(getItemById(currentCharacter.inventory.equipment.amulet))"
+        style="width: 32px; height: 32px; image-rendering: pixelated;"
+      />
       <strong>{{ getItemById(currentCharacter.inventory.equipment.amulet).name }}</strong>
     </span>
     <span v-else style="color: #999;">无物品</span>
@@ -2008,8 +2096,11 @@ onUnmounted(() => {
       <div style="font-size: 13px; color: #666; margin-bottom: 4px;">{{ cat }}</div>
       <div v-for="entry in getItemsByCategory('amulet', cat)" :key="entry.item_id"
            @click="equipItem('amulet', entry.item_id); slotExpanded = ''"
-           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;">
-        <span>{{ entry.item.name }}</span>
+           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+        <span style="display: flex; align-items: center; gap: 6px;">
+          <img v-if="getItemIcon(entry.item)" :src="getItemIcon(entry.item)" style="width: 24px; height: 24px; image-rendering: pixelated;" />
+          {{ entry.item.name }}
+        </span>
         <span style="color: #888;">×{{ entry.quantity }}</span>
       </div>
     </div>
@@ -2026,7 +2117,12 @@ onUnmounted(() => {
   <label style="font-weight: bold;">背包</label>
   <div @click="slotExpanded = slotExpanded === 'backpack' ? '' : 'backpack'"
        style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-    <span v-if="getItemById(currentCharacter.inventory.equipment.backpack)">
+    <span v-if="getItemById(currentCharacter.inventory.equipment.backpack)" style="display: flex; align-items: center; gap: 6px;">
+      <img
+        v-if="getItemIcon(getItemById(currentCharacter.inventory.equipment.backpack))"
+        :src="getItemIcon(getItemById(currentCharacter.inventory.equipment.backpack))"
+        style="width: 32px; height: 32px; image-rendering: pixelated;"
+      />
       <strong>{{ getItemById(currentCharacter.inventory.equipment.backpack).name }}</strong>
     </span>
     <span v-else style="color: #999;">无物品</span>
@@ -2038,8 +2134,11 @@ onUnmounted(() => {
       <div style="font-size: 13px; color: #666; margin-bottom: 4px;">{{ cat }}</div>
       <div v-for="entry in getItemsByCategory('backpack', cat)" :key="entry.item_id"
            @click="equipItem('backpack', entry.item_id); slotExpanded = ''"
-           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between;">
-        <span>{{ entry.item.name }}</span>
+           style="padding: 6px 8px; margin-bottom: 4px; background: #f5f5f5; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+        <span style="display: flex; align-items: center; gap: 6px;">
+          <img v-if="getItemIcon(entry.item)" :src="getItemIcon(entry.item)" style="width: 24px; height: 24px; image-rendering: pixelated;" />
+          {{ entry.item.name }}
+        </span>
         <span style="color: #888;">×{{ entry.quantity }}</span>
       </div>
     </div>
@@ -2050,10 +2149,10 @@ onUnmounted(() => {
     </button>
   </div>
 </div>
-</div>
 
 <!-- 物品栏（背包内） -->
 <h2>物品栏（背包内）</h2>
+
 <div style="margin-bottom: 12px; padding: 10px 14px; background: #f5f5f5; border-radius: 6px; font-size: 14px; line-height: 1.6;">
   <div>
     背包格：
@@ -2071,6 +2170,36 @@ onUnmounted(() => {
     <span v-if="overweightUsed > 0" style="color: #e65100; font-size: 12px; margin-left: 6px;">
       （超重中，SPD 将受惩罚）
     </span>
+  </div>
+</div>
+
+<div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 15px 0;">
+  <div v-if="!currentCharacter.inventory?.items || currentCharacter.inventory.items.length === 0" style="color: #888; margin-bottom: 15px;">
+    目前没有物品（需要 GM 发放后才会出现）
+  </div>
+
+  <div v-for="(entry, index) in currentCharacter.inventory.items" :key="entry.id || index"
+       style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <img
+        v-if="getItemIcon(getItemById(entry.item_id))"
+        :src="getItemIcon(getItemById(entry.item_id))"
+        style="width: 32px; height: 32px; image-rendering: pixelated; flex-shrink: 0;"
+      />
+      <div>
+        <strong>{{ getItemById(entry.item_id)?.name || '未知物品' }}</strong>
+        <span style="color: #666; margin-left: 8px;">× {{ entry.quantity }}</span>
+        <span v-if="getItemById(entry.item_id)" style="color: #999; margin-left: 8px; font-size: 13px;">
+          （{{ getItemById(entry.item_id).category }} · {{ getItemById(entry.item_id).sub_type }}）
+        </span>
+        <div style="font-size: 12px; color: #aaa; margin-top: 2px;">
+          占用 {{ ((getItemById(entry.item_id)?.slots) || 1) * (entry.quantity || 1) }} 格
+        </div>
+      </div>
+    </div>
+    <div style="font-size: 13px; color: #888; max-width: 40%; text-align: right;">
+      {{ getItemById(entry.item_id)?.description || '' }}
+    </div>
   </div>
 </div>
 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 15px 0;">
