@@ -2149,6 +2149,7 @@ onUnmounted(() => {
     </button>
   </div>
 </div>
+</div>
 
 <!-- 物品栏（背包内） -->
 <h2>物品栏（背包内）</h2>
@@ -2202,30 +2203,10 @@ onUnmounted(() => {
     </div>
   </div>
 </div>
-<div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 15px 0;">
-  <div v-if="!currentCharacter.inventory?.items || currentCharacter.inventory.items.length === 0" style="color: #888; margin-bottom: 15px;">
-    目前没有物品（需要 GM 发放后才会出现）
-  </div>
 
-  <div v-for="(entry, index) in currentCharacter.inventory.items" :key="entry.id || index"
-       style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee;">
-    <div>
-      <strong>{{ getItemById(entry.item_id)?.name || '未知物品' }}</strong>
-      <span style="color: #666; margin-left: 8px;">× {{ entry.quantity }}</span>
-      <span v-if="getItemById(entry.item_id)" style="color: #999; margin-left: 8px; font-size: 13px;">
-        （{{ getItemById(entry.item_id).category }} · {{ getItemById(entry.item_id).sub_type }}）
-      </span>
-    </div>
-    <div style="font-size: 13px; color: #888;">
-      {{ getItemById(entry.item_id)?.description || '' }}
-    </div>
-  </div>
+<h2>备注 / 讯息栏</h2>
+<textarea v-model="currentCharacter.notes" rows="4" style="width: 100%; padding: 8px; margin-top: 8px;" placeholder="临时状态、任务笔记等..."></textarea>
 </div>
-
-    <h2>备注 / 讯息栏</h2>
-    <textarea v-model="currentCharacter.notes" rows="4" style="width: 100%; padding: 8px; margin-top: 8px;" placeholder="临时状态、任务笔记等..."></textarea>
-  </div>
-
 
 
   <!-- 魔术表页面 -->
