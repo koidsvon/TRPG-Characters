@@ -1374,6 +1374,52 @@ function openMagicTable() {
   page.value = 'magic'
 }
 
+function addMagicSpell(spell, volumeTitle) {
+  if (!currentCharacter.value) {
+    alert('请先从角色页进入魔术表')
+    return
+  }
+  if (!spell || !spell.name) {
+    alert('无效的魔术数据')
+    return
+  }
+  if (!currentCharacter.value.learnedMagic) {
+    currentCharacter.value.learnedMagic = []
+  }
+  const list = currentCharacter.value.learnedMagic
+  if (list.some(m => m.name === spell.name)) {
+    alert('已经学会该魔术')
+    return
+  }
+  let cap = 2
+  try {
+    cap = magicCollectionCapacity.value || 2
+  } catch (e) {
+    cap = 2
+  }
+  if (list.length >= cap) {
+    alert('魔术收藏已满（' + cap + ' 格）')
+    return
+  }
+  if (!confirm('确认学习魔术「' + spell.name + '」？')) {
+    return
+  }
+  list.push({
+    name: spell.name,
+    type: spell.type || '',
+    desc: spell.desc || '',
+    volume: volumeTitle || ''
+  })
+  currentCharacter.value.learnedMagic = list
+  alert('已添加：' + spell.name)
+}
+
+function removeMagicSpell(index) {
+  if (!currentCharacter.value?.learnedMagic) return
+  if (!confirm('确认移除？')) return
+  currentCharacter.value.learnedMagic.splice(index, 1)
+}
+
 function openBuffTable() {
   page.value = 'buff'
 }
