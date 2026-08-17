@@ -59,6 +59,27 @@ const heroSkillList = [
   { name: '弓穿独霞，彷徨之心', desc: '每次射击时获得2层特殊状态“待机”10层后清除“待机”状态，并且接下来的三回合内每回合可以额外发动一次攻击，额外攻击时投掷判定点数+2。射击时还可以造成暴击，暴击范围为投掷判定结果为10' },
 ]
 
+function isPassiveIReward(r) {
+  const t = r?.content || ''
+  // 避免「被动页II」被当成 I
+  return (t.includes('被动页I') || t.includes('被动I')) && !t.includes('被动页II') && !t.includes('被动II') && !t.includes('被动页III')
+}
+
+function isPassiveIIReward(r) {
+  const t = r?.content || ''
+  return t.includes('被动页II') || t.includes('被动II')
+}
+
+function isPassiveIIIReward(r) {
+  const t = r?.content || ''
+  return t.includes('被动页III') || t.includes('被动III')
+}
+
+function isHeroReward(r) {
+  const t = r?.content || ''
+  return t.includes('英雄技能') || t.includes('英名铭刻')
+}
+
 // 所有物品库
 const itemCatalog = ref([])          
 const loadingItems = ref(false)
@@ -1599,127 +1620,108 @@ onUnmounted(() => {
     </div>
 
     <!-- 职业介绍卡片 -->
-    <div v-if="currentClassInfo" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 10px; padding: 20px; margin-bottom: 30px;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h2 style="margin: 0;">{{ currentClassInfo.name }}</h2>
-        <span v-if="currentClassInfo.status === '待补' || currentClassInfo.status === '施工中'"
-              style="background: #ff9800; color: white; padding: 4px 10px; border-radius: 4px; font-size: 13px;">
-          {{ currentClassInfo.status }}
-        </span>
-        <span v-else-if="currentClassInfo.status === '完'"
-              style="background: #4CAF50; color: white; padding: 4px 10px; border-radius: 4px; font-size: 13px;">
-          已完成
-        </span>
-      </div>
+<div v-if="currentClassInfo" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 10px; padding: 20px; margin-bottom: 30px;">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h2 style="margin: 0;">{{ currentClassInfo.name }}</h2>
+    <span v-if="currentClassInfo.status === '待补' || currentClassInfo.status === '施工中'"
+          style="background: #ff9800; color: white; padding: 4px 10px; border-radius: 4px; font-size: 13px;">
+      {{ currentClassInfo.status }}
+    </span>
+    <span v-else-if="currentClassInfo.status === '完'"
+          style="background: #4CAF50; color: white; padding: 4px 10px; border-radius: 4px; font-size: 13px;">
+      已完成
+    </span>
+  </div>
+  <p style="color: #555; line-height: 1.6; margin-top: 12px;">{{ currentClassInfo.description }}</p>
 
-      <p style="color: #555; line-height: 1.6; margin-top: 12px;">{{ currentClassInfo.description }}</p>
+  <template v-if="currentClassInfo.status === '完'">
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 15px 0; font-size: 14px;">
+      <div><strong>主属性：</strong>{{ currentClassInfo.mainAttribute }}</div>
+      <div><strong>可使用Buff：</strong>{{ currentClassInfo.canUseBuff ? '是' : '否' }}</div>
+      <div><strong>初始ATK：</strong>{{ currentClassInfo.initialATK }}</div>
+      <div><strong>初始SPD：</strong>{{ currentClassInfo.initialSPD }}</div>
+      <div><strong>初始RES：</strong>{{ currentClassInfo.initialRES }}</div>
+      <div><strong>初始DEF：</strong>{{ currentClassInfo.initialDEF }}</div>
+      <div><strong>初始移动格：</strong>{{ currentClassInfo.initialMove }}</div>
+      <div><strong>初始PP：</strong>{{ currentClassInfo.initialPP }}</div>
+    </div>
+    <p style="font-size: 14px;"><strong>属性要求：</strong>{{ currentClassInfo.attributeRequirement }}</p>
+    <p style="font-size: 14px;"><strong>可分配属性点：</strong>{{ currentClassInfo.allocatablePoints }}</p>
+    <p style="font-size: 14px;"><strong>职业精通：</strong>{{ currentClassInfo.proficiency }}</p>
+    <p style="font-size: 14px;"><strong>装备权限：</strong>{{ currentClassInfo.equipment }}</p>
 
-      <!-- 已完成职业显示详细信息 -->
-      <template v-if="currentClassInfo.status === '完'">
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 15px 0; font-size: 14px;">
-          <div><strong>主属性：</strong>{{ currentClassInfo.mainAttribute }}</div>
-          <div><strong>可使用Buff：</strong>{{ currentClassInfo.canUseBuff ? '是' : '否' }}</div>
-          <div><strong>初始ATK：</strong>{{ currentClassInfo.initialATK }}</div>
-          <div><strong>初始SPD：</strong>{{ currentClassInfo.initialSPD }}</div>
-          <div><strong>初始RES：</strong>{{ currentClassInfo.initialRES }}</div>
-          <div><strong>初始DEF：</strong>{{ currentClassInfo.initialDEF }}</div>
-          <div><strong>初始移动格：</strong>{{ currentClassInfo.initialMove }}</div>
-          <div><strong>初始PP：</strong>{{ currentClassInfo.initialPP }}</div>
+    <!-- 等级奖励表 -->
+    <div v-if="currentClassInfo.levelRewards && currentClassInfo.levelRewards.length" style="margin-top: 20px;">
+      <strong>等级奖励：</strong>
+      <div v-for="r in currentClassInfo.levelRewards" :key="r.level"
+           style="margin: 10px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #2196F3;">
+        <strong>LVL {{ r.level }}</strong>
+        <div style="white-space: pre-line; font-size: 14px; margin-top: 4px;">{{ r.content }}</div>
+        <div style="margin-top: 8px;">
+          <button v-if="isPassiveIReward(r)" type="button" @click="openPassivePage('I')"
+                  style="padding: 4px 10px; margin-right: 6px; font-size: 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;">选择被动 I</button>
+          <button v-if="isPassiveIIReward(r)" type="button" @click="openPassivePage('II')"
+                  style="padding: 4px 10px; margin-right: 6px; font-size: 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;">选择被动 II</button>
+          <button v-if="isPassiveIIIReward(r)" type="button" @click="openPassivePage('III')"
+                  style="padding: 4px 10px; margin-right: 6px; font-size: 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;">选择被动 III</button>
+          <button v-if="isHeroReward(r)" type="button" @click="openHeroPage()"
+                  style="padding: 4px 10px; font-size: 12px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">选择英雄技能</button>
         </div>
+      </div>
+    </div>
 
-        <p style="font-size: 14px;"><strong>属性要求：</strong>{{ currentClassInfo.attributeRequirement }}</p>
-        <p style="font-size: 14px;"><strong>可分配属性点：</strong>{{ currentClassInfo.allocatablePoints }}</p>
-        <p style="font-size: 14px;"><strong>职业精通：</strong>{{ currentClassInfo.proficiency }}</p>
-        <p style="font-size: 14px;"><strong>装备权限：</strong>{{ currentClassInfo.equipment }}</p>
+    <!-- 赏金猎人专属报酬 -->
+    <div v-if="currentClassInfo.rewards" style="margin-top: 20px;">
+      <strong>赏金猎人的报酬：</strong>
+      <div style="margin-top: 10px;">
+        <div style="font-weight: bold; color: #4CAF50; margin-bottom: 6px;">永久报酬</div>
+        <div v-for="(r, i) in currentClassInfo.rewards.permanent" :key="'p'+i"
+             style="margin: 6px 0; padding: 8px; background: white; border-radius: 4px; font-size: 14px;">
+          <strong>{{ r.name }}</strong>：{{ r.desc }}
+        </div>
+        <div style="font-weight: bold; color: #ff9800; margin: 12px 0 6px;">临时报酬（单场战斗）</div>
+        <div v-for="(r, i) in currentClassInfo.rewards.temporary" :key="'t'+i"
+             style="margin: 6px 0; padding: 8px; background: white; border-radius: 4px; font-size: 14px;">
+          <strong>{{ r.name }}</strong>：{{ r.desc }}
+        </div>
+      </div>
+    </div>
 
-        <!-- 等级奖励表 -->
-        <div v-if="currentClassInfo.levelRewards && currentClassInfo.levelRewards.length" style="margin-top: 20px;">
-          <strong>等级奖励：</strong>
-          <div v-for="r in currentClassInfo.levelRewards" :key="r.level"
-     style="margin: 10px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #2196F3;">
-  <strong>LVL {{ r.level }}</strong>
-  <div style="white-space: pre-line; font-size: 14px; margin-top: 4px;">{{ r.content }}</div>
+    <!-- 架势 -->
+    <div v-if="currentClassInfo.stances && currentClassInfo.stances.length" style="margin-top: 15px;">
+      <strong>架势：</strong>
+      <ul style="margin: 8px 0; padding-left: 20px; font-size: 14px;">
+        <li v-for="(s, i) in currentClassInfo.stances" :key="i" style="margin-bottom: 8px;">
+          <strong>{{ s.name }}</strong>：{{ s.desc }}
+        </li>
+      </ul>
+    </div>
+  </template>
 
-  <!-- 根据奖励文字显示跳转 -->
-  <div style="margin-top: 8px;">
-    <button v-if="r.content && r.content.includes('被动页I')"
-            type="button" @click="openPassivePage('I')"
-            style="padding: 4px 10px; margin-right: 6px; font-size: 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      选择被动 I
+  <div v-else style="margin-top: 15px; padding: 15px; background: #fff3e0; border-radius: 6px; color: #e65100;">
+    该职业详细数据尚未补全，敬请期待。
+  </div>
+
+  <div v-if="currentClassInfo.subclasses && currentClassInfo.subclasses.length" style="margin-top: 20px;">
+    <strong>可转职子职：</strong>
+    <div v-for="(sub, i) in currentClassInfo.subclasses" :key="i"
+         style="margin: 8px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #9c27b0;">
+      <strong>{{ sub.name }}</strong>
+      <div style="font-size: 14px; margin-top: 4px; color: #555; white-space: pre-line;">{{ sub.desc }}</div>
+    </div>
+  </div>
+
+  <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+    <button v-if="currentClassInfo.canUseBuff" @click="openBuffTable"
+            style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      查看 Buff 表
     </button>
-    <button v-if="r.content && r.content.includes('被动页II')"
-            type="button" @click="openPassivePage('II')"
-            style="padding: 4px 10px; margin-right: 6px; font-size: 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      选择被动 II
-    </button>
-    <button v-if="r.content && r.content.includes('被动页III')"
-            type="button" @click="openPassivePage('III')"
-            style="padding: 4px 10px; margin-right: 6px; font-size: 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      选择被动 III
-    </button>
-    <button v-if="r.content && (r.content.includes('英雄技能') || r.content.includes('英名铭刻'))"
-            type="button" @click="openHeroPage()"
-            style="padding: 4px 10px; font-size: 12px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      选择英雄技能
+    <button v-if="currentCharacter.class_name === '魔术师'" @click="openMagicTable"
+            style="padding: 8px 16px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      查看魔术表
     </button>
   </div>
 </div>
-        </div>
-
-        <!-- 赏金猎人专属报酬 -->
-        <div v-if="currentClassInfo.rewards" style="margin-top: 20px;">
-          <strong>赏金猎人的报酬：</strong>
-          <div style="margin-top: 10px;">
-            <div style="font-weight: bold; color: #4CAF50; margin-bottom: 6px;">永久报酬</div>
-            <div v-for="(r, i) in currentClassInfo.rewards.permanent" :key="'p'+i"
-                 style="margin: 6px 0; padding: 8px; background: white; border-radius: 4px; font-size: 14px;">
-              <strong>{{ r.name }}</strong>：{{ r.desc }}
-            </div>
-            <div style="font-weight: bold; color: #ff9800; margin: 12px 0 6px;">临时报酬（单场战斗）</div>
-            <div v-for="(r, i) in currentClassInfo.rewards.temporary" :key="'t'+i"
-                 style="margin: 6px 0; padding: 8px; background: white; border-radius: 4px; font-size: 14px;">
-              <strong>{{ r.name }}</strong>：{{ r.desc }}
-            </div>
-          </div>
-        </div>
-
-        <!-- 架势 -->
-        <div v-if="currentClassInfo.stances && currentClassInfo.stances.length" style="margin-top: 15px;">
-          <strong>架势：</strong>
-          <ul style="margin: 8px 0; padding-left: 20px; font-size: 14px;">
-            <li v-for="(s, i) in currentClassInfo.stances" :key="i" style="margin-bottom: 8px;">
-              <strong>{{ s.name }}</strong>：{{ s.desc }}
-            </li>
-          </ul>
-        </div>
-      </template>
-
-      <!-- 待补职业只显示提示 -->
-      <div v-else style="margin-top: 15px; padding: 15px; background: #fff3e0; border-radius: 6px; color: #e65100;">
-        该职业详细数据尚未补全，敬请期待。
-      </div>
-
-      <!-- 子职显示（所有职业通用） -->
-      <div v-if="currentClassInfo.subclasses && currentClassInfo.subclasses.length" style="margin-top: 20px;">
-        <strong>可转职子职：</strong>
-        <div v-for="(sub, i) in currentClassInfo.subclasses" :key="i"
-             style="margin: 8px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #9c27b0;">
-          <strong>{{ sub.name }}</strong>
-          <div style="font-size: 14px; margin-top: 4px; color: #555; white-space: pre-line;">{{ sub.desc }}</div>
-        </div>
-      </div>
-
-      <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-        <button v-if="currentClassInfo.canUseBuff" @click="openBuffTable"
-                style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
-          查看 Buff 表
-        </button>
-        <button v-if="currentCharacter.class_name === '魔术师'" @click="openMagicTable"
-                style="padding: 8px 16px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
-          查看魔术表
-        </button>
-      </div>
-    </div>
 
     <!-- 核心属性 -->
 <h2>核心属性</h2>
