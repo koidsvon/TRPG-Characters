@@ -10,6 +10,55 @@ const slotExpanded = ref('')  // 当前展开的栏位：helmet / chest / legs /
 // 检定相关
 const skillsExpanded = ref(false)
 
+const passiveSkillList = {
+  I: [
+    { name: '学院派', desc: 'ATK+5 HP+5 DEF+3 RES+3' },
+    { name: '鲁莽射击', desc: '使用枪械攻击时每次将消耗双倍子弹，同时每次射击时获得一次优势' },
+    { name: '练金术I', desc: '战斗中获得的PP+10%' },
+    { name: '深呼吸', desc: '遭受异常状态时将会回复10%的HP。' },
+    { name: '重型装备爱好者', desc: '使用重型武器时总伤害+6。重型枪械现在可以进行近战攻击，距离0格，伤害为射击的一半' },
+    { name: '奸商', desc: '在任意商店购物时享有9折优惠，若1d12≥8则提升至8折优惠' },
+    { name: '过劳', desc: '现在在剩余施法点不足以使用需求更多的魔术时，可以正常使用。' },
+    { name: '训练', desc: '每次长休时可以选择通过锻炼永久+1ATK' },
+    { name: '应战号应', desc: '复数敌人同时以你为目标时，DEF+5 造成的伤害总值+5' },
+    { name: '重热量', desc: '获得等同于DEF的额外ATK（最大30）减少同等SPD（最大30）' },
+    { name: '肌！肉！', desc: '在背包的超重格被使用时，不再减少移动格，同时ATK+10' },
+  ],
+  II: [
+    { name: '激昂', desc: 'DEF减半，获得等同于全额DEF的额外HP' },
+    { name: '灼热化', desc: '每2次近战攻击后，下一次攻击还会额外造成一次等同于本次攻击造成的税前伤害的魔术伤害（枪械无效）' },
+    { name: '练金术II', desc: '战斗中获得的PP+20% 若同时具备练金术I则变为30%' },
+    { name: '霸臣的食桌', desc: '在战斗中进食将会在本次战斗中+25HP最大值。每场战斗限一次' },
+    { name: '不择手段', desc: '当背包里“普通”稀有度的素材大于10个时，主手的武器ATK加值变为1.5倍' },
+    { name: '超越计算', desc: '每次使用buff时可以在本次战斗中获得2点永久智力' },
+    { name: '奔流', desc: '造成近战伤害时，如果判定百分比≥8，则可以再攻击一次' },
+    { name: '战略视野', desc: '跳过自己的第一个回合，为所有友军赋予2次优势' },
+    { name: '剑戟怒涛', desc: '对同一名敌人每造成伤害就能获得3点速度直到该敌人死亡。同时只有一名敌人能触发此效果，若中途改变目标也会清零' },
+    { name: '鱼民的祝福', desc: '在水边环境战斗时，SPD+6。每回合结束时回复10HP' },
+    { name: '精灵加护', desc: '受到伤害时，若敌人的投掷判定结果≥8则伤害总值额外减少8点' },
+  ],
+  III: [
+    { name: '拟似铁心', desc: '免疫一切精神异常。每次成功免疫精神异常时获得一次优势' },
+    { name: '贰天壹流', desc: '现在可以同时装备并使用两把武器(刺剑,长剑,长枪,手斧,匕首,手枪,冲锋枪)只有主武器可以触发武器技能' },
+    { name: '练金术III', desc: '战斗后获得的PP+30% 若同时具备练金术I和II则变为+60%' },
+    { name: '刺杀机-再', desc: '战斗中造成近战伤害后可以使用手枪进行一次奖励射击（若有的话）' },
+    { name: '暗剑', desc: '位于敌人身后发动攻击时，暴击伤害+300%' },
+    { name: '埋伏', desc: '使用枪械时可以放弃本回合的攻击，下回合对同一目标造成双倍伤害同时判定百分比+2，总伤害+10' },
+    { name: '写影身画鬼', desc: '使用魔术或巫毒术后，下一回合一个影子将会对同样的目标使用一次效果减半的相同术式，无视距离。若目标死亡则无效' },
+    { name: '高速思考', desc: '魔术的魔力消耗减半（向上取整）' },
+    { name: '冲刺', desc: '攻击后可以选择是否移动两格' },
+    { name: '毅力', desc: '受到致命伤时余留一点HP。限一次' },
+    { name: '亡灵之舞', desc: '每次受到攻击时，敌人的投掷判定结果+1（不影响总值）ATK+8，本场战斗中每击杀一名敌人额外+10' },
+  ],
+}
+
+const heroSkillList = [
+  { name: '不动铁心', desc: '每回合减少10层精神异常的层数。暴击触发范围+2 暴击伤害提升至300%' },
+  { name: '未踏军神之路', desc: 'ATK+30 EVA+20 RES+20 DEF-20 如果周围12格内有队友则失效' },
+  { name: '落文-春夏秋冬题', desc: '每个自己的第一二个回合开始时，为自己以及周围5格内的友军回复14点HP。第三四个回合效果变为赋予自己以及友军一次优势同时ATK+14。结束后循环' },
+  { name: '弓穿独霞，彷徨之心', desc: '每次射击时获得2层特殊状态“待机”10层后清除“待机”状态，并且接下来的三回合内每回合可以额外发动一次攻击，额外攻击时投掷判定点数+2。射击时还可以造成暴击，暴击范围为投掷判定结果为10' },
+]
+
 // 所有物品库
 const itemCatalog = ref([])          
 const loadingItems = ref(false)
@@ -91,6 +140,37 @@ function backFromHandbook() {
 
 function openClassInHandbook(className) {
   handbookClass.value = className
+}
+
+const skillPageTab = ref('I')
+
+function openPassivePage(tab = 'I') {
+  skillPageTab.value = tab
+  page.value = 'passive'
+}
+
+function openHeroPage() {
+  page.value = 'hero'
+}
+
+function addAbilitySkill(tier, skill) {
+  if (!currentCharacter.value) return
+  if (!currentCharacter.value.abilitySkills) {
+    currentCharacter.value.abilitySkills = { I: [], II: [], III: [], hero: [] }
+  }
+  const list = currentCharacter.value.abilitySkills[tier]
+  if (list.some(s => s.name === skill.name)) {
+    alert('已经拥有该技能')
+    return
+  }
+  if (!confirm(`确认添加技能「${skill.name}」？`)) return
+  list.push({ name: skill.name, desc: skill.desc })
+  alert('已添加')
+}
+
+function removeAbilitySkill(tier, index) {
+  if (!confirm('确认移除该技能？')) return
+  currentCharacter.value.abilitySkills[tier].splice(index, 1)
 }
 
 // 角色相关
@@ -1081,6 +1161,17 @@ function enterCharacter(char) {
     }
   }
 
+if (!charCopy.abilitySkills) {
+  charCopy.abilitySkills = { I: [], II: [], III: [], hero: [] }
+} else {
+  charCopy.abilitySkills = {
+    I: charCopy.abilitySkills.I || [],
+    II: charCopy.abilitySkills.II || [],
+    III: charCopy.abilitySkills.III || [],
+    hero: charCopy.abilitySkills.hero || [],
+  }
+}
+
   currentCharacter.value = charCopy
   page.value = 'character'
 }
@@ -1119,6 +1210,7 @@ async function saveCharacter() {
       player_name: currentCharacter.value.player_name,
       class_name: currentCharacter.value.class_name,
       level: currentCharacter.value.level,
+      ability_skills: currentCharacter.value.abilitySkills,
       strength: currentCharacter.value.strength,
       intelligence: currentCharacter.value.intelligence,
       agility: currentCharacter.value.agility,
@@ -1516,10 +1608,34 @@ onUnmounted(() => {
         <div v-if="currentClassInfo.levelRewards && currentClassInfo.levelRewards.length" style="margin-top: 20px;">
           <strong>等级奖励：</strong>
           <div v-for="r in currentClassInfo.levelRewards" :key="r.level"
-               style="margin: 10px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #2196F3;">
-            <strong>LVL {{ r.level }}</strong>
-            <div style="white-space: pre-line; font-size: 14px; margin-top: 4px;">{{ r.content }}</div>
-          </div>
+     style="margin: 10px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #2196F3;">
+  <strong>LVL {{ r.level }}</strong>
+  <div style="white-space: pre-line; font-size: 14px; margin-top: 4px;">{{ r.content }}</div>
+
+  <!-- 根据奖励文字显示跳转 -->
+  <div style="margin-top: 8px;">
+    <button v-if="r.content && r.content.includes('被动页I')"
+            type="button" @click="openPassivePage('I')"
+            style="padding: 4px 10px; margin-right: 6px; font-size: 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      选择被动 I
+    </button>
+    <button v-if="r.content && r.content.includes('被动页II')"
+            type="button" @click="openPassivePage('II')"
+            style="padding: 4px 10px; margin-right: 6px; font-size: 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      选择被动 II
+    </button>
+    <button v-if="r.content && r.content.includes('被动页III')"
+            type="button" @click="openPassivePage('III')"
+            style="padding: 4px 10px; margin-right: 6px; font-size: 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      选择被动 III
+    </button>
+    <button v-if="r.content && (r.content.includes('英雄技能') || r.content.includes('英名铭刻'))"
+            type="button" @click="openHeroPage()"
+            style="padding: 4px 10px; font-size: 12px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      选择英雄技能
+    </button>
+  </div>
+</div>
         </div>
 
         <!-- 赏金猎人专属报酬 -->
@@ -1676,6 +1792,41 @@ onUnmounted(() => {
       {{ skillsExpanded ? '▲ 收起' : '▼ 展开' }}
     </span>
   </div>
+
+  <h2>被动技能 / 英雄技能</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+  <div v-for="tier in ['I','II','III']" :key="tier" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <strong>被动 {{ tier }}</strong>
+      <button type="button" @click="openPassivePage(tier)" style="font-size: 12px; padding: 4px 8px; cursor: pointer;">去选择</button>
+    </div>
+    <div v-if="!(currentCharacter.abilitySkills?.[tier]?.length)" style="color: #999; font-size: 13px;">未选择</div>
+    <div v-for="(s, i) in (currentCharacter.abilitySkills?.[tier] || [])" :key="s.name"
+         style="margin: 6px 0; padding: 8px; background: #fafafa; border-radius: 4px; font-size: 13px;">
+      <div style="display: flex; justify-content: space-between;">
+        <strong>{{ s.name }}</strong>
+        <button type="button" @click="removeAbilitySkill(tier, i)" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
+      </div>
+      <div style="color: #666; margin-top: 4px;">{{ s.desc }}</div>
+    </div>
+  </div>
+
+  <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <strong>英雄技能</strong>
+      <button type="button" @click="openHeroPage()" style="font-size: 12px; padding: 4px 8px; cursor: pointer;">去选择</button>
+    </div>
+    <div v-if="!(currentCharacter.abilitySkills?.hero?.length)" style="color: #999; font-size: 13px;">未选择</div>
+    <div v-for="(s, i) in (currentCharacter.abilitySkills?.hero || [])" :key="s.name"
+         style="margin: 6px 0; padding: 8px; background: #fff8e1; border-radius: 4px; font-size: 13px;">
+      <div style="display: flex; justify-content: space-between;">
+        <strong>{{ s.name }}</strong>
+        <button type="button" @click="removeAbilitySkill('hero', i)" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
+      </div>
+      <div style="color: #666; margin-top: 4px;">{{ s.desc }}</div>
+    </div>
+  </div>
+</div>
 
   <div v-show="skillsExpanded" style="padding: 20px;">
     <!-- 力量相关 -->
@@ -2286,6 +2437,47 @@ onUnmounted(() => {
         <div style="font-size: 13px; margin-top: 6px; line-height: 1.5;">{{ b.desc }}</div>
       </div>
     </div>
+  </div>
+</div>
+<div v-else-if="page === 'passive'" style="max-width: 900px; margin: 30px auto; padding: 0 20px; font-family: sans-serif;">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h1>被动技能</h1>
+    <button @click="page = 'character'" style="padding: 8px 16px;">返回角色</button>
+  </div>
+  <div style="display: flex; gap: 8px; margin: 16px 0;">
+    <button v-for="t in ['I','II','III']" :key="t" @click="skillPageTab = t"
+            :style="{ padding: '8px 14px', cursor: 'pointer', background: skillPageTab === t ? '#5c6bc0' : '#eee', color: skillPageTab === t ? '#fff' : '#333', border: 'none', borderRadius: '4px' }">
+      被动页 {{ t }}
+    </button>
+  </div>
+  <div v-for="skill in passiveSkillList[skillPageTab]" :key="skill.name"
+       style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 12px;">
+    <div>
+      <strong>{{ skill.name }}</strong>
+      <div style="font-size: 14px; color: #555; margin-top: 6px;">{{ skill.desc }}</div>
+    </div>
+    <button @click="addAbilitySkill(skillPageTab, skill)"
+            style="padding: 8px 14px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; height: fit-content;">
+      添加
+    </button>
+  </div>
+</div>
+
+<div v-else-if="page === 'hero'" style="max-width: 900px; margin: 30px auto; padding: 0 20px; font-family: sans-serif;">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h1>英雄技能</h1>
+    <button @click="page = 'character'" style="padding: 8px 16px;">返回角色</button>
+  </div>
+  <div v-for="skill in heroSkillList" :key="skill.name"
+       style="border: 1px solid #ffe0b2; border-radius: 8px; padding: 12px; margin: 12px 0; background: #fff8e1; display: flex; justify-content: space-between; gap: 12px;">
+    <div>
+      <strong>{{ skill.name }}</strong>
+      <div style="font-size: 14px; color: #555; margin-top: 6px;">{{ skill.desc }}</div>
+    </div>
+    <button @click="addAbilitySkill('hero', skill)"
+            style="padding: 8px 14px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; height: fit-content;">
+      添加
+    </button>
   </div>
 </div>
 <!-- 员工手册 -->
