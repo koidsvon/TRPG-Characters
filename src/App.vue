@@ -61,13 +61,15 @@ const heroSkillList = [
 
 function isPassiveIReward(r) {
   const t = r?.content || ''
-  // 避免「被动页II」被当成 I
-  return (t.includes('被动页I') || t.includes('被动I')) && !t.includes('被动页II') && !t.includes('被动II') && !t.includes('被动页III')
+  return (t.includes('被动页I') || t.includes('被动I')) &&
+         !t.includes('被动页II') && !t.includes('被动II') &&
+         !t.includes('被动页III') && !t.includes('被动III')
 }
 
 function isPassiveIIReward(r) {
   const t = r?.content || ''
-  return t.includes('被动页II') || t.includes('被动II')
+  return (t.includes('被动页II') || t.includes('被动II')) &&
+         !t.includes('被动页III') && !t.includes('被动III')
 }
 
 function isPassiveIIIReward(r) {
@@ -213,7 +215,7 @@ function addAbilitySkill(tier, skill) {
 
   if (!confirm(`确认添加技能「${skill.name}」？`)) return
   list.push({ name: skill.name, desc: skill.desc })
-  currentCharacter.value.abilitySkills[tier] = list
+currentCharacter.value.abilitySkills[tier] = list
   alert('已添加')
 }
 
@@ -1827,7 +1829,12 @@ onUnmounted(() => {
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
   <div v-for="tier in ['I','II','III']" :key="tier" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-      <strong>被动 {{ tier }}</strong>
+      <span>
+  <strong>被动 {{ tier }}</strong>
+  <span style="font-size: 12px; color: #888;">
+    （{{ currentCharacter.abilitySkills?.[tier]?.length || 0 }} / {{ tier === 'III' ? 1 : 2 }}）
+  </span>
+</span>
       <button type="button" @click="openPassivePage(tier)" style="font-size: 12px; padding: 4px 8px; cursor: pointer;">去选择</button>
     </div>
     <div v-if="!(currentCharacter.abilitySkills?.[tier]?.length)" style="color: #999; font-size: 13px;">未选择</div>
@@ -1843,7 +1850,12 @@ onUnmounted(() => {
 
   <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-      <strong>英雄技能</strong>
+      <span>
+  <strong>英雄技能</strong>
+  <span style="font-size: 12px; color: #888;">
+    （{{ currentCharacter.abilitySkills?.hero?.length || 0 }} / 1）
+  </span>
+</span>
       <button type="button" @click="openHeroPage()" style="font-size: 12px; padding: 4px 8px; cursor: pointer;">去选择</button>
     </div>
     <div v-if="!(currentCharacter.abilitySkills?.hero?.length)" style="color: #999; font-size: 13px;">未选择</div>
