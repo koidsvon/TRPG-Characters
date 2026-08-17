@@ -158,13 +158,41 @@ function addAbilitySkill(tier, skill) {
   if (!currentCharacter.value.abilitySkills) {
     currentCharacter.value.abilitySkills = { I: [], II: [], III: [], hero: [] }
   }
-  const list = currentCharacter.value.abilitySkills[tier]
+
+  const level = currentCharacter.value.level || 1
+  const list = currentCharacter.value.abilitySkills[tier] || []
+  const maxSlots = { I: 2, II: 2, III: 1, hero: 1 }
+  const max = maxSlots[tier] || 1
+
   if (list.some(s => s.name === skill.name)) {
     alert('已经拥有该技能')
     return
   }
+  if (list.length >= max) {
+    alert(`「被动${tier === 'hero' ? '英雄技能' : tier}」栏位已满（最多 ${max} 个）`)
+    return
+  }
+
+  // 按等级解锁对应栏位
+  const nextIndex = list.length // 即将填入的第几个（0 起）
+  if (tier === 'I') {
+    if (nextIndex === 0 && level < 2) { alert('需要达到 2 级才能选择第一个被动 I'); return }
+    if (nextIndex === 1 && level < 4) { alert('需要达到 4 级才能选择第二个被动 I'); return }
+  }
+  if (tier === 'II') {
+    if (nextIndex === 0 && level < 6) { alert('需要达到 6 级才能选择第一个被动 II'); return }
+    if (nextIndex === 1 && level < 7) { alert('需要达到 7 级才能选择第二个被动 II'); return }
+  }
+  if (tier === 'III') {
+    if (level < 10) { alert('需要达到 10 级才能选择被动 III'); return }
+  }
+  if (tier === 'hero') {
+    if (level < 15) { alert('需要达到 15 级才能选择英雄技能'); return }
+  }
+
   if (!confirm(`确认添加技能「${skill.name}」？`)) return
   list.push({ name: skill.name, desc: skill.desc })
+  currentCharacter.value.abilitySkills[tier] = list
   alert('已添加')
 }
 
@@ -2451,16 +2479,14 @@ onUnmounted(() => {
     </button>
   </div>
   <div v-for="skill in passiveSkillList[skillPageTab]" :key="skill.name"
-       style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 12px;">
-    <div>
-      <strong>{{ skill.name }}</strong>
-      <div style="font-size: 14px; color: #555; margin-top: 6px;">{{ skill.desc }}</div>
-    </div>
-    <button @click="addAbilitySkill(skillPageTab, skill)"
-            style="padding: 8px 14px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; height: fit-content;">
-      添加
-    </button>
-  </div>
+     style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 14px; margin-bottom: 10px; text-align: center;">
+  <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">{{ skill.name }}</div>
+  <div style="font-size: 14px; color: #555; line-height: 1.6; margin-bottom: 12px;">{{ skill.desc }}</div>
+  <button @click="addAbilitySkill(skillPageTab, skill)"
+          style="padding: 8px 18px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
+    添加
+  </button>
+</div>
 </div>
 
 <div v-else-if="page === 'hero'" style="max-width: 900px; margin: 30px auto; padding: 0 20px; font-family: sans-serif;">
@@ -2469,16 +2495,14 @@ onUnmounted(() => {
     <button @click="page = 'character'" style="padding: 8px 16px;">返回角色</button>
   </div>
   <div v-for="skill in heroSkillList" :key="skill.name"
-       style="border: 1px solid #ffe0b2; border-radius: 8px; padding: 12px; margin: 12px 0; background: #fff8e1; display: flex; justify-content: space-between; gap: 12px;">
-    <div>
-      <strong>{{ skill.name }}</strong>
-      <div style="font-size: 14px; color: #555; margin-top: 6px;">{{ skill.desc }}</div>
-    </div>
-    <button @click="addAbilitySkill('hero', skill)"
-            style="padding: 8px 14px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; height: fit-content;">
-      添加
-    </button>
-  </div>
+     style="border: 1px solid #ffe0b2; border-radius: 8px; padding: 14px; margin: 12px 0; background: #fff8e1; text-align: center;">
+  <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">{{ skill.name }}</div>
+  <div style="font-size: 14px; color: #555; line-height: 1.6; margin-bottom: 12px;">{{ skill.desc }}</div>
+  <button @click="addAbilitySkill('hero', skill)"
+          style="padding: 8px 18px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
+    添加
+  </button>
+</div>
 </div>
 <!-- 员工手册 -->
 <div v-else-if="page === 'handbook'" style="max-width: 900px; margin: 30px auto; font-family: sans-serif; padding: 0 20px 40px;">
