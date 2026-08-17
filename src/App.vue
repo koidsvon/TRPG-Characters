@@ -1718,10 +1718,10 @@ onUnmounted(() => {
             style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
       查看 Buff 表
     </button>
-    <button v-if="currentCharacter.class_name === '魔术师'" @click="openMagicTable"
-            style="padding: 8px 16px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      查看魔术表
-    </button>
+    <button v-if="isMagicUser" @click="openMagicTable"
+        style="padding: 8px 16px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
+  查看魔术表
+</button>
   </div>
 </div>
 
@@ -1824,6 +1824,43 @@ onUnmounted(() => {
       {{ skillsExpanded ? '▲ 收起' : '▼ 展开' }}
     </span>
   </div>
+
+  <template v-if="isMagicUser">
+  <h2>魔术收藏</h2>
+  <div style="margin-bottom: 12px; font-size: 14px; color: #666;">
+    栏位：
+    <strong>{{ currentCharacter.learnedMagic?.length || 0 }}</strong>
+    /
+    {{ magicCollectionCapacity }}
+    <span style="margin-left: 8px; font-size: 12px; color: #888;">
+      （默认 2 格；装备魔导书可增加）
+    </span>
+    <button type="button" @click="openMagicTable"
+            style="margin-left: 12px; padding: 6px 12px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      打开魔术表
+    </button>
+  </div>
+  <div style="border: 1px solid #e1bee7; border-radius: 8px; padding: 12px; margin-bottom: 24px; background: #faf5ff;">
+    <div v-if="!(currentCharacter.learnedMagic?.length)" style="color: #999; font-size: 13px;">
+      尚未学习魔术
+    </div>
+    <div v-for="(m, i) in (currentCharacter.learnedMagic || [])" :key="m.name + i"
+         style="margin: 8px 0; padding: 10px; background: white; border-radius: 6px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+        <div>
+          <strong style="color: #6a1b9a;">{{ m.name }}</strong>
+          <span style="margin-left: 8px; font-size: 12px; color: #888;">{{ m.type }}</span>
+          <span v-if="m.volume" style="margin-left: 8px; font-size: 12px; color: #aaa;">{{ m.volume }}</span>
+        </div>
+        <button type="button" @click="removeMagicSpell(i)"
+                style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">
+          移除
+        </button>
+      </div>
+      <div style="font-size: 13px; color: #555; margin-top: 6px;">{{ m.desc }}</div>
+    </div>
+  </div>
+</template>
 
   <h2>被动技能 / 英雄技能</h2>
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
@@ -2402,40 +2439,37 @@ onUnmounted(() => {
 </div>
 
 
-  <!-- 魔术表页面 -->
-<div v-else-if="page === 'magic'" style="max-width: 1000px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
+ <div v-else-if="page === 'magic'" style="max-width: 1000px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <h1>魔术表</h1>
-    <button @click="backToCharacter" style="padding: 8px 16px;">返回角色</button>
+    <button @click="page = 'character'" style="padding: 8px 16px;">返回角色</button>
   </div>
-
   <p style="color: #666; margin-bottom: 25px; font-size: 14px;">
     分级说明：一、二册 = 日常　｜　三册 = 专业　｜　四、五册 = 军工　｜　六册 = 神域
   </p>
 
-  <!-- 循环显示每一册 -->
   <div v-for="(vol, key) in magicList" :key="key" style="margin-bottom: 40px;">
     <h2 style="border-bottom: 2px solid #9c27b0; padding-bottom: 8px; color: #7b1fa2;">
       {{ vol.title }}
     </h2>
 
-    <!-- 有魔术内容时显示 -->
     <div v-if="vol.spells && vol.spells.length > 0">
       <div v-for="(m, i) in vol.spells" :key="i"
-           style="border: 1px solid #e1bee7; border-radius: 8px; padding: 14px; margin: 12px 0; background: #faf5ff;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-          <strong style="font-size: 16px; color: #6a1b9a;">{{ m.name }}</strong>
+           style="border: 1px solid #e1bee7; border-radius: 8px; padding: 14px; margin: 12px 0; background: #faf5ff; text-align: center;">
+        <div style="font-weight: bold; font-size: 16px; color: #6a1b9a; margin-bottom: 6px;">{{ m.name }}</div>
+        <div style="margin-bottom: 8px;">
           <span style="background: #ce93d8; color: #4a148c; padding: 3px 10px; border-radius: 12px; font-size: 12px;">
             {{ m.type }}
           </span>
         </div>
-        <div style="font-size: 14px; margin-top: 8px; line-height: 1.6; color: #333;">
-          {{ m.desc }}
-        </div>
+        <div style="font-size: 14px; line-height: 1.6; color: #333; margin-bottom: 12px;">{{ m.desc }}</div>
+        <button type="button" @click="addMagicSpell(m, vol.title)"
+                style="padding: 8px 18px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          添加
+        </button>
       </div>
     </div>
 
-    <!-- 空缺内容时显示提示 -->
     <div v-else style="padding: 20px; background: #f3e5f5; border-radius: 8px; color: #7b1fa2; text-align: center;">
       本册内容目前空缺，仅保留分类框架。
     </div>
