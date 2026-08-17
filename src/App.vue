@@ -1169,6 +1169,9 @@ skills: {
 function enterCharacter(char) {
   const charCopy = { ...char }
 
+if (!charCopy.learnedMagic) {
+  charCopy.learnedMagic = []
+}
   // ---------- inventory 新结构 ----------
   // { items: [{ id, item_id, quantity }], equipment: { mainHand: item_id|null, ... } }
   if (!charCopy.inventory || Array.isArray(charCopy.inventory)) {
@@ -1262,6 +1265,7 @@ async function saveCharacter() {
       class_name: currentCharacter.value.class_name,
       level: currentCharacter.value.level,
       ability_skills: currentCharacter.value.abilitySkills,
+      learned_magic: currentCharacter.value.learnedMagic || [],
       strength: currentCharacter.value.strength,
       intelligence: currentCharacter.value.intelligence,
       agility: currentCharacter.value.agility,
@@ -1570,7 +1574,7 @@ onUnmounted(() => {
       <button @click="backToRoom" style="padding: 8px 16px;">返回列表</button>
     </div>
   </div>
-  <template v-if="isMagicUser">
+<template v-if="currentCharacter && ['魔术师','术士','Code Wizard'].includes(currentCharacter.class_name)">
   <h2>魔术收藏</h2>
   <div style="margin-bottom: 12px; font-size: 14px; color: #666;">
     栏位：
@@ -1850,7 +1854,7 @@ onUnmounted(() => {
     </span>
   </div>
 
-  <template v-if="isMagicUser">
+  <template v-if="currentCharacter && ['魔术师','术士','Code Wizard'].includes(currentCharacter.class_name)">
   <h2>魔术收藏</h2>
   <div style="margin-bottom: 12px; font-size: 14px; color: #666;">
     栏位：
