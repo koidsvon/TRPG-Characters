@@ -1411,6 +1411,31 @@ function getItemById(itemId) {
   return itemCatalog.value.find(i => i.id === itemId) || null
 }
 
+const isMagicUser = computed(() => {
+  const name = currentCharacter.value?.class_name
+  return ['魔术师', '术士', 'Code Wizard'].includes(name)
+})
+
+const magicCollectionCapacity = computed(() => {
+  let cap = 2
+  if (!currentCharacter.value?.inventory?.equipment) return cap
+  const eq = currentCharacter.value.inventory.equipment
+  for (const slot of ['mainHand', 'offHand']) {
+    const id = eq[slot]
+    if (!id) continue
+    const item = getItemById(id)
+    if (!item) continue
+    if (
+      item.sub_type === '活体魔导书' ||
+      item.sub_type === '硬册魔导书' ||
+      (item.name && String(item.name).includes('魔导书'))
+    ) {
+      cap += item.magic_capacity > 0 ? item.magic_capacity : 3
+    }
+  }
+  return cap
+})
+
 // 获取角色背包里可用于某个装备位的物品
 function getEquippableItems(slot) {
   if (!currentCharacter.value?.inventory?.items) return []
