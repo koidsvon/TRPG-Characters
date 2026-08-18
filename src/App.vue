@@ -9,7 +9,10 @@ const slotExpanded = ref('')  // 当前展开的栏位：helmet / chest / legs /
 
 const currentMission = ref(null)
 const missionTitle = ref('')
-const missionSummary = ref('')
+const missionClient = ref('')
+const missionLocation = ref('')
+const missionType = ref('')
+const missionSummary = ref('')  // 事件简述
 const showMissionPanel = ref(false)
 
 async function loadCurrentMission() {
@@ -47,8 +50,11 @@ async function createMission() {
     .insert({
       session_id: currentSession.value.id,
       title,
+      client: missionClient.value || '',
+      location: missionLocation.value || '',
+      mission_type: missionType.value || '',
       summary: missionSummary.value || '',
-      status: 'active'
+     status: 'active'
     })
     .select()
     .single()
@@ -71,20 +77,29 @@ async function createMission() {
   currentSession.value = { ...currentSession.value, current_mission_id: data.id }
   currentMission.value = data
   missionTitle.value = ''
+  missionClient.value = ''
+  missionLocation.value = ''
+  missionType.value = ''
   missionSummary.value = ''
   showMissionPanel.value = false
   saveSessionToLocal()
   alert('神秘事件已创建')
 }
 
-async function updateMissionSummary() {
+async function updateMissionFields() {
   if (!isGM.value || !currentMission.value) return
   const { error } = await supabase
     .from('missions')
-    .update({ summary: currentMission.value.summary })
+    .update({
+      title: currentMission.value.title,
+      client: currentMission.value.client || '',
+      location: currentMission.value.location || '',
+      mission_type: currentMission.value.mission_type || '',
+      summary: currentMission.value.summary || ''
+    })
     .eq('id', currentMission.value.id)
   if (error) alert('保存失败：' + error.message)
-  else alert('已保存事件简介')
+  else alert('已保存')
 }
 
 async function completeMission() {
@@ -1950,8 +1965,8 @@ onUnmounted(() => {
     </div>
   </div>
 
-  <!-- 大厅页 -->
-<div v-else-if="page === 'lobby'" style="max-width: 900px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
+   <!-- 大厅页 -->
+  <div v-else-if="page === 'lobby'" style="max-width: 900px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <div>
         <h1>大厅</h1>
@@ -1963,8 +1978,8 @@ onUnmounted(() => {
         </p>
       </div>
       <div style="display: flex; gap: 8px;">
-        <button v-if="isGM" @click="page = 'room'" style="padding: 8px 14px;">房间管理</button>
-        <button @click="leaveRoom" style="padding: 8px 14px;">退出房间</button>
+        <button v-if="isGM" type="button" @click="page = 'room'" style="padding: 8px 14px;">房间管理</button>
+        <button type="button" @click="leaveRoom" style="padding: 8px 14px;">退出房间</button>
       </div>
     </div>
     <hr style="margin: 20px 0;" />
@@ -1973,28 +1988,47 @@ onUnmounted(() => {
     <div style="margin-bottom: 24px; border: 1px solid #5c6bc0; border-radius: 10px; padding: 16px; background: #e8eaf6;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <strong style="color: #3949ab; font-size: 16px;">神秘事件记录</strong>
-        <button v-if="isGM" @click="showMissionPanel = !showMissionPanel"
+        <button v-if="isGM" type="button" @click="showMissionPanel = !showMissionPanel"
                 style="padding: 4px 10px; font-size: 13px; cursor: pointer;">
           {{ showMissionPanel ? '收起' : '管理' }}
         </button>
       </div>
 
       <div v-if="currentMission" style="margin-top: 12px;">
-        <div style="font-size: 18px; font-weight: bold;">{{ currentMission.title }}</div>
-        <div v-if="!isGM" style="margin-top: 8px; color: #444; white-space: pre-wrap;">{{ currentMission.summary || '暂无简介' }}</div>
-        <div v-else style="margin-top: 8px;">
-          <textarea v-model="currentMission.summary" rows="4"
-                    style="width: 100%; padding: 8px; box-sizing: border-box;"
-                    placeholder="事件简介、进度备注…"></textarea>
-          <div style="margin-top: 8px; display: flex; gap: 8px;">
-            <button @click="updateMissionSummary"
-                    style="padding: 6px 12px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">
-              保存简介
-            </button>
-            <button @click="completeMission"
-                    style="padding: 6px 12px; background: #757575; color: white; border: none; border-radius: 4px; cursor: pointer;">
-              完成事件
-            </button>
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">{{ currentMission.title }}</div>
+        <div v-if="!isGM" style="font-size: 14px; line-height: 1.7; color: #333;">
+          <div><strong>委托人：</strong>{{ currentMission.client || '—' }}</div>
+          <div><strong>地点：</strong>{{ currentMission.location || '—' }}</div>
+          <div><strong>委托类型：</strong>{{ currentMission.mission_type || '—' }}</div>
+          <div style="margin-top: 8px;"><strong>事件简述：</strong></div>
+          <div style="white-space: pre-wrap;">{{ currentMission.summary || '—' }}</div>
+        </div>
+        <div v-else style="font-size: 14px;">
+          <div style="margin-bottom: 8px;">
+            <label>标题</label><br />
+            <input v-model="currentMission.title" style="width: 100%; padding: 8px; box-sizing: border-box;" />
+          </div>
+          <div style="margin-bottom: 8px;">
+            <label>委托人</label><br />
+            <input v-model="currentMission.client" style="width: 100%; padding: 8px; box-sizing: border-box;" />
+          </div>
+          <div style="margin-bottom: 8px;">
+            <label>地点</label><br />
+            <input v-model="currentMission.location" style="width: 100%; padding: 8px; box-sizing: border-box;" />
+          </div>
+          <div style="margin-bottom: 8px;">
+            <label>委托类型</label><br />
+            <input v-model="currentMission.mission_type" style="width: 100%; padding: 8px; box-sizing: border-box;" />
+          </div>
+          <div style="margin-bottom: 8px;">
+            <label>事件简述</label><br />
+            <textarea v-model="currentMission.summary" rows="4" style="width: 100%; padding: 8px; box-sizing: border-box;"></textarea>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" @click="updateMissionFields"
+                    style="padding: 6px 12px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">保存</button>
+            <button type="button" @click="completeMission"
+                    style="padding: 6px 12px; background: #757575; color: white; border: none; border-radius: 4px; cursor: pointer;">完成事件</button>
           </div>
         </div>
       </div>
@@ -2003,25 +2037,33 @@ onUnmounted(() => {
       <div v-if="isGM && showMissionPanel && !currentMission" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #c5cae9;">
         <div style="margin-bottom: 8px;">
           <label>事件标题</label><br />
-          <input v-model="missionTitle" placeholder="例如：解体熔炉 · 第一次调查"
-                 style="width: 100%; padding: 8px; box-sizing: border-box;" />
+          <input v-model="missionTitle" style="width: 100%; padding: 8px; box-sizing: border-box;" />
         </div>
         <div style="margin-bottom: 8px;">
-          <label>简介（可选）</label><br />
-          <textarea v-model="missionSummary" rows="3"
-                    style="width: 100%; padding: 8px; box-sizing: border-box;"></textarea>
+          <label>委托人</label><br />
+          <input v-model="missionClient" style="width: 100%; padding: 8px; box-sizing: border-box;" />
         </div>
-        <button @click="createMission"
-                style="padding: 8px 16px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">
-          创建神秘事件
-        </button>
+        <div style="margin-bottom: 8px;">
+          <label>地点</label><br />
+          <input v-model="missionLocation" style="width: 100%; padding: 8px; box-sizing: border-box;" />
+        </div>
+        <div style="margin-bottom: 8px;">
+          <label>委托类型</label><br />
+          <input v-model="missionType" placeholder="例如：调查 / 清除 / 护送" style="width: 100%; padding: 8px; box-sizing: border-box;" />
+        </div>
+        <div style="margin-bottom: 8px;">
+          <label>事件简述</label><br />
+          <textarea v-model="missionSummary" rows="3" style="width: 100%; padding: 8px; box-sizing: border-box;"></textarea>
+        </div>
+        <button type="button" @click="createMission"
+                style="padding: 8px 16px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">创建神秘事件</button>
       </div>
     </div>
 
-    <!-- 地图占位（之后接神秘事件节点） -->
-    <div style="margin-bottom: 24px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; background: #f5f5f5; min-height: 180px; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 24px;">
+    <!-- 地图占位 -->
+    <div style="margin-bottom: 24px; border: 1px solid #ddd; border-radius: 10px; min-height: 160px; display: flex; align-items: center; justify-content: center; flex-direction: column; background: #f5f5f5; padding: 24px;">
       <div style="font-size: 18px; color: #555;">当前地图节点</div>
-      <div style="margin-top: 8px; color: #888; font-size: 14px;">（神秘事件 / 地图系统将显示在这里）</div>
+      <div style="margin-top: 8px; color: #888; font-size: 14px;">（地图系统将显示在这里）</div>
     </div>
 
     <h2>成员名单</h2>
@@ -2040,6 +2082,7 @@ onUnmounted(() => {
       <div>
         <button
           v-if="char.name === myCharacterName"
+          type="button"
           @click="enterMyCharacterFromLobby(char)"
           style="padding: 6px 14px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;"
         >进入角色</button>
