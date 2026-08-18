@@ -7,6 +7,107 @@ const page = ref('home')
 
 const slotExpanded = ref('')  // 当前展开的栏位：helmet / chest / legs / amulet / backpack
 
+const currentMission = ref(null)
+const missionTitle = ref('')
+const missionSummary = ref('')
+const showMissionPanel = ref(false)
+
+async function loadCurrentMission() {
+  currentMission.value = null
+  if (!currentSession.value?.current_mission_id) return
+
+  const { data, error } = await supabase
+    .from('missions')
+    .select('*')
+    .eq('id', currentSession.value.current_mission_id)
+    .maybeSingle()
+
+  if (!error && data) {
+    currentMission.value = data
+  }
+}
+
+async function createMission() {
+  if (!isGM.value) {
+    alert('只有 GM 可以创建神秘事件')
+    return
+  }
+  const title = (missionTitle.value || '').trim()
+  if (!title) {
+    alert('请输入事件标题')
+    return
+  }
+  if (currentSession.value.current_mission_id) {
+    alert('当前已有进行中的事件，请先标记完成')
+    return
+  }
+
+  const { data, error } = await supabase
+    .from('missions')
+    .insert({
+      session_id: currentSession.value.id,
+      title,
+      summary: missionSummary.value || '',
+      status: 'active'
+    })
+    .select()
+    .single()
+
+  if (error) {
+    alert('创建失败：' + error.message)
+    return
+  }
+
+  const { error: e2 } = await supabase
+    .from('sessions')
+    .update({ current_mission_id: data.id })
+    .eq('id', currentSession.value.id)
+
+  if (e2) {
+    alert('绑定房间失败：' + e2.message)
+    return
+  }
+
+  currentSession.value = { ...currentSession.value, current_mission_id: data.id }
+  currentMission.value = data
+  missionTitle.value = ''
+  missionSummary.value = ''
+  showMissionPanel.value = false
+  saveSessionToLocal()
+  alert('神秘事件已创建')
+}
+
+async function updateMissionSummary() {
+  if (!isGM.value || !currentMission.value) return
+  const { error } = await supabase
+    .from('missions')
+    .update({ summary: currentMission.value.summary })
+    .eq('id', currentMission.value.id)
+  if (error) alert('保存失败：' + error.message)
+  else alert('已保存事件简介')
+}
+
+async function completeMission() {
+  if (!isGM.value || !currentMission.value) return
+  if (!confirm('确认完成当前神秘事件？完成后可创建新事件。')) return
+
+  const id = currentMission.value.id
+  await supabase
+    .from('missions')
+    .update({ status: 'completed', completed_at: new Date().toISOString() })
+    .eq('id', id)
+
+  await supabase
+    .from('sessions')
+    .update({ current_mission_id: null })
+    .eq('id', currentSession.value.id)
+
+  currentSession.value = { ...currentSession.value, current_mission_id: null }
+  currentMission.value = null
+  saveSessionToLocal()
+  alert('事件已完成')
+}
+
 // 检定相关
 const skillsExpanded = ref(false)
 
@@ -994,6 +1095,7 @@ function restoreSessionFromLocal() {
       isGM.value = data.isGM
       myCharacterName.value = localStorage.getItem('rpg_char_' + data.session.code) || ''
       loadCharacters()
+      loadCurrentMission()
       startRealtime()
       // 已绑定角色名 → 大厅；否则 → 房间选角页
       page.value = myCharacterName.value ? 'lobby' : 'room'
@@ -1030,6 +1132,7 @@ async function createRoom() {
     page.value = 'room'
     saveSessionToLocal()
     loadCharacters()
+    loadCurrentMission()
     startRealtime()
   }
 }
@@ -1060,6 +1163,7 @@ async function joinRoom() {
   page.value = 'room'
   saveSessionToLocal()
   loadCharacters()
+  loadCurrentMission()
   startRealtime()
 }
 
@@ -1081,6 +1185,7 @@ function startRealtime() {
   if (realtimeChannel) {
     supabase.removeChannel(realtimeChannel)
   }
+
   realtimeChannel = supabase
     .channel('room-' + currentSession.value.id)
     .on(
@@ -1093,48 +1198,103 @@ function startRealtime() {
       },
       (payload) => {
         loadCharacters()
-        if (currentCharacter.value && payload.new && payload.new.id === currentCharacter.value.id) {
-  const updated = { ...payload.new }
 
-  // 处理 inventory 结构
-  if (!updated.inventory || Array.isArray(updated.inventory)) {
-    const oldItems = Array.isArray(updated.inventory) ? updated.inventory : []
-    updated.inventory = {
-      items: oldItems,
-      equipment: {
-        helmet: '', chest: '', legs: '',
-        mainHand: '', offHand: '', amulet: '', backpack: ''
-      }
-    }
-  } else {
-    if (!updated.inventory.items) updated.inventory.items = []
-    if (!updated.inventory.equipment) {
-      updated.inventory.equipment = {
-        helmet: '', chest: '', legs: '',
-        mainHand: '', offHand: '', amulet: '', backpack: ''
-      }
-    }
-  }
+        if (
+          currentCharacter.value &&
+          payload.new &&
+          payload.new.id === currentCharacter.value.id
+        ) {
+          const updated = { ...payload.new }
 
-  // 处理 skills 结构
-  const defaultSkills = {
-    athletics: 4, toughness: 4, voodoo: 4, intimidate: 4,
-    acrobatics: 4, sleight: 4, stealth: 4, survival: 4, animal: 4,
-    insight: 4, medicine: 4, perception: 4, deception: 4,
-    performance: 4, persuasion: 4, investigation: 4, knowledge: 4
-  }
-  if (!updated.skills) {
-    updated.skills = { ...defaultSkills }
-  } else {
-    for (const key in defaultSkills) {
-      if (updated.skills[key] === undefined || updated.skills[key] === null) {
-        updated.skills[key] = defaultSkills[key]
-      }
-    }
-  }
+          // ---------- inventory 兼容 ----------
+          if (!updated.inventory || Array.isArray(updated.inventory)) {
+            const oldItems = Array.isArray(updated.inventory) ? updated.inventory : []
+            updated.inventory = {
+              items: oldItems,
+              equipment: {
+                helmet: null,
+                chest: null,
+                legs: null,
+                mainHand: null,
+                offHand: null,
+                amulet: null,
+                backpack: null
+              }
+            }
+          } else {
+            if (!updated.inventory.items) updated.inventory.items = []
+            if (!updated.inventory.equipment) {
+              updated.inventory.equipment = {
+                helmet: null,
+                chest: null,
+                legs: null,
+                mainHand: null,
+                offHand: null,
+                amulet: null,
+                backpack: null
+              }
+            } else {
+              const eq = updated.inventory.equipment
+              ;['helmet', 'chest', 'legs', 'mainHand', 'offHand', 'amulet', 'backpack'].forEach((k) => {
+                if (eq[k] === undefined) eq[k] = null
+              })
+            }
+          }
 
-  currentCharacter.value = updated
-}
+          // ---------- skills 兼容 ----------
+          const defaultSkills = {
+            athletics: 4, toughness: 4, voodoo: 4, intimidate: 4,
+            acrobatics: 4, sleight: 4, stealth: 4, survival: 4, animal: 4,
+            insight: 4, medicine: 4, perception: 4, deception: 4,
+            performance: 4, persuasion: 4, investigation: 4, knowledge: 4
+          }
+          if (!updated.skills) {
+            updated.skills = { ...defaultSkills }
+          } else {
+            for (const key in defaultSkills) {
+              if (updated.skills[key] === undefined || updated.skills[key] === null) {
+                updated.skills[key] = defaultSkills[key]
+              }
+            }
+          }
+
+          // ---------- abilitySkills 兼容 ----------
+          if (!updated.abilitySkills && updated.ability_skills) {
+            updated.abilitySkills = updated.ability_skills
+          }
+          if (!updated.abilitySkills) {
+            updated.abilitySkills = { I: [], II: [], III: [], hero: [] }
+          } else {
+            updated.abilitySkills = {
+              I: updated.abilitySkills.I || [],
+              II: updated.abilitySkills.II || [],
+              III: updated.abilitySkills.III || [],
+              hero: updated.abilitySkills.hero || []
+            }
+          }
+
+          // ---------- learnedMagic 兼容 ----------
+          if (!updated.learnedMagic && updated.learned_magic) {
+            updated.learnedMagic = updated.learned_magic
+          }
+          if (!updated.learnedMagic) {
+            updated.learnedMagic = []
+          }
+
+          currentCharacter.value = updated
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'missions',
+        filter: `session_id=eq.${currentSession.value.id}`
+      },
+      () => {
+        loadCurrentMission()
       }
     )
     .subscribe()
@@ -1808,6 +1968,55 @@ onUnmounted(() => {
       </div>
     </div>
     <hr style="margin: 20px 0;" />
+
+    <!-- 神秘事件 -->
+    <div style="margin-bottom: 24px; border: 1px solid #5c6bc0; border-radius: 10px; padding: 16px; background: #e8eaf6;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <strong style="color: #3949ab; font-size: 16px;">神秘事件记录</strong>
+        <button v-if="isGM" @click="showMissionPanel = !showMissionPanel"
+                style="padding: 4px 10px; font-size: 13px; cursor: pointer;">
+          {{ showMissionPanel ? '收起' : '管理' }}
+        </button>
+      </div>
+
+      <div v-if="currentMission" style="margin-top: 12px;">
+        <div style="font-size: 18px; font-weight: bold;">{{ currentMission.title }}</div>
+        <div v-if="!isGM" style="margin-top: 8px; color: #444; white-space: pre-wrap;">{{ currentMission.summary || '暂无简介' }}</div>
+        <div v-else style="margin-top: 8px;">
+          <textarea v-model="currentMission.summary" rows="4"
+                    style="width: 100%; padding: 8px; box-sizing: border-box;"
+                    placeholder="事件简介、进度备注…"></textarea>
+          <div style="margin-top: 8px; display: flex; gap: 8px;">
+            <button @click="updateMissionSummary"
+                    style="padding: 6px 12px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">
+              保存简介
+            </button>
+            <button @click="completeMission"
+                    style="padding: 6px 12px; background: #757575; color: white; border: none; border-radius: 4px; cursor: pointer;">
+              完成事件
+            </button>
+          </div>
+        </div>
+      </div>
+      <div v-else style="margin-top: 10px; color: #666;">当前没有进行中的神秘事件</div>
+
+      <div v-if="isGM && showMissionPanel && !currentMission" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #c5cae9;">
+        <div style="margin-bottom: 8px;">
+          <label>事件标题</label><br />
+          <input v-model="missionTitle" placeholder="例如：解体熔炉 · 第一次调查"
+                 style="width: 100%; padding: 8px; box-sizing: border-box;" />
+        </div>
+        <div style="margin-bottom: 8px;">
+          <label>简介（可选）</label><br />
+          <textarea v-model="missionSummary" rows="3"
+                    style="width: 100%; padding: 8px; box-sizing: border-box;"></textarea>
+        </div>
+        <button @click="createMission"
+                style="padding: 8px 16px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          创建神秘事件
+        </button>
+      </div>
+    </div>
 
     <!-- 地图占位（之后接神秘事件节点） -->
     <div style="margin-bottom: 24px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; background: #f5f5f5; min-height: 180px; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 24px;">
