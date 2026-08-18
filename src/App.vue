@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { supabase } from './supabase.js'
 
-// 页面状态：home / room / character / magic / buff
+// 页面状态：home / room / lobby / character / magic / buff
 const page = ref('home')
 
 const slotExpanded = ref('')  // 当前展开的栏位：helmet / chest / legs / amulet / backpack
@@ -143,6 +143,9 @@ const joinGmPassword = ref('')
 const currentSession = ref(null)
 const isGM = ref(false)
 const message = ref('')
+
+const myCharacterName = ref('')
+const claimNameInput = ref('')
 
 const handbookFrom = ref('room')  // 从哪里进入手册，方便返回
 const handbookClass = ref(null)   // 当前查看的职业介绍
@@ -983,12 +986,17 @@ function restoreSessionFromLocal() {
   if (saved) {
     try {
       const data = JSON.parse(saved)
+      if (!data.session || !data.session.code) {
+        localStorage.removeItem('rpg_session')
+        return false
+      }
       currentSession.value = data.session
       isGM.value = data.isGM
-      myCharacterName.value = localStorage.getItem('rpg_char_' + currentSession.value.code) || ''
-      page.value = 'room'
+      myCharacterName.value = localStorage.getItem('rpg_char_' + data.session.code) || ''
       loadCharacters()
       startRealtime()
+      // 已绑定角色名 → 大厅；否则 → 房间选角页
+      page.value = myCharacterName.value ? 'lobby' : 'room'
       return true
     } catch (e) {
       localStorage.removeItem('rpg_session')
@@ -1067,9 +1075,6 @@ async function loadCharacters() {
     characters.value = data || []
   }
 }
-
-// joinRoom / createRoom 成功并 loadCharacters 之后加一行：
-myCharacterName.value = localStorage.getItem('rpg_char_' + currentSession.value.code) || ''
 
 function startRealtime() {
   if (!currentSession.value) return
@@ -1200,12 +1205,11 @@ function saveMyCharacterName(name) {
   }
 }
 
-// 点「扮演角色」：未锁定则锁定并进入
 async function claimAndEnterCharacter(char) {
   if (char.is_locked) {
-    // 已锁定：只有名字对得上才能进
     if (myCharacterName.value && myCharacterName.value === char.name) {
-      enterCharacter(char)
+      currentCharacter.value = null
+      page.value = 'lobby'
       return
     }
     alert('该角色已被其他玩家扮演')
@@ -1227,12 +1231,10 @@ async function claimAndEnterCharacter(char) {
 
   saveMyCharacterName(char.name)
   await loadCharacters()
-  const updated = characters.value.find(c => c.id === char.id) || { ...char, is_locked: true, locked_name: char.name }
-  enterCharacter(updated)
+  currentCharacter.value = null
+  page.value = 'lobby'
+  const myCharacterId = ref(null)
 }
-
-const myCharacterName = ref('')
-const claimNameInput = ref('')
 
 async function claimByName() {
   const name = (claimNameInput.value || '').trim()
@@ -1265,7 +1267,8 @@ async function claimByName() {
 
   // 已锁定：用名字认领
   saveMyCharacterName(name)
-  enterCharacter(data)
+  currentCharacter.value = null
+  page.value = 'lobby'
 }
 
 // GM 解除锁定
@@ -1293,6 +1296,27 @@ async function unlockCharacter(char) {
     loadCharacters()
     alert('已解除锁定')
   }
+}
+
+function enterMyCharacterFromLobby(char) {
+  if (!char) return
+  // 只允许自己的角色（按名字绑定）
+  if (char.name !== myCharacterName.value && !isGM.value) {
+    alert('只能查看自己的角色')
+    return
+  }
+  // GM 若也要限制，可去掉 !isGM 例外；目前：玩家只能看自己，GM 可看全部（方便）
+  // 若你希望 GM 也不能看别人卡，改成只判断名字：
+  if (char.name !== myCharacterName.value) {
+    alert('只能查看自己的角色')
+    return
+  }
+  enterCharacter(char)
+}
+
+function backToLobby() {
+  currentCharacter.value = null
+  page.value = 'lobby'
 }
 
 function enterCharacter(char) {
@@ -1476,12 +1500,6 @@ function getEquippableItems(slot) {
 function unequipItem(slot) {
   if (!currentCharacter.value?.inventory?.equipment) return
   currentCharacter.value.inventory.equipment[slot] = null
-}
-
-function backToRoom() {
-  page.value = 'room'
-  currentCharacter.value = null
-  loadCharacters()
 }
 
 function leaveRoom() {
@@ -1772,6 +1790,55 @@ onUnmounted(() => {
     </div>
   </div>
 
+  <!-- 大厅页 -->
+<div v-else-if="page === 'lobby'" style="max-width: 900px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h1>大厅</h1>
+        <p>
+          房间：<strong>{{ currentSession?.name }}</strong>
+          （{{ currentSession?.code }}）
+          ｜ {{ isGM ? 'GM' : '玩家' }}
+          ｜ 你的角色：<strong>{{ myCharacterName || '未绑定' }}</strong>
+        </p>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button v-if="isGM" @click="page = 'room'" style="padding: 8px 14px;">房间管理</button>
+        <button @click="leaveRoom" style="padding: 8px 14px;">退出房间</button>
+      </div>
+    </div>
+    <hr style="margin: 20px 0;" />
+
+    <!-- 地图占位（之后接神秘事件节点） -->
+    <div style="margin-bottom: 24px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; background: #f5f5f5; min-height: 180px; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 24px;">
+      <div style="font-size: 18px; color: #555;">当前地图节点</div>
+      <div style="margin-top: 8px; color: #888; font-size: 14px;">（神秘事件 / 地图系统将显示在这里）</div>
+    </div>
+
+    <h2>成员名单</h2>
+    <div v-if="characters.length === 0" style="color: #888;">暂无角色</div>
+    <div v-for="char in characters" :key="char.id"
+         style="border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <strong style="font-size: 17px;">{{ char.name }}</strong>
+        <span style="color: #666; margin-left: 8px;">（{{ char.player_name }}）</span>
+        <span v-if="char.name === myCharacterName" style="margin-left: 8px; font-size: 12px; color: #2e7d32;">我</span>
+        <span v-if="char.is_locked" style="margin-left: 6px; font-size: 12px; color: #e65100;">使用中</span>
+        <div style="font-size: 13px; color: #888; margin-top: 4px;">
+          {{ char.class_name || '未选择' }} ｜ Lv.{{ char.level || 1 }}
+        </div>
+      </div>
+      <div>
+        <button
+          v-if="char.name === myCharacterName"
+          @click="enterMyCharacterFromLobby(char)"
+          style="padding: 6px 14px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;"
+        >进入角色</button>
+        <span v-else style="font-size: 13px; color: #bbb;">不可查看</span>
+      </div>
+    </div>
+  </div>
+
   <!-- 角色详情页 -->
 <div v-else-if="page === 'character'" style="max-width: 950px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -1783,7 +1850,8 @@ onUnmounted(() => {
       <button @click="saveCharacter" :disabled="saving" style="padding: 8px 20px; background: #4CAF50; color: white; border: none; margin-right: 10px; cursor: pointer;">
         {{ saving ? '保存中...' : '保存' }}
       </button>
-      <button @click="backToRoom" style="padding: 8px 16px;">返回列表</button>
+      <button @click="backToLobby">返回大厅</button>
+      <button v-if="isGM" @click="page = 'room'">房间管理（发物品/解锁）</button>
     </div>
   </div>
 <template v-if="currentCharacter && ['魔术师','术士','Code Wizard'].includes(currentCharacter.class_name)">

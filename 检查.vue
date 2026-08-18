@@ -141,11 +141,10 @@ const gmPassword = ref('')
 const joinCode = ref('')
 const joinGmPassword = ref('')
 const currentSession = ref(null)
-const isGM = ref(false)
-const message = ref('')
-
 const myCharacterName = ref('')
 const claimNameInput = ref('')
+const isGM = ref(false)
+const message = ref('')
 
 const handbookFrom = ref('room')  // 从哪里进入手册，方便返回
 const handbookClass = ref(null)   // 当前查看的职业介绍
@@ -459,10 +458,7 @@ if (used + need > totalCap) {
   if (currentCharacter.value && currentCharacter.value.id === grantTargetId.value) {
     currentCharacter.value.inventory = inv
   }
-
-  // 刷新角色列表
   await loadCharacters()
-
   alert('发放成功！')
   grantItemId.value = ''
   grantQuantity.value = 1
