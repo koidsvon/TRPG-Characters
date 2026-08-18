@@ -985,6 +985,7 @@ function restoreSessionFromLocal() {
       const data = JSON.parse(saved)
       currentSession.value = data.session
       isGM.value = data.isGM
+      myCharacterName.value = localStorage.getItem('rpg_char_' + currentSession.value.code) || ''
       page.value = 'room'
       loadCharacters()
       startRealtime()
@@ -1017,6 +1018,7 @@ async function createRoom() {
   } else {
     currentSession.value = data
     isGM.value = true
+    myCharacterName.value = localStorage.getItem('rpg_char_' + currentSession.value.code) || ''
     page.value = 'room'
     saveSessionToLocal()
     loadCharacters()
@@ -1190,8 +1192,6 @@ async function createCharacter() {
   }
 }
 
-// 当前玩家绑定的角色名（本房间）
-const myCharacterName = ref(localStorage.getItem('rpg_char_' + (currentSession.value?.code || '')) || '')
 
 function saveMyCharacterName(name) {
   myCharacterName.value = name
@@ -1231,7 +1231,7 @@ async function claimAndEnterCharacter(char) {
   enterCharacter(updated)
 }
 
-// 用角色名重新进入（加入房间后）
+const myCharacterName = ref('')
 const claimNameInput = ref('')
 
 async function claimByName() {
@@ -1735,7 +1735,7 @@ onUnmounted(() => {
         本机上次绑定：{{ myCharacterName }}
       </p>
     </div>
-    
+
     <h2>角色列表</h2>
     <div v-if="characters.length === 0" style="color: #888; margin: 20px 0;">目前还没有角色，创建一个吧。</div>
     <div v-for="char in characters" :key="char.id"
