@@ -1066,6 +1066,9 @@ async function loadCharacters() {
   }
 }
 
+// joinRoom / createRoom 成功并 loadCharacters 之后加一行：
+myCharacterName.value = localStorage.getItem('rpg_char_' + currentSession.value.code) || ''
+
 function startRealtime() {
   if (!currentSession.value) return
   if (realtimeChannel) {
@@ -1135,34 +1138,160 @@ async function createCharacter() {
     alert('请输入角色名')
     return
   }
+  const name = newCharacterName.value.trim()
+  if (!name) {
+    alert('请输入角色名')
+    return
+  }
+
+  // 同房间角色名不可重复
+  const { data: existing } = await supabase
+    .from('characters')
+    .select('id')
+    .eq('session_id', currentSession.value.id)
+    .eq('name', name)
+
+  if (existing && existing.length > 0) {
+    alert('该房间已存在同名角色，请换一个名字')
+    return
+  }
+
   const { error } = await supabase
     .from('characters')
     .insert({
       session_id: currentSession.value.id,
-      name: newCharacterName.value,
+      name: name,
       player_name: newPlayerName.value || '未命名玩家',
       class_name: '未选择',
       level: 1,
+      is_locked: false,
+      locked_name: null,
       inventory: {
-  items: [],
-  equipment: {
-    helmet: '', chest: '', legs: '',
-    mainHand: '', offHand: '', amulet: '', backpack: ''
-  }
-},
-skills: {
-  athletics: 4, toughness: 4, voodoo: 4, intimidate: 4,
-  acrobatics: 4, sleight: 4, stealth: 4, survival: 4, animal: 4,
-  insight: 4, medicine: 4, perception: 4, deception: 4,
-  performance: 4, persuasion: 4, investigation: 4, knowledge: 4
-}
+        items: [],
+        equipment: {
+          helmet: '', chest: '', legs: '',
+          mainHand: '', offHand: '', amulet: '', backpack: ''
+        }
+      },
+      skills: {
+        athletics: 4, toughness: 4, voodoo: 4, intimidate: 4,
+        acrobatics: 4, sleight: 4, stealth: 4, survival: 4, animal: 4,
+        insight: 4, medicine: 4, perception: 4, deception: 4,
+        performance: 4, persuasion: 4, investigation: 4, knowledge: 4
+      }
     })
+
   if (error) {
     alert('创建角色失败：' + error.message)
   } else {
     newCharacterName.value = ''
     newPlayerName.value = ''
     loadCharacters()
+  }
+}
+
+// 当前玩家绑定的角色名（本房间）
+const myCharacterName = ref(localStorage.getItem('rpg_char_' + (currentSession.value?.code || '')) || '')
+
+function saveMyCharacterName(name) {
+  myCharacterName.value = name
+  if (currentSession.value?.code) {
+    localStorage.setItem('rpg_char_' + currentSession.value.code, name)
+  }
+}
+
+// 点「扮演角色」：未锁定则锁定并进入
+async function claimAndEnterCharacter(char) {
+  if (char.is_locked) {
+    // 已锁定：只有名字对得上才能进
+    if (myCharacterName.value && myCharacterName.value === char.name) {
+      enterCharacter(char)
+      return
+    }
+    alert('该角色已被其他玩家扮演')
+    return
+  }
+
+  const { error } = await supabase
+    .from('characters')
+    .update({
+      is_locked: true,
+      locked_name: char.name
+    })
+    .eq('id', char.id)
+
+  if (error) {
+    alert('锁定失败：' + error.message)
+    return
+  }
+
+  saveMyCharacterName(char.name)
+  await loadCharacters()
+  const updated = characters.value.find(c => c.id === char.id) || { ...char, is_locked: true, locked_name: char.name }
+  enterCharacter(updated)
+}
+
+// 用角色名重新进入（加入房间后）
+const claimNameInput = ref('')
+
+async function claimByName() {
+  const name = (claimNameInput.value || '').trim()
+  if (!name) {
+    alert('请输入角色名')
+    return
+  }
+  if (!currentSession.value) {
+    alert('请先加入房间')
+    return
+  }
+
+  const { data, error } = await supabase
+    .from('characters')
+    .select('*')
+    .eq('session_id', currentSession.value.id)
+    .eq('name', name)
+    .maybeSingle()
+
+  if (error || !data) {
+    alert('找不到该角色，请检查名字是否正确')
+    return
+  }
+
+  if (!data.is_locked) {
+    // 未锁定：视为首次扮演
+    await claimAndEnterCharacter(data)
+    return
+  }
+
+  // 已锁定：用名字认领
+  saveMyCharacterName(name)
+  enterCharacter(data)
+}
+
+// GM 解除锁定
+async function unlockCharacter(char) {
+  if (!isGM.value) {
+    alert('只有 GM 可以解除锁定')
+    return
+  }
+  if (!confirm(`确认解除角色「${char.name}」的锁定？玩家将可以重新选择角色。`)) return
+
+  const { error } = await supabase
+    .from('characters')
+    .update({ is_locked: false, locked_name: null })
+    .eq('id', char.id)
+
+  if (error) {
+    alert('解锁失败：' + error.message)
+  } else {
+    if (myCharacterName.value === char.name) {
+      myCharacterName.value = ''
+      if (currentSession.value?.code) {
+        localStorage.removeItem('rpg_char_' + currentSession.value.code)
+      }
+    }
+    loadCharacters()
+    alert('已解除锁定')
   }
 }
 
@@ -1517,6 +1646,9 @@ onUnmounted(() => {
     </div>
    <div style="min-width: 260px; flex: 1;">
   <label style="font-size: 13px; color: #666;">物品</label>
+ 
+
+  <h2>角色列表</h2>
 
   <!-- 已选中的物品显示 -->
   <div v-if="grantItemId" style="margin-top: 6px; padding: 8px 10px; background: #fff8e1; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
@@ -1587,16 +1719,50 @@ onUnmounted(() => {
     </button>
   </div>
 </div>
+ 
+    <!-- 用角色名进入（所有人可见，在 GM 面板外面） -->
+    <div style="margin: 20px 0; padding: 14px; background: #e3f2fd; border-radius: 8px;">
+      <strong>用角色名进入（重新打开网页时）</strong>
+      <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+        <input v-model="claimNameInput" placeholder="输入你的角色名"
+               style="padding: 8px; flex: 1; min-width: 160px;" />
+        <button @click="claimByName"
+                style="padding: 8px 16px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          进入
+        </button>
+      </div>
+      <p v-if="myCharacterName" style="margin: 8px 0 0; font-size: 13px; color: #555;">
+        本机上次绑定：{{ myCharacterName }}
+      </p>
+    </div>
+    
     <h2>角色列表</h2>
     <div v-if="characters.length === 0" style="color: #888; margin: 20px 0;">目前还没有角色，创建一个吧。</div>
-    <div v-for="char in characters" :key="char.id" style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-      <div>
-        <strong style="font-size: 18px;">{{ char.name }}</strong>
-        <span style="color: #666; margin-left: 10px;">（{{ char.player_name }}）</span>
-        <div style="font-size: 14px; color: #888; margin-top: 4px;">职业：{{ char.class_name || '未选择' }}　|　等级：{{ char.level || 1 }}</div>
-      </div>
-      <button @click="enterCharacter(char)" style="padding: 6px 12px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">扮演角色</button>
+    <div v-for="char in characters" :key="char.id"
+     style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+  <div>
+    <strong style="font-size: 18px;">{{ char.name }}</strong>
+    <span style="color: #666; margin-left: 10px;">（{{ char.player_name }}）</span>
+    <span v-if="char.is_locked" style="margin-left: 8px; font-size: 12px; color: #e65100;">使用中</span>
+    <div style="font-size: 14px; color: #888; margin-top: 4px;">
+      职业：{{ char.class_name || '未选择' }}　|　等级：{{ char.level || 1 }}
     </div>
+  </div>
+  <div style="display: flex; gap: 8px; align-items: center;">
+    <button
+      v-if="!char.is_locked || myCharacterName === char.name"
+      @click="claimAndEnterCharacter(char)"
+      style="padding: 6px 12px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;"
+    >扮演角色</button>
+    <span v-else style="font-size: 13px; color: #999;">已被扮演</span>
+
+    <button
+      v-if="isGM && char.is_locked"
+      @click="unlockCharacter(char)"
+      style="padding: 6px 12px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;"
+    >解除锁定</button>
+  </div>
+</div>
     <hr style="margin: 30px 0;" />
     <h3>创建新角色</h3>
     <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
