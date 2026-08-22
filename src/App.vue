@@ -25,6 +25,42 @@ const bookForm = ref({
   summary: ''
 })
 
+const bookNodes = ref([])          // 编辑记录簿时
+const missionNodes = ref([])       // 本局
+const currentMissionNode = ref(null)
+const displayMissionNode = computed(() => {
+  const n = currentMissionNode.value
+  if (!n) return null
+  if (!isGM.value && !n.visible_to_players) {
+    return {
+      name: '未知区域',
+      description: '（GM 尚未公开此地）',
+      image_url: ''
+    }
+  }
+  return n
+})
+
+const nodeForm = ref({
+  name: '',
+  description: '',
+  image_url: '',
+  visible_to_players: true,
+  parent_id: null
+})
+const editingNodeId = ref(null)
+
+function getBookNodeDepth(nodeId, nodes) {
+  let depth = 1
+  let cur = nodes.find(n => n.id === nodeId)
+  while (cur && cur.parent_id) {
+    depth++
+    cur = nodes.find(n => n.id === cur.parent_id)
+    if (depth > 10) break
+  }
+  return depth
+}
+
 async function loadBookList() {
   const { data, error } = await supabase
     .from('campaign_book')
@@ -48,6 +84,15 @@ function startNewBook() {
     mission_type: '',
     summary: ''
   }
+  bookNodes.value = []
+  editingNodeId.value = null
+  nodeForm.value = {
+    name: '',
+    description: '',
+    image_url: '',
+    visible_to_players: true,
+    parent_id: null
+  }
 }
 
 function editBookItem(item) {
@@ -59,6 +104,7 @@ function editBookItem(item) {
     mission_type: item.mission_type || '',
     summary: item.summary || ''
   }
+  loadBookNodes(item.id)
 }
 
 async function saveBookItem() {
@@ -85,35 +131,48 @@ async function saveBookItem() {
       alert('保存失败：' + error.message)
       return
     }
+    alert('已保存到记录簿')
+    await loadBookList()
+    // 保持编辑，方便继续加节点
+    loadBookNodes(editingBook.value.id)
   } else {
-    const { error } = await supabase.from('campaign_book').insert(payload)
+    const { data, error } = await supabase
+      .from('campaign_book')
+      .insert(payload)
+      .select()
+      .single()
     if (error) {
       alert('创建失败：' + error.message)
       return
     }
+    alert('已保存到记录簿，可继续添加地图节点')
+    editingBook.value = data
+    await loadBookList()
+    loadBookNodes(data.id)
   }
-  alert('已保存到记录簿')
-  editingBook.value = null
-  loadBookList()
 }
 
 async function deleteBookItem(item) {
-  if (!confirm(`确认删除「${item.title}」？此操作不删除已在房间内开打的副本。`)) return
+  if (!confirm('确认删除「' + item.title + '」？此操作不删除已在房间内开打的副本。')) return
   const { error } = await supabase.from('campaign_book').delete().eq('id', item.id)
   if (error) alert('删除失败：' + error.message)
   else loadBookList()
 }
 
-// 房间内：从记录簿复制并开始
 async function startMissionFromBook(bookId) {
   if (!isGM.value) {
     alert('只有 GM 可以选择战役')
+    return
+  }
+  if (!currentSession.value) {
+    alert('请先进入房间')
     return
   }
   if (currentSession.value.current_mission_id) {
     alert('当前已有进行中的事件，请先结束本局')
     return
   }
+
   const book = bookList.value.find(b => b.id === bookId)
   if (!book) {
     alert('找不到该记录')
@@ -135,9 +194,62 @@ async function startMissionFromBook(bookId) {
     .select()
     .single()
 
-  if (error) {
-    alert('开启失败：' + error.message)
+  if (error || !data) {
+    alert('开启失败：' + (error?.message || '未知错误'))
     return
+  }
+
+  // 复制地图节点
+  const { data: srcNodes } = await supabase
+    .from('book_map_nodes')
+    .select('*')
+    .eq('book_id', book.id)
+    .order('sort_order')
+
+  const idMap = {}
+  let remaining = [...(srcNodes || [])]
+  let guard = 0
+  while (remaining.length && guard < 20) {
+    guard++
+    const next = []
+    for (const n of remaining) {
+      if (n.parent_id && !idMap[n.parent_id]) {
+        next.push(n)
+        continue
+      }
+      const { data: created, error: nodeErr } = await supabase
+        .from('mission_map_nodes')
+        .insert({
+          mission_id: data.id,
+          parent_id: n.parent_id ? idMap[n.parent_id] : null,
+          source_node_id: n.id,
+          name: n.name,
+          description: n.description || '',
+          image_url: n.image_url || '',
+          visible_to_players: n.visible_to_players !== false,
+          sort_order: n.sort_order || 0
+        })
+        .select()
+        .single()
+      if (nodeErr) {
+        console.error(nodeErr)
+        continue
+      }
+      if (created) idMap[n.id] = created.id
+    }
+    remaining = next
+  }
+
+  // 默认当前节点：第一个顶层
+  const roots = (srcNodes || []).filter(n => !n.parent_id)
+  const firstRoot = roots[0]
+  let currentNodeId = null
+  if (firstRoot && idMap[firstRoot.id]) {
+    currentNodeId = idMap[firstRoot.id]
+    await supabase
+      .from('missions')
+      .update({ current_node_id: currentNodeId })
+      .eq('id', data.id)
   }
 
   const { error: e2 } = await supabase
@@ -150,10 +262,18 @@ async function startMissionFromBook(bookId) {
     return
   }
 
-  currentSession.value = { ...currentSession.value, current_mission_id: data.id }
-  currentMission.value = data
+  currentSession.value = {
+    ...currentSession.value,
+    current_mission_id: data.id
+  }
+  currentMission.value = {
+    ...data,
+    current_node_id: currentNodeId
+  }
   saveSessionToLocal()
+  await loadMissionNodes()
   alert('已从记录簿复制并开始本局')
+  showMissionPanel.value = false
 }
 
 async function loadCurrentMission() {
@@ -170,6 +290,42 @@ async function loadCurrentMission() {
     currentMission.value = data
   }
 }
+
+async function loadMissionNodes() {
+  missionNodes.value = []
+  currentMissionNode.value = null
+  if (!currentMission.value?.id) return
+
+  const { data } = await supabase
+    .from('mission_map_nodes')
+    .select('*')
+    .eq('mission_id', currentMission.value.id)
+    .order('sort_order')
+
+  missionNodes.value = data || []
+
+  const cid = currentMission.value.current_node_id
+  if (cid) {
+    currentMissionNode.value = missionNodes.value.find(n => n.id === cid) || null
+  }
+}
+
+async function setCurrentNode(nodeId) {
+  if (!isGM.value || !currentMission.value) return
+  const { error } = await supabase
+    .from('missions')
+    .update({ current_node_id: nodeId })
+    .eq('id', currentMission.value.id)
+  if (error) return alert(error.message)
+  currentMission.value = { ...currentMission.value, current_node_id: nodeId }
+  currentMissionNode.value = missionNodes.value.find(n => n.id === nodeId) || null
+}
+
+// 玩家看到的节点名列表
+const visibleMissionNodes = computed(() => {
+  if (isGM.value) return missionNodes.value
+  return missionNodes.value.filter(n => n.visible_to_players)
+})
 
 async function createMission() {
   if (!isGM.value) {
@@ -1960,7 +2116,7 @@ onUnmounted(() => {
     <p style="margin-top: 30px; color: #c00;">{{ message }}</p>
   </div>
 
-    <div v-else-if="page === 'book'" style="max-width: 800px; margin: 30px auto; font-family: sans-serif; padding: 0 20px 40px;">
+      <div v-else-if="page === 'book'" style="max-width: 800px; margin: 30px auto; font-family: sans-serif; padding: 0 20px 40px;">
     <div style="padding: 12px 14px; background: #ffebee; border: 1px solid #e57373; border-radius: 8px; margin-bottom: 20px;">
       <strong style="color: #c62828;">玩家勿入</strong>
       <span style="margin-left: 8px; font-size: 14px; color: #b71c1c;">
@@ -1973,6 +2129,7 @@ onUnmounted(() => {
       <button type="button" @click="page = 'home'" style="padding: 8px 14px;">返回首页</button>
     </div>
 
+    <!-- 列表 -->
     <div v-if="!editingBook">
       <button type="button" @click="startNewBook"
               style="margin: 16px 0; padding: 8px 16px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">
@@ -1992,6 +2149,7 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- 编辑表单 -->
     <div v-else style="margin-top: 16px;">
       <h2>{{ editingBook.id ? '编辑事件' : '新建事件' }}</h2>
       <div style="margin-bottom: 8px;">
@@ -2019,6 +2177,33 @@ onUnmounted(() => {
                 style="padding: 8px 16px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">保存</button>
         <button type="button" @click="editingBook = null; loadBookList()" style="padding: 8px 16px;">返回列表</button>
       </div>
+
+      <!-- 地图节点：仅已保存的事件 -->
+      <div v-if="editingBook.id" style="margin-top: 24px; border-top: 1px solid #ddd; padding-top: 16px;">
+        <h3>地图节点（最多 4 层）</h3>
+        <div v-for="n in bookNodes" :key="n.id" style="padding: 8px; margin: 6px 0; background: #f5f5f5; border-radius: 6px;">
+          <strong>{{ n.name }}</strong>
+          <span style="font-size: 12px; color: #888; margin-left: 8px;">
+            {{ n.visible_to_players ? '对玩家公开' : '仅 GM' }}
+            {{ n.parent_id ? '（子节点）' : '（顶层）' }}
+          </span>
+          <div style="font-size: 13px; color: #555;">{{ n.description }}</div>
+          <button type="button" @click="nodeForm.parent_id = n.id; editingNodeId = null">加子节点</button>
+          <button type="button" @click="editingNodeId = n.id; nodeForm = { name: n.name, description: n.description, image_url: n.image_url, visible_to_players: n.visible_to_players, parent_id: n.parent_id }">编辑</button>
+          <button type="button" @click="deleteBookNode(n)">删除</button>
+        </div>
+        <h4>{{ editingNodeId ? '编辑节点' : '新节点' }}</h4>
+        <input v-model="nodeForm.name" placeholder="节点名称" style="width: 100%; padding: 8px; margin-bottom: 6px;" />
+        <textarea v-model="nodeForm.description" placeholder="文字描述" rows="3" style="width: 100%; padding: 8px; margin-bottom: 6px;"></textarea>
+        <input v-model="nodeForm.image_url" placeholder="背景图 URL" style="width: 100%; padding: 8px; margin-bottom: 6px;" />
+        <label>
+          <input type="checkbox" v-model="nodeForm.visible_to_players" /> 对玩家公开
+        </label>
+        <div style="margin-top: 8px;">
+          <button type="button" @click="saveBookNode(editingBook.id)">保存节点</button>
+        </div>
+      </div>
+      <p v-else style="margin-top: 16px; color: #888;">请先保存事件，再添加地图节点</p>
     </div>
   </div>
 
@@ -2178,7 +2363,7 @@ onUnmounted(() => {
     </div>
   </div>
 
-   <!-- 大厅页 -->
+  <!-- 大厅页 -->
   <div v-else-if="page === 'lobby'" style="max-width: 900px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <div>
@@ -2197,11 +2382,8 @@ onUnmounted(() => {
     </div>
     <hr style="margin: 20px 0;" />
 
-        <!-- 神秘事件 -->
     <div style="margin-bottom: 20px; padding: 16px; border: 1px solid #5c6bc0; border-radius: 10px; background: #e8eaf6;">
       <strong style="color: #3949ab;">神秘事件（本局）</strong>
-
-      <!-- 已有本局 -->
       <div v-if="currentMission" style="margin-top: 12px;">
         <div style="font-size: 18px; font-weight: bold;">{{ currentMission.title }}</div>
         <div style="font-size: 14px; margin-top: 8px; line-height: 1.6;">
@@ -2210,43 +2392,44 @@ onUnmounted(() => {
           <div>委托类型：{{ currentMission.mission_type || '—' }}</div>
           <div style="margin-top: 6px; white-space: pre-wrap;">{{ currentMission.summary || '—' }}</div>
         </div>
-        <button v-if="isGM" type="button" @click="completeMission"
-                style="margin-top: 10px; padding: 6px 12px; cursor: pointer;">
-          结束本局
-        </button>
+        <button v-if="isGM" type="button" @click="completeMission" style="margin-top: 10px; padding: 6px 12px; cursor: pointer;">结束本局</button>
       </div>
-
-      <!-- 无本局：GM 从记录簿选 -->
       <div v-else style="margin-top: 12px;">
         <div style="color: #666; margin-bottom: 10px;">当前没有进行中的事件</div>
         <div v-if="isGM">
-          <button type="button"
-                  @click="loadBookList(); showMissionPanel = !showMissionPanel"
-                  style="padding: 8px 14px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            从记录簿选择
-          </button>
+          <button type="button" @click="loadBookList(); showMissionPanel = !showMissionPanel"
+                  style="padding: 8px 14px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">从记录簿选择</button>
           <div v-if="showMissionPanel" style="margin-top: 12px;">
-            <div v-if="!bookList.length" style="color: #888; font-size: 14px;">
-              记录簿为空，请先到首页「神秘事件记录簿」创建并保存
-            </div>
-            <div v-for="b in bookList" :key="b.id"
-                 style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 10px; background: #fff; border-radius: 6px;">
+            <div v-if="!bookList.length" style="color: #888; font-size: 14px;">记录簿为空，请先到首页创建</div>
+            <div v-for="b in bookList" :key="b.id" style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 10px; background: #fff; border-radius: 6px;">
               <span>{{ b.title }}</span>
               <button type="button" @click="startMissionFromBook(b.id)"
-                      style="padding: 6px 12px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                开始本局
-              </button>
+                      style="padding: 6px 12px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer;">开始本局</button>
             </div>
           </div>
         </div>
-        <div v-else style="font-size: 14px; color: #888;">等待 GM 从记录簿开启事件</div>
+        <div v-else style="font-size: 14px; color: #888;">等待 GM 开启事件</div>
       </div>
     </div>
 
-    <!-- 地图占位 -->
-    <div style="margin-bottom: 24px; border: 1px solid #ddd; border-radius: 10px; min-height: 160px; display: flex; align-items: center; justify-content: center; flex-direction: column; background: #f5f5f5; padding: 24px;">
-      <div style="font-size: 18px; color: #555;">当前地图节点</div>
-      <div style="margin-top: 8px; color: #888; font-size: 14px;">（地图系统将显示在这里）</div>
+    <div style="margin-bottom: 24px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
+      <div v-if="displayMissionNode"
+           :style="{ minHeight: '200px', backgroundImage: displayMissionNode.image_url ? 'url(' + displayMissionNode.image_url + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', padding: '20px', color: '#fff', textShadow: '0 1px 3px #000', backgroundColor: '#333' }">
+        <div style="font-size: 20px; font-weight: bold;">{{ displayMissionNode.name }}</div>
+        <div style="margin-top: 10px; white-space: pre-wrap;">{{ displayMissionNode.description }}</div>
+      </div>
+      <div v-else style="min-height: 160px; display: flex; align-items: center; justify-content: center; color: #888; background: #f5f5f5;">
+        {{ currentMission ? '尚未设置当前地图节点' : '开启本局后显示地图' }}
+      </div>
+      <div v-if="isGM && currentMission && missionNodes.length" style="padding: 12px; background: #fafafa; border-top: 1px solid #eee;">
+        <strong style="font-size: 13px;">切换当前节点（GM）</strong>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+          <button v-for="n in missionNodes" :key="n.id" type="button" @click="setCurrentNode(n.id)"
+                  :style="{ padding: '6px 10px', cursor: 'pointer', background: (currentMissionNode && currentMissionNode.id === n.id) ? '#3949ab' : '#eee', color: (currentMissionNode && currentMissionNode.id === n.id) ? '#fff' : '#333', border: 'none', borderRadius: '4px' }">
+            {{ n.name }}{{ n.visible_to_players ? '' : '（隐）' }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <h2>成员名单</h2>
@@ -2258,17 +2441,11 @@ onUnmounted(() => {
         <span style="color: #666; margin-left: 8px;">（{{ char.player_name }}）</span>
         <span v-if="char.name === myCharacterName" style="margin-left: 8px; font-size: 12px; color: #2e7d32;">我</span>
         <span v-if="char.is_locked" style="margin-left: 6px; font-size: 12px; color: #e65100;">使用中</span>
-        <div style="font-size: 13px; color: #888; margin-top: 4px;">
-          {{ char.class_name || '未选择' }} ｜ Lv.{{ char.level || 1 }}
-        </div>
+        <div style="font-size: 13px; color: #888; margin-top: 4px;">{{ char.class_name || '未选择' }} ｜ Lv.{{ char.level || 1 }}</div>
       </div>
       <div>
-        <button
-          v-if="char.name === myCharacterName"
-          type="button"
-          @click="enterMyCharacterFromLobby(char)"
-          style="padding: 6px 14px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;"
-        >进入角色</button>
+        <button v-if="char.name === myCharacterName" type="button" @click="enterMyCharacterFromLobby(char)"
+                style="padding: 6px 14px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">进入角色</button>
         <span v-else style="font-size: 13px; color: #bbb;">不可查看</span>
       </div>
     </div>
