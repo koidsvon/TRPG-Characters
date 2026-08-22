@@ -61,6 +61,48 @@ function getBookNodeDepth(nodeId, nodes) {
   return depth
 }
 
+function resetNodeForm(parentId = null) {
+  editingNodeId.value = null
+  nodeForm.value = {
+    name: '',
+    description: '',
+    image_url: '',
+    visible_to_players: true,
+    parent_id: parentId,
+    sort_order: 0
+  }
+}
+
+function beginEditNode(n) {
+  editingNodeId.value = n.id
+  nodeForm.value = {
+    name: n.name || '',
+    description: n.description || '',
+    image_url: n.image_url || '',
+    visible_to_players: n.visible_to_players !== false,
+    parent_id: n.parent_id || null,
+    sort_order: n.sort_order || 0
+  }
+}
+
+function beginAddChild(n) {
+  resetNodeForm(n.id)
+}
+
+function beginAddRoot() {
+  resetNodeForm(null)
+}
+
+function nodeDepthLabel(n) {
+  return getBookNodeDepth(n.id, bookNodes.value)
+}
+
+function parentName(n) {
+  if (!n.parent_id) return '顶层'
+  const p = bookNodes.value.find(x => x.id === n.parent_id)
+  return p ? ('子级 ← ' + p.name) : '子级'
+}
+
 async function loadBookList() {
   const { data, error } = await supabase
     .from('campaign_book')
@@ -105,6 +147,92 @@ function editBookItem(item) {
     summary: item.summary || ''
   }
   loadBookNodes(item.id)
+}
+
+async function loadBookNodes(bookId) {
+  if (!bookId) {
+    bookNodes.value = []
+    return
+  }
+  const { data, error } = await supabase
+    .from('book_map_nodes')
+    .select('*')
+    .eq('book_id', bookId)
+    .order('sort_order')
+  if (error) {
+    console.error(error)
+    bookNodes.value = []
+    return
+  }
+  bookNodes.value = data || []
+}
+
+async function saveBookNode(bookId) {
+  if (!bookId) {
+    alert('请先保存事件，再添加节点')
+    return
+  }
+  const name = (nodeForm.value.name || '').trim()
+  if (!name) {
+    alert('请输入节点名称')
+    return
+  }
+  if (nodeForm.value.parent_id) {
+    const d = getBookNodeDepth(nodeForm.value.parent_id, bookNodes.value)
+    if (d >= 4) {
+      alert('最多 4 层节点，无法再添加子节点')
+      return
+    }
+  }
+
+  const payload = {
+    book_id: bookId,
+    parent_id: nodeForm.value.parent_id || null,
+    name,
+    description: nodeForm.value.description || '',
+    image_url: nodeForm.value.image_url || '',
+    visible_to_players: nodeForm.value.visible_to_players !== false,
+    sort_order: nodeForm.value.sort_order || 0
+  }
+
+  if (editingNodeId.value) {
+    const { error } = await supabase
+      .from('book_map_nodes')
+      .update(payload)
+      .eq('id', editingNodeId.value)
+    if (error) {
+      alert('保存失败：' + error.message)
+      return
+    }
+  } else {
+    const { error } = await supabase
+      .from('book_map_nodes')
+      .insert(payload)
+    if (error) {
+      alert('创建失败：' + error.message)
+      return
+    }
+  }
+
+  await loadBookNodes(bookId)
+  resetNodeForm(null)
+  alert('节点已保存')
+}
+
+async function deleteBookNode(node) {
+  if (!node?.id) return
+  if (!confirm('删除节点「' + node.name + '」及其子节点？')) return
+  const { error } = await supabase
+    .from('book_map_nodes')
+    .delete()
+    .eq('id', node.id)
+  if (error) {
+    alert('删除失败：' + error.message)
+    return
+  }
+  if (editingBook.value?.id) {
+    await loadBookNodes(editingBook.value.id)
+  }
 }
 
 async function saveBookItem() {
@@ -2176,6 +2304,80 @@ onUnmounted(() => {
         <button type="button" @click="saveBookItem"
                 style="padding: 8px 16px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">保存</button>
         <button type="button" @click="editingBook = null; loadBookList()" style="padding: 8px 16px;">返回列表</button>
+            <div v-if="editingBook.id" style="margin-top: 24px; border-top: 1px solid #ddd; padding-top: 16px;">
+        <h3>地图节点（最多 4 层；每一层可单独设置是否对玩家公开）</h3>
+
+        <button type="button" @click="beginAddRoot"
+                style="margin-bottom: 12px; padding: 6px 12px; cursor: pointer;">
+          + 新建顶层节点
+        </button>
+
+        <div v-if="bookNodes.length === 0" style="color: #888; margin-bottom: 12px;">暂无节点</div>
+
+        <div
+          v-for="n in bookNodes"
+          :key="n.id"
+          style="padding: 10px; margin: 8px 0; background: #f5f5f5; border-radius: 6px; border-left: 4px solid #3949ab;"
+        >
+          <div>
+            <strong>{{ n.name }}</strong>
+            <span style="font-size: 12px; color: #888; margin-left: 8px;">
+              第 {{ nodeDepthLabel(n) }} 层 · {{ parentName(n) }} ·
+              {{ n.visible_to_players ? '对玩家公开' : '仅 GM' }}
+            </span>
+          </div>
+          <div style="font-size: 13px; color: #555; margin: 6px 0;">{{ n.description }}</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" @click="beginEditNode(n)">编辑此节点</button>
+            <button type="button" @click="beginAddChild(n)">在此节点下加子节点</button>
+            <button type="button" @click="deleteBookNode(n)" style="color: #c62828;">删除</button>
+          </div>
+        </div>
+
+        <div style="margin-top: 16px; padding: 14px; background: #e8eaf6; border-radius: 8px;">
+          <h4 style="margin-top: 0;">
+            {{ editingNodeId ? '编辑节点' : (nodeForm.parent_id ? '新建子节点' : '新建顶层节点') }}
+          </h4>
+          <p v-if="nodeForm.parent_id" style="font-size: 13px; color: #555;">
+            父节点：{{ bookNodes.find(x => x.id === nodeForm.parent_id)?.name || '—' }}
+          </p>
+
+          <input
+            v-model="nodeForm.name"
+            placeholder="节点名称"
+            style="width: 100%; padding: 8px; margin-bottom: 6px; box-sizing: border-box;"
+          />
+          <textarea
+            v-model="nodeForm.description"
+            placeholder="文字描述"
+            rows="3"
+            style="width: 100%; padding: 8px; margin-bottom: 6px; box-sizing: border-box;"
+          ></textarea>
+          <input
+            v-model="nodeForm.image_url"
+            placeholder="背景图 URL"
+            style="width: 100%; padding: 8px; margin-bottom: 6px; box-sizing: border-box;"
+          />
+
+          <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0;">
+            <input type="checkbox" v-model="nodeForm.visible_to_players" />
+            对玩家公开此节点（取消勾选则玩家看到「未知区域」）
+          </label>
+
+          <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <button
+              type="button"
+              @click="saveBookNode(editingBook.id)"
+              style="padding: 8px 16px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;"
+            >
+              保存节点
+            </button>
+            <button type="button" @click="resetNodeForm(null)">清空表单</button>
+          </div>
+        </div>
+      </div>
+
+      <p v-else style="margin-top: 16px; color: #888;">请先保存事件，再添加地图节点</p>  
       </div>
 
       <!-- 地图节点：仅已保存的事件 -->
