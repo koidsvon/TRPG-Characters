@@ -14,6 +14,147 @@ const missionLocation = ref('')
 const missionType = ref('')
 const missionSummary = ref('')  // 事件简述
 const showMissionPanel = ref(false)
+// page 增加 'book'
+const bookList = ref([])
+const editingBook = ref(null) // null=列表；对象=编辑中
+const bookForm = ref({
+  title: '',
+  client: '',
+  location: '',
+  mission_type: '',
+  summary: ''
+})
+
+async function loadBookList() {
+  const { data, error } = await supabase
+    .from('campaign_book')
+    .select('*')
+    .order('updated_at', { ascending: false })
+  if (!error) bookList.value = data || []
+}
+
+function openBook() {
+  editingBook.value = null
+  page.value = 'book'
+  loadBookList()
+}
+
+function startNewBook() {
+  editingBook.value = { id: null }
+  bookForm.value = {
+    title: '',
+    client: '',
+    location: '',
+    mission_type: '',
+    summary: ''
+  }
+}
+
+function editBookItem(item) {
+  editingBook.value = item
+  bookForm.value = {
+    title: item.title || '',
+    client: item.client || '',
+    location: item.location || '',
+    mission_type: item.mission_type || '',
+    summary: item.summary || ''
+  }
+}
+
+async function saveBookItem() {
+  const title = (bookForm.value.title || '').trim()
+  if (!title) {
+    alert('请输入事件标题')
+    return
+  }
+  const payload = {
+    title,
+    client: bookForm.value.client || '',
+    location: bookForm.value.location || '',
+    mission_type: bookForm.value.mission_type || '',
+    summary: bookForm.value.summary || '',
+    updated_at: new Date().toISOString()
+  }
+
+  if (editingBook.value?.id) {
+    const { error } = await supabase
+      .from('campaign_book')
+      .update(payload)
+      .eq('id', editingBook.value.id)
+    if (error) {
+      alert('保存失败：' + error.message)
+      return
+    }
+  } else {
+    const { error } = await supabase.from('campaign_book').insert(payload)
+    if (error) {
+      alert('创建失败：' + error.message)
+      return
+    }
+  }
+  alert('已保存到记录簿')
+  editingBook.value = null
+  loadBookList()
+}
+
+async function deleteBookItem(item) {
+  if (!confirm(`确认删除「${item.title}」？此操作不删除已在房间内开打的副本。`)) return
+  const { error } = await supabase.from('campaign_book').delete().eq('id', item.id)
+  if (error) alert('删除失败：' + error.message)
+  else loadBookList()
+}
+
+// 房间内：从记录簿复制并开始
+async function startMissionFromBook(bookId) {
+  if (!isGM.value) {
+    alert('只有 GM 可以选择战役')
+    return
+  }
+  if (currentSession.value.current_mission_id) {
+    alert('当前已有进行中的事件，请先结束本局')
+    return
+  }
+  const book = bookList.value.find(b => b.id === bookId)
+  if (!book) {
+    alert('找不到该记录')
+    return
+  }
+
+  const { data, error } = await supabase
+    .from('missions')
+    .insert({
+      session_id: currentSession.value.id,
+      source_book_id: book.id,
+      title: book.title,
+      client: book.client || '',
+      location: book.location || '',
+      mission_type: book.mission_type || '',
+      summary: book.summary || '',
+      status: 'active'
+    })
+    .select()
+    .single()
+
+  if (error) {
+    alert('开启失败：' + error.message)
+    return
+  }
+
+  const { error: e2 } = await supabase
+    .from('sessions')
+    .update({ current_mission_id: data.id })
+    .eq('id', currentSession.value.id)
+
+  if (e2) {
+    alert('绑定房间失败：' + e2.message)
+    return
+  }
+
+  currentSession.value = { ...currentSession.value, current_mission_id: data.id }
+  currentMission.value = data
+  saveSessionToLocal()
+  alert('已从记录簿复制并开始本局')
+}
 
 async function loadCurrentMission() {
   currentMission.value = null
@@ -1796,6 +1937,16 @@ onUnmounted(() => {
     </div>
     <button @click="createRoom" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; cursor: pointer;">创建房间</button>
     <hr style="margin: 40px 0;" />
+    <div style="margin: 24px 0; padding: 16px; border: 1px solid #c62828; border-radius: 8px; background: #ffebee;">
+      <strong style="color: #c62828;">神秘事件记录簿</strong>
+      <p style="margin: 8px 0; font-size: 13px; color: #b71c1c;">
+        仅供 GM 编辑与保存战役（含简介、地图、敌人等）。玩家请勿进入。
+      </p>
+      <button type="button" @click="openBook"
+          style="padding: 8px 16px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          进入记录簿（GM）
+      </button>
+    </div>
     <h2>加入房间</h2>
     <div style="margin-bottom: 15px;">
       <label>房间码：</label><br />
@@ -1807,6 +1958,68 @@ onUnmounted(() => {
     </div>
     <button @click="joinRoom" style="padding: 10px 20px; background: #2196F3; color: white; border: none; cursor: pointer;">加入房间</button>
     <p style="margin-top: 30px; color: #c00;">{{ message }}</p>
+  </div>
+
+    <div v-else-if="page === 'book'" style="max-width: 800px; margin: 30px auto; font-family: sans-serif; padding: 0 20px 40px;">
+    <div style="padding: 12px 14px; background: #ffebee; border: 1px solid #e57373; border-radius: 8px; margin-bottom: 20px;">
+      <strong style="color: #c62828;">玩家勿入</strong>
+      <span style="margin-left: 8px; font-size: 14px; color: #b71c1c;">
+        本页为 GM 专用神秘事件记录簿，用于编写与保存战役，请玩家不要进入或修改。
+      </span>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h1>神秘事件记录簿</h1>
+      <button type="button" @click="page = 'home'" style="padding: 8px 14px;">返回首页</button>
+    </div>
+
+    <div v-if="!editingBook">
+      <button type="button" @click="startNewBook"
+              style="margin: 16px 0; padding: 8px 16px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        新建事件
+      </button>
+      <div v-if="bookList.length === 0" style="color: #888;">暂无保存的事件</div>
+      <div v-for="item in bookList" :key="item.id"
+           style="border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin-bottom: 10px;">
+        <strong>{{ item.title }}</strong>
+        <div style="font-size: 13px; color: #666; margin-top: 6px;">
+          {{ item.client || '—' }} ｜ {{ item.location || '—' }} ｜ {{ item.mission_type || '—' }}
+        </div>
+        <div style="margin-top: 10px; display: flex; gap: 8px;">
+          <button type="button" @click="editBookItem(item)" style="padding: 4px 10px; cursor: pointer;">编辑</button>
+          <button type="button" @click="deleteBookItem(item)" style="padding: 4px 10px; cursor: pointer; color: #c62828;">删除</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-else style="margin-top: 16px;">
+      <h2>{{ editingBook.id ? '编辑事件' : '新建事件' }}</h2>
+      <div style="margin-bottom: 8px;">
+        <label>标题</label><br />
+        <input v-model="bookForm.title" style="width: 100%; padding: 8px; box-sizing: border-box;" />
+      </div>
+      <div style="margin-bottom: 8px;">
+        <label>委托人</label><br />
+        <input v-model="bookForm.client" style="width: 100%; padding: 8px; box-sizing: border-box;" />
+      </div>
+      <div style="margin-bottom: 8px;">
+        <label>地点</label><br />
+        <input v-model="bookForm.location" style="width: 100%; padding: 8px; box-sizing: border-box;" />
+      </div>
+      <div style="margin-bottom: 8px;">
+        <label>委托类型</label><br />
+        <input v-model="bookForm.mission_type" style="width: 100%; padding: 8px; box-sizing: border-box;" />
+      </div>
+      <div style="margin-bottom: 8px;">
+        <label>事件简述</label><br />
+        <textarea v-model="bookForm.summary" rows="5" style="width: 100%; padding: 8px; box-sizing: border-box;"></textarea>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" @click="saveBookItem"
+                style="padding: 8px 16px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">保存</button>
+        <button type="button" @click="editingBook = null; loadBookList()" style="padding: 8px 16px;">返回列表</button>
+      </div>
+    </div>
   </div>
 
   <!-- 角色列表页 -->
@@ -1984,79 +2197,13 @@ onUnmounted(() => {
     </div>
     <hr style="margin: 20px 0;" />
 
-    <!-- 神秘事件 -->
-    <div style="margin-bottom: 24px; border: 1px solid #5c6bc0; border-radius: 10px; padding: 16px; background: #e8eaf6;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <strong style="color: #3949ab; font-size: 16px;">神秘事件记录</strong>
-        <button v-if="isGM" type="button" @click="showMissionPanel = !showMissionPanel"
-                style="padding: 4px 10px; font-size: 13px; cursor: pointer;">
-          {{ showMissionPanel ? '收起' : '管理' }}
-        </button>
-      </div>
-
-      <div v-if="currentMission" style="margin-top: 12px;">
-        <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">{{ currentMission.title }}</div>
-        <div v-if="!isGM" style="font-size: 14px; line-height: 1.7; color: #333;">
-          <div><strong>委托人：</strong>{{ currentMission.client || '—' }}</div>
-          <div><strong>地点：</strong>{{ currentMission.location || '—' }}</div>
-          <div><strong>委托类型：</strong>{{ currentMission.mission_type || '—' }}</div>
-          <div style="margin-top: 8px;"><strong>事件简述：</strong></div>
-          <div style="white-space: pre-wrap;">{{ currentMission.summary || '—' }}</div>
+    <div v-if="isGM && !currentMission" style="margin-top: 12px;">
+      <button type="button" @click="loadBookList(); showMissionPanel = !showMissionPanel">从记录簿选择</button>
+      <div v-if="showMissionPanel">
+        <div v-for="b in bookList" :key="b.id" style="display: flex; justify-content: space-between; margin: 8px 0; padding: 8px; background: #fff; border-radius: 6px;">
+          <span>{{ b.title }}</span>
+          <button type="button" @click="startMissionFromBook(b.id)">开始本局</button>
         </div>
-        <div v-else style="font-size: 14px;">
-          <div style="margin-bottom: 8px;">
-            <label>标题</label><br />
-            <input v-model="currentMission.title" style="width: 100%; padding: 8px; box-sizing: border-box;" />
-          </div>
-          <div style="margin-bottom: 8px;">
-            <label>委托人</label><br />
-            <input v-model="currentMission.client" style="width: 100%; padding: 8px; box-sizing: border-box;" />
-          </div>
-          <div style="margin-bottom: 8px;">
-            <label>地点</label><br />
-            <input v-model="currentMission.location" style="width: 100%; padding: 8px; box-sizing: border-box;" />
-          </div>
-          <div style="margin-bottom: 8px;">
-            <label>委托类型</label><br />
-            <input v-model="currentMission.mission_type" style="width: 100%; padding: 8px; box-sizing: border-box;" />
-          </div>
-          <div style="margin-bottom: 8px;">
-            <label>事件简述</label><br />
-            <textarea v-model="currentMission.summary" rows="4" style="width: 100%; padding: 8px; box-sizing: border-box;"></textarea>
-          </div>
-          <div style="display: flex; gap: 8px;">
-            <button type="button" @click="updateMissionFields"
-                    style="padding: 6px 12px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">保存</button>
-            <button type="button" @click="completeMission"
-                    style="padding: 6px 12px; background: #757575; color: white; border: none; border-radius: 4px; cursor: pointer;">完成事件</button>
-          </div>
-        </div>
-      </div>
-      <div v-else style="margin-top: 10px; color: #666;">当前没有进行中的神秘事件</div>
-
-      <div v-if="isGM && showMissionPanel && !currentMission" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #c5cae9;">
-        <div style="margin-bottom: 8px;">
-          <label>事件标题</label><br />
-          <input v-model="missionTitle" style="width: 100%; padding: 8px; box-sizing: border-box;" />
-        </div>
-        <div style="margin-bottom: 8px;">
-          <label>委托人</label><br />
-          <input v-model="missionClient" style="width: 100%; padding: 8px; box-sizing: border-box;" />
-        </div>
-        <div style="margin-bottom: 8px;">
-          <label>地点</label><br />
-          <input v-model="missionLocation" style="width: 100%; padding: 8px; box-sizing: border-box;" />
-        </div>
-        <div style="margin-bottom: 8px;">
-          <label>委托类型</label><br />
-          <input v-model="missionType" placeholder="例如：调查 / 清除 / 护送" style="width: 100%; padding: 8px; box-sizing: border-box;" />
-        </div>
-        <div style="margin-bottom: 8px;">
-          <label>事件简述</label><br />
-          <textarea v-model="missionSummary" rows="3" style="width: 100%; padding: 8px; box-sizing: border-box;"></textarea>
-        </div>
-        <button type="button" @click="createMission"
-                style="padding: 8px 16px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">创建神秘事件</button>
       </div>
     </div>
 
