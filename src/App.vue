@@ -476,6 +476,70 @@ async function debugMap() {
   )
 }
 
+async function toggleMissionNodeVisibility(node) {
+  if (!isGM.value || !node?.id) return
+  const next = !node.visible_to_players
+  const { error } = await supabase
+    .from('mission_map_nodes')
+    .update({ visible_to_players: next })
+    .eq('id', node.id)
+  if (error) {
+    alert('更新失败：' + error.message)
+    return
+  }
+  await loadMissionNodes()
+}
+
+/** 本局节点树（多根） */
+const missionNodeTree = computed(() => {
+  const list = missionNodes.value || []
+  const byParent = {}
+  list.forEach(n => {
+    const key = n.parent_id ? n.parent_id : 'root'
+    if (!byParent[key]) byParent[key] = []
+    byParent[key].push(n)
+  })
+  Object.keys(byParent).forEach(k => {
+    byParent[k].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+  })
+  function build(parentKey, depth) {
+    return (byParent[parentKey] || []).map(n => ({
+      node: n,
+      depth,
+      children: build(n.id, depth + 1)
+    }))
+  }
+  return build('root', 0)
+})
+
+const missionNodeFlat = computed(() => {
+  const out = []
+  function walk(items) {
+    for (const item of items) {
+      out.push({ node: item.node, depth: item.depth })
+      if (item.children?.length) walk(item.children)
+    }
+  }
+  walk(missionNodeTree.value)
+  return out
+})
+
+/** 路径文案：总节点：子 - 孙 */
+function missionNodePathLabel(node) {
+  const list = missionNodes.value || []
+  const names = [node.name]
+  let cur = node
+  while (cur.parent_id) {
+    const p = list.find(x => x.id === cur.parent_id)
+    if (!p) break
+    names.unshift(p.name)
+    cur = p
+  }
+  if (names.length === 1) return names[0]
+  // 总节点：子节点 - 第二子节点
+  return names[0] + '：' + names.slice(1).join(' - ')
+}
+
 async function loadMissionNodes() {
   missionNodes.value = []
   currentMissionNode.value = null
@@ -2649,44 +2713,14 @@ onUnmounted(() => {
     </div>
     <hr style="margin: 20px 0;" />
 
-    <div style="margin-bottom: 20px; padding: 16px; border: 1px solid #5c6bc0; border-radius: 10px; background: #e8eaf6;">
-      <strong style="color: #3949ab;">神秘事件（本局）</strong>
-      <div v-if="currentMission" style="margin-top: 12px;">
-        <div style="font-size: 18px; font-weight: bold;">{{ currentMission.title }}</div>
-        <div style="font-size: 14px; margin-top: 8px; line-height: 1.6;">
-          <div>委托人：{{ currentMission.client || '—' }}</div>
-          <div>地点：{{ currentMission.location || '—' }}</div>
-          <div>委托类型：{{ currentMission.mission_type || '—' }}</div>
-          <div style="margin-top: 6px; white-space: pre-wrap;">{{ currentMission.summary || '—' }}</div>
-        </div>
-        <button v-if="isGM" type="button" @click="completeMission" style="margin-top: 10px; padding: 6px 12px; cursor: pointer;">结束本局</button>
-      </div>
-      <div v-else style="margin-top: 12px;">
-        <div style="color: #666; margin-bottom: 10px;">当前没有进行中的事件</div>
-        <div v-if="isGM">
-          <button type="button" @click="loadBookList(); showMissionPanel = !showMissionPanel"
-                  style="padding: 8px 14px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;">从记录簿选择</button>
-          <div v-if="showMissionPanel" style="margin-top: 12px;">
-            <div v-if="!bookList.length" style="color: #888; font-size: 14px;">记录簿为空，请先到首页创建</div>
-            <div v-for="b in bookList" :key="b.id" style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 10px; background: #fff; border-radius: 6px;">
-              <span>{{ b.title }}</span>
-              <button type="button" @click="startMissionFromBook(b.id)"
-                      style="padding: 6px 12px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer;">开始本局</button>
-            </div>
-          </div>
-        </div>
-        <div v-else style="font-size: 14px; color: #888;">等待 GM 开启事件</div>
-      </div>
-    </div>
+    <!-- 若你有「神秘事件（本局）」整块，粘贴在这里 -->
 
-        <div style="margin-bottom: 24px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
+    <div style="margin-bottom: 24px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
       <div
         v-if="displayMissionNode"
         :style="{
           minHeight: '200px',
-          backgroundImage: displayMissionNode.image_url
-            ? 'url(' + displayMissionNode.image_url + ')'
-            : 'none',
+          backgroundImage: displayMissionNode.image_url ? 'url(' + displayMissionNode.image_url + ')' : 'none',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           padding: '20px',
@@ -2698,59 +2732,59 @@ onUnmounted(() => {
         <div style="font-size: 20px; font-weight: bold;">{{ displayMissionNode.name }}</div>
         <div style="margin-top: 10px; white-space: pre-wrap;">{{ displayMissionNode.description }}</div>
       </div>
-
       <div
         v-else
         style="min-height: 160px; display: flex; align-items: center; justify-content: center; color: #888; background: #f5f5f5; padding: 16px; text-align: center;"
       >
         <span v-if="!currentMission">当前没有进行中的事件</span>
-        <span v-else-if="!missionNodes.length">
-          本局尚未配置地图节点（请 GM 在记录簿添加节点后重新开本局）
-        </span>
-        <span v-else>地图加载中或未选择当前节点…</span>
+        <span v-else-if="!missionNodes.length">本局没有地图节点数据</span>
+        <span v-else>当前节点无法显示</span>
       </div>
-
-      <!-- 玩家可手动刷新 -->
-      <div style="padding: 8px 12px; background: #fafafa; border-top: 1px solid #eee;">
-        <button
-          type="button"
-          @click="loadCurrentMission"
-          style="padding: 6px 12px; font-size: 13px; cursor: pointer; margin-right: 8px;"
-        >
-          刷新地图 / 事件
-        </button>
-        <button
-          type="button"
-          @click="debugMap"
-          style="padding: 6px 12px; font-size: 13px; cursor: pointer;"
-        >
-          调试地图
-        </button>
+      <div style="padding: 10px 12px; background: #fafafa; border-top: 1px solid #eee;">
+        <button type="button" @click="loadCurrentMission" style="padding: 6px 12px; margin-right: 8px; cursor: pointer;">刷新地图 / 事件</button>
+        <button type="button" @click="debugMap" style="padding: 6px 12px; cursor: pointer;">调试地图</button>
       </div>
-
       <div
         v-if="isGM && currentMission && missionNodes.length"
         style="padding: 12px; background: #fafafa; border-top: 1px solid #eee;"
       >
-        <strong style="font-size: 13px;">切换当前节点（GM）</strong>
-        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+        <strong style="font-size: 13px;">本局地图节点（GM）</strong>
+        <div style="font-size: 12px; color: #666; margin: 6px 0 10px;">
+          树形显示；点名称切换地点；公开/隐藏只影响本局
+        </div>
+        <div
+          v-for="row in missionNodeFlat"
+          :key="row.node.id"
+          :style="{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '8px',
+            paddingLeft: (8 + row.depth * 20) + 'px',
+            paddingTop: '8px',
+            paddingBottom: '8px',
+            paddingRight: '8px',
+            background: currentMissionNode && currentMissionNode.id === row.node.id ? '#e8eaf6' : '#fff',
+            borderRadius: '6px'
+          }"
+        >
           <button
-            v-for="n in missionNodes"
-            :key="n.id"
             type="button"
-            @click="setCurrentNode(n.id)"
-            :style="{
-              padding: '6px 10px',
-              cursor: 'pointer',
-              background:
-                currentMissionNode && currentMissionNode.id === n.id ? '#3949ab' : '#eee',
-              color:
-                currentMissionNode && currentMissionNode.id === n.id ? '#fff' : '#333',
-              border: 'none',
-              borderRadius: '4px'
-            }"
+            @click="setCurrentNode(row.node.id)"
+            style="padding: 4px 10px; cursor: pointer; border: 1px solid #ccc; border-radius: 4px; background: #fff;"
           >
-            {{ n.name }}{{ n.visible_to_players ? '' : '（隐）' }}
+            {{ missionNodePathLabel(row.node) }}
+          </button>
+          <span style="font-size: 12px; color: #888;">
+            {{ row.node.visible_to_players ? '玩家可见' : '仅 GM' }}
+          </span>
+          <button
+            type="button"
+            @click="toggleMissionNodeVisibility(row.node)"
+            style="padding: 4px 10px; font-size: 12px; cursor: pointer;"
+          >
+            {{ row.node.visible_to_players ? '设为隐藏' : '设为公开' }}
           </button>
         </div>
       </div>
@@ -2758,18 +2792,29 @@ onUnmounted(() => {
 
     <h2>成员名单</h2>
     <div v-if="characters.length === 0" style="color: #888;">暂无角色</div>
-    <div v-for="char in characters" :key="char.id"
-         style="border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+    <div
+      v-for="char in characters"
+      :key="char.id"
+      style="border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;"
+    >
       <div>
         <strong style="font-size: 17px;">{{ char.name }}</strong>
         <span style="color: #666; margin-left: 8px;">（{{ char.player_name }}）</span>
         <span v-if="char.name === myCharacterName" style="margin-left: 8px; font-size: 12px; color: #2e7d32;">我</span>
         <span v-if="char.is_locked" style="margin-left: 6px; font-size: 12px; color: #e65100;">使用中</span>
-        <div style="font-size: 13px; color: #888; margin-top: 4px;">{{ char.class_name || '未选择' }} ｜ Lv.{{ char.level || 1 }}</div>
+        <div style="font-size: 13px; color: #888; margin-top: 4px;">
+          {{ char.class_name || '未选择' }} ｜ Lv.{{ char.level || 1 }}
+        </div>
       </div>
       <div>
-        <button v-if="char.name === myCharacterName" type="button" @click="enterMyCharacterFromLobby(char)"
-                style="padding: 6px 14px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">进入角色</button>
+        <button
+          v-if="char.name === myCharacterName"
+          type="button"
+          @click="enterMyCharacterFromLobby(char)"
+          style="padding: 6px 14px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;"
+        >
+          进入角色
+        </button>
         <span v-else style="font-size: 13px; color: #bbb;">不可查看</span>
       </div>
     </div>
