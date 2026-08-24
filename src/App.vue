@@ -31,10 +31,11 @@ const currentMissionNode = ref(null)
 const displayMissionNode = computed(() => {
   const n = currentMissionNode.value
   if (!n) return null
-  if (!isGM.value && !n.visible_to_players) {
+  // GM 看真实内容；玩家看公开节点，隐藏节点显示未知区域
+  if (!isGM.value && n.visible_to_players === false) {
     return {
       name: '未知区域',
-      description: '（GM 尚未公开此地）',
+      description: '（此处尚未对调查员开放）',
       image_url: ''
     }
   }
@@ -406,17 +407,73 @@ async function startMissionFromBook(bookId) {
 
 async function loadCurrentMission() {
   currentMission.value = null
-  if (!currentSession.value?.current_mission_id) return
+  missionNodes.value = []
+  currentMissionNode.value = null
 
-  const { data, error } = await supabase
-    .from('missions')
-    .select('*')
-    .eq('id', currentSession.value.current_mission_id)
+  if (!currentSession.value?.id) return
+
+  // 先从服务器刷新房间，拿到最新的 current_mission_id
+  const { data: sessionRow } = await supabase
+    .from('sessions')
+    .select('id, current_mission_id, code, name, gm_password')
+    .eq('id', currentSession.value.id)
     .maybeSingle()
 
-  if (!error && data) {
+  if (sessionRow) {
+    currentSession.value = {
+      ...currentSession.value,
+      ...sessionRow
+    }
+  }
+
+  let missionId = currentSession.value.current_mission_id
+
+  // 兜底：按房间查进行中的 mission
+  if (!missionId) {
+    const { data: active } = await supabase
+      .from('missions')
+      .select('*')
+      .eq('session_id', currentSession.value.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (active) {
+      missionId = active.id
+      currentMission.value = active
+      currentSession.value = {
+        ...currentSession.value,
+        current_mission_id: active.id
+      }
+    }
+  } else {
+    const { data, error } = await supabase
+      .from('missions')
+      .select('*')
+      .eq('id', missionId)
+      .maybeSingle()
+
+    if (error || !data) {
+      currentMission.value = null
+      return
+    }
     currentMission.value = data
   }
+
+  if (!currentMission.value) return
+
+  await loadMissionNodes()
+}
+
+async function debugMap() {
+  await loadCurrentMission()
+  alert(
+    'mission=' + (currentMission.value?.id || '无') +
+    '\n节点数=' + missionNodes.value.length +
+    '\ncurrent_node_id=' + (currentMission.value?.current_node_id || '无') +
+    '\n当前节点=' + (currentMissionNode.value?.name || '无')
+  )
 }
 
 async function loadMissionNodes() {
@@ -424,18 +481,26 @@ async function loadMissionNodes() {
   currentMissionNode.value = null
   if (!currentMission.value?.id) return
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('mission_map_nodes')
     .select('*')
     .eq('mission_id', currentMission.value.id)
     .order('sort_order')
 
+  if (error) {
+    alert('加载地图节点失败：' + error.message)
+    return
+  }
+
   missionNodes.value = data || []
+  if (!missionNodes.value.length) return
 
   const cid = currentMission.value.current_node_id
-  if (cid) {
-    currentMissionNode.value = missionNodes.value.find(n => n.id === cid) || null
+  let node = cid ? missionNodes.value.find(n => n.id === cid) : null
+  if (!node) {
+    node = missionNodes.value.find(n => !n.parent_id) || missionNodes.value[0]
   }
+  currentMissionNode.value = node
 }
 
 async function setCurrentNode(nodeId) {
@@ -1535,8 +1600,8 @@ function restoreSessionFromLocal() {
       isGM.value = data.isGM
       myCharacterName.value = localStorage.getItem('rpg_char_' + data.session.code) || ''
       loadCharacters()
-      loadCurrentMission()
       startRealtime()
+      loadCurrentMission()
       // 已绑定角色名 → 大厅；否则 → 房间选角页
       page.value = myCharacterName.value ? 'lobby' : 'room'
       return true
@@ -1832,7 +1897,7 @@ async function claimAndEnterCharacter(char) {
   saveMyCharacterName(char.name)
   await loadCharacters()
   currentCharacter.value = null
-  page.value = 'lobby'
+  await enterLobby()
   const myCharacterId = ref(null)
 }
 
@@ -1868,7 +1933,7 @@ async function claimByName() {
   // 已锁定：用名字认领
   saveMyCharacterName(name)
   currentCharacter.value = null
-  page.value = 'lobby'
+  await enterLobby()
 }
 
 // GM 解除锁定
@@ -2614,20 +2679,77 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div style="margin-bottom: 24px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
-      <div v-if="displayMissionNode"
-           :style="{ minHeight: '200px', backgroundImage: displayMissionNode.image_url ? 'url(' + displayMissionNode.image_url + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', padding: '20px', color: '#fff', textShadow: '0 1px 3px #000', backgroundColor: '#333' }">
+        <div style="margin-bottom: 24px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
+      <div
+        v-if="displayMissionNode"
+        :style="{
+          minHeight: '200px',
+          backgroundImage: displayMissionNode.image_url
+            ? 'url(' + displayMissionNode.image_url + ')'
+            : 'none',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          padding: '20px',
+          color: '#fff',
+          textShadow: '0 1px 3px #000',
+          backgroundColor: '#333'
+        }"
+      >
         <div style="font-size: 20px; font-weight: bold;">{{ displayMissionNode.name }}</div>
         <div style="margin-top: 10px; white-space: pre-wrap;">{{ displayMissionNode.description }}</div>
       </div>
-      <div v-else style="min-height: 160px; display: flex; align-items: center; justify-content: center; color: #888; background: #f5f5f5;">
-        {{ currentMission ? '尚未设置当前地图节点' : '开启本局后显示地图' }}
+
+      <div
+        v-else
+        style="min-height: 160px; display: flex; align-items: center; justify-content: center; color: #888; background: #f5f5f5; padding: 16px; text-align: center;"
+      >
+        <span v-if="!currentMission">当前没有进行中的事件</span>
+        <span v-else-if="!missionNodes.length">
+          本局尚未配置地图节点（请 GM 在记录簿添加节点后重新开本局）
+        </span>
+        <span v-else>地图加载中或未选择当前节点…</span>
       </div>
-      <div v-if="isGM && currentMission && missionNodes.length" style="padding: 12px; background: #fafafa; border-top: 1px solid #eee;">
+
+      <!-- 玩家可手动刷新 -->
+      <div style="padding: 8px 12px; background: #fafafa; border-top: 1px solid #eee;">
+        <button
+          type="button"
+          @click="loadCurrentMission"
+          style="padding: 6px 12px; font-size: 13px; cursor: pointer; margin-right: 8px;"
+        >
+          刷新地图 / 事件
+        </button>
+        <button
+          type="button"
+          @click="debugMap"
+          style="padding: 6px 12px; font-size: 13px; cursor: pointer;"
+        >
+          调试地图
+        </button>
+      </div>
+
+      <div
+        v-if="isGM && currentMission && missionNodes.length"
+        style="padding: 12px; background: #fafafa; border-top: 1px solid #eee;"
+      >
         <strong style="font-size: 13px;">切换当前节点（GM）</strong>
         <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
-          <button v-for="n in missionNodes" :key="n.id" type="button" @click="setCurrentNode(n.id)"
-                  :style="{ padding: '6px 10px', cursor: 'pointer', background: (currentMissionNode && currentMissionNode.id === n.id) ? '#3949ab' : '#eee', color: (currentMissionNode && currentMissionNode.id === n.id) ? '#fff' : '#333', border: 'none', borderRadius: '4px' }">
+          <button
+            v-for="n in missionNodes"
+            :key="n.id"
+            type="button"
+            @click="setCurrentNode(n.id)"
+            :style="{
+              padding: '6px 10px',
+              cursor: 'pointer',
+              background:
+                currentMissionNode && currentMissionNode.id === n.id ? '#3949ab' : '#eee',
+              color:
+                currentMissionNode && currentMissionNode.id === n.id ? '#fff' : '#333',
+              border: 'none',
+              borderRadius: '4px'
+            }"
+          >
             {{ n.name }}{{ n.visible_to_players ? '' : '（隐）' }}
           </button>
         </div>
