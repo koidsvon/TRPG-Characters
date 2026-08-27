@@ -2713,7 +2713,61 @@ onUnmounted(() => {
     </div>
     <hr style="margin: 20px 0;" />
 
-    <!-- 若你有「神秘事件（本局）」整块，粘贴在这里 -->
+        <!-- 神秘事件（本局） -->
+    <div style="margin-bottom: 20px; padding: 16px; border: 1px solid #5c6bc0; border-radius: 10px; background: #e8eaf6;">
+      <strong style="color: #3949ab;">神秘事件（本局）</strong>
+
+      <div v-if="currentMission" style="margin-top: 12px;">
+        <div style="font-size: 18px; font-weight: bold;">{{ currentMission.title }}</div>
+        <div style="font-size: 14px; margin-top: 8px; line-height: 1.6;">
+          <div>委托人：{{ currentMission.client || '—' }}</div>
+          <div>地点：{{ currentMission.location || '—' }}</div>
+          <div>委托类型：{{ currentMission.mission_type || '—' }}</div>
+          <div style="margin-top: 6px; white-space: pre-wrap;">{{ currentMission.summary || '—' }}</div>
+        </div>
+        <button
+          v-if="isGM"
+          type="button"
+          @click="completeMission"
+          style="margin-top: 10px; padding: 6px 12px; cursor: pointer;"
+        >
+          结束本局
+        </button>
+      </div>
+
+      <div v-else style="margin-top: 12px;">
+        <div style="color: #666; margin-bottom: 10px;">当前没有进行中的事件</div>
+        <div v-if="isGM">
+          <button
+            type="button"
+            @click="loadBookList(); showMissionPanel = !showMissionPanel"
+            style="padding: 8px 14px; background: #3949ab; color: white; border: none; border-radius: 4px; cursor: pointer;"
+          >
+            从记录簿选择
+          </button>
+          <div v-if="showMissionPanel" style="margin-top: 12px;">
+            <div v-if="!bookList.length" style="color: #888; font-size: 14px;">
+              记录簿为空，请先到首页「神秘事件记录簿」创建并保存
+            </div>
+            <div
+              v-for="b in bookList"
+              :key="b.id"
+              style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 10px; background: #fff; border-radius: 6px;"
+            >
+              <span>{{ b.title }}</span>
+              <button
+                type="button"
+                @click="startMissionFromBook(b.id)"
+                style="padding: 6px 12px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              >
+                开始本局
+              </button>
+            </div>
+          </div>
+        </div>
+        <div v-else style="font-size: 14px; color: #888;">等待 GM 从记录簿开启事件</div>
+      </div>
+    </div>
 
     <div style="margin-bottom: 24px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
       <div
