@@ -25,6 +25,26 @@ const bookForm = ref({
   summary: ''
 })
 
+const phantasmList = ref([])
+const bookPhantasms = ref([])      // 本战役已选用（带图鉴信息）
+const missionPhantasms = ref([])
+const editingPhantasm = ref(null)  // 正在编辑的图鉴对象，null=列表
+const showPhantasmLib = ref(false)
+
+function emptyPhantasmForm() {
+  return {
+    name: '',
+    category: '常规',
+    hp: 0, atk: 0, spd: 0, def: 0, res: 0,
+    strength: 0, intelligence: 0, agility: 0,
+    skills: [{ name: '', desc: '' }],
+    boss_skills: [{ name: '', desc: '' }, { name: '', desc: '' }],
+    token_url: '',
+    notes: ''
+  }
+}
+const phantasmForm = ref(emptyPhantasmForm())
+
 const bookNodes = ref([])          // 编辑记录簿时
 const missionNodes = ref([])       // 本局
 const currentMissionNode = ref(null)
@@ -112,10 +132,165 @@ async function loadBookList() {
   if (!error) bookList.value = data || []
 }
 
+function ensureSkillArrays(p) {
+  const skills = Array.isArray(p.skills) && p.skills.length
+    ? p.skills
+    : [{ name: '', desc: '' }]
+  const boss_skills = Array.isArray(p.boss_skills) && p.boss_skills.length
+    ? p.boss_skills
+    : [{ name: '', desc: '' }, { name: '', desc: '' }]
+  return { ...p, skills, boss_skills }
+}
+
+async function loadPhantasmList() {
+  const { data, error } = await supabase
+    .from('phantasms')
+    .select('*')
+    .order('category')
+    .order('name')
+  if (!error) phantasmList.value = (data || []).map(ensureSkillArrays)
+}
+
+async function loadBookPhantasms(bookId) {
+  bookPhantasms.value = []
+  if (!bookId) return
+  const { data, error } = await supabase
+    .from('book_phantasms')
+    .select('id, phantasm_id, phantasms(*)')
+    .eq('book_id', bookId)
+  if (error) {
+    console.error(error)
+    return
+  }
+  bookPhantasms.value = (data || []).map(row => ({
+    linkId: row.id,
+    ...ensureSkillArrays(row.phantasms || { name: '未知', category: '常规' })
+  }))
+}
+
+function startNewPhantasm() {
+  editingPhantasm.value = { id: null }
+  phantasmForm.value = emptyPhantasmForm()
+}
+
+function editPhantasmItem(p) {
+  editingPhantasm.value = p
+  phantasmForm.value = ensureSkillArrays({
+    name: p.name || '',
+    category: p.category || '常规',
+    hp: p.hp || 0, atk: p.atk || 0, spd: p.spd || 0,
+    def: p.def || 0, res: p.res || 0,
+    strength: p.strength || 0,
+    intelligence: p.intelligence || 0,
+    agility: p.agility || 0,
+    skills: p.skills,
+    boss_skills: p.boss_skills,
+    token_url: p.token_url || '',
+    notes: p.notes || ''
+  })
+}
+
+function addInnateSkill() {
+  phantasmForm.value.skills.push({ name: '', desc: '' })
+}
+function removeInnateSkill(i) {
+  if (phantasmForm.value.skills.length <= 1) return
+  phantasmForm.value.skills.splice(i, 1)
+}
+function addBossSkill() {
+  phantasmForm.value.boss_skills.push({ name: '', desc: '' })
+}
+function removeBossSkill(i) {
+  if (phantasmForm.value.boss_skills.length <= 1) return
+  phantasmForm.value.boss_skills.splice(i, 1)
+}
+
+async function savePhantasmItem() {
+  const name = (phantasmForm.value.name || '').trim()
+  if (!name) {
+    alert('请输入空想种名称')
+    return
+  }
+  const f = phantasmForm.value
+  const payload = {
+    name,
+    category: f.category || '常规',
+    hp: Number(f.hp) || 0,
+    atk: Number(f.atk) || 0,
+    spd: Number(f.spd) || 0,
+    def: Number(f.def) || 0,
+    res: Number(f.res) || 0,
+    strength: Number(f.strength) || 0,
+    intelligence: Number(f.intelligence) || 0,
+    agility: Number(f.agility) || 0,
+    skills: f.skills || [],
+    boss_skills: f.category === 'Boss' ? (f.boss_skills || []) : [],
+    token_url: f.token_url || '',
+    notes: f.notes || '',
+    updated_at: new Date().toISOString()
+  }
+  if (editingPhantasm.value?.id) {
+    const { error } = await supabase.from('phantasms').update(payload).eq('id', editingPhantasm.value.id)
+    if (error) return alert('保存失败：' + error.message)
+  } else {
+    const { error } = await supabase.from('phantasms').insert(payload)
+    if (error) return alert('创建失败：' + error.message)
+  }
+  editingPhantasm.value = null
+  await loadPhantasmList()
+  if (editingBook.value?.id) await loadBookPhantasms(editingBook.value.id)
+  alert('空想种已保存到图鉴')
+}
+
+async function deletePhantasmItem(p) {
+  if (!confirm('删除图鉴中的「' + p.name + '」？已开本局的副本不会删除。')) return
+  const { error } = await supabase.from('phantasms').delete().eq('id', p.id)
+  if (error) alert('删除失败：' + error.message)
+  else {
+    await loadPhantasmList()
+    if (editingBook.value?.id) await loadBookPhantasms(editingBook.value.id)
+  }
+}
+
+async function addPhantasmToBook(phantasmId) {
+  if (!editingBook.value?.id) {
+    alert('请先保存战役，再选用空想种')
+    return
+  }
+  const { error } = await supabase.from('book_phantasms').insert({
+    book_id: editingBook.value.id,
+    phantasm_id: phantasmId
+  })
+  if (error) return alert('添加失败：' + error.message)
+  await loadBookPhantasms(editingBook.value.id)
+}
+
+async function removePhantasmFromBook(linkId) {
+  const { error } = await supabase.from('book_phantasms').delete().eq('id', linkId)
+  if (error) return alert('移除失败：' + error.message)
+  await loadBookPhantasms(editingBook.value.id)
+}
+
+function phantasmsByCategory(list, cat) {
+  return (list || []).filter(p => p.category === cat)
+}
+
+async function loadMissionPhantasms() {
+  missionPhantasms.value = []
+  if (!currentMission.value?.id) return
+  const { data, error } = await supabase
+    .from('mission_phantasms')
+    .select('*')
+    .eq('mission_id', currentMission.value.id)
+    .order('category')
+  if (!error) missionPhantasms.value = data || []
+}
+
 function openBook() {
   editingBook.value = null
   page.value = 'book'
   loadBookList()
+  loadPhantasmList()
 }
 
 function startNewBook() {
@@ -147,7 +322,9 @@ function editBookItem(item) {
     mission_type: item.mission_type || '',
     summary: item.summary || ''
   }
-  loadBookNodes(item.id)
+    loadBookNodes(item.id)
+      loadPhantasmList()
+      loadBookPhantasms(item.id)
 }
 
 async function loadBookNodes(bookId) {
@@ -335,6 +512,35 @@ async function startMissionFromBook(bookId) {
     .eq('book_id', book.id)
     .order('sort_order')
 
+  const { data: bookLinks } = await supabase
+    .from('book_phantasms')
+    .select('phantasm_id, phantasms(*)')
+    .eq('book_id', book.id)
+
+  for (const row of (bookLinks || [])) {
+    const p = row.phantasms
+    if (!p) continue
+    await supabase.from('mission_phantasms').insert({
+      mission_id: data.id,
+      source_phantasm_id: p.id,
+      name: p.name,
+      category: p.category || '常规',
+      hp: p.hp || 0,
+      hp_current: p.hp || 0,
+      atk: p.atk || 0,
+      spd: p.spd || 0,
+      def: p.def || 0,
+      res: p.res || 0,
+      strength: p.strength || 0,
+      intelligence: p.intelligence || 0,
+      agility: p.agility || 0,
+      skills: p.skills || [],
+      boss_skills: p.boss_skills || [],
+      token_url: p.token_url || '',
+      notes: p.notes || ''
+    })
+  }
+
   const idMap = {}
   let remaining = [...(srcNodes || [])]
   let guard = 0
@@ -464,6 +670,7 @@ async function loadCurrentMission() {
   if (!currentMission.value) return
 
   await loadMissionNodes()
+  await loadMissionPhantasms()
 }
 
 async function debugMap() {
@@ -2441,6 +2648,92 @@ onUnmounted(() => {
           + 新建顶层节点
         </button>
 
+              <div v-if="editingBook.id" style="margin-top: 28px; border-top: 1px solid #ddd; padding-top: 16px;">
+        <h3>本战役空想种</h3>
+        <p style="font-size: 13px; color: #666;">先在图鉴中创建，再按分类「选用」进本战役。开本局时会复制到本局。</p>
+
+        <div style="margin: 12px 0;">
+          <button type="button" @click="startNewPhantasm" style="padding: 6px 12px; cursor: pointer; margin-right: 8px;">新建空想种（图鉴）</button>
+          <button type="button" @click="showPhantasmLib = !showPhantasmLib; loadPhantasmList()" style="padding: 6px 12px; cursor: pointer;">
+            {{ showPhantasmLib ? '收起图鉴' : '从图鉴选用' }}
+          </button>
+        </div>
+
+        <!-- 编辑图鉴表单 -->
+        <div v-if="editingPhantasm" style="padding: 14px; background: #fff3e0; border-radius: 8px; margin-bottom: 16px;">
+          <h4>{{ editingPhantasm.id ? '编辑空想种' : '新建空想种' }}</h4>
+          <input v-model="phantasmForm.name" placeholder="名称" style="width: 100%; padding: 8px; margin-bottom: 6px; box-sizing: border-box;" />
+          <select v-model="phantasmForm.category" style="width: 100%; padding: 8px; margin-bottom: 8px;">
+            <option>常规</option>
+            <option>难敌</option>
+            <option>Boss</option>
+          </select>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px;">
+            <label>HP <input type="number" v-model.number="phantasmForm.hp" style="width: 100%;" /></label>
+            <label>ATK <input type="number" v-model.number="phantasmForm.atk" style="width: 100%;" /></label>
+            <label>SPD <input type="number" v-model.number="phantasmForm.spd" style="width: 100%;" /></label>
+            <label>DEF <input type="number" v-model.number="phantasmForm.def" style="width: 100%;" /></label>
+            <label>RES <input type="number" v-model.number="phantasmForm.res" style="width: 100%;" /></label>
+            <label>力量 <input type="number" v-model.number="phantasmForm.strength" style="width: 100%;" /></label>
+            <label>智力 <input type="number" v-model.number="phantasmForm.intelligence" style="width: 100%;" /></label>
+            <label>敏捷 <input type="number" v-model.number="phantasmForm.agility" style="width: 100%;" /></label>
+          </div>
+          <input v-model="phantasmForm.token_url" placeholder="TOKEN 图片 URL（可空）" style="width: 100%; padding: 8px; margin-bottom: 6px; box-sizing: border-box;" />
+          <textarea v-model="phantasmForm.notes" rows="2" placeholder="备注" style="width: 100%; padding: 8px; margin-bottom: 8px; box-sizing: border-box;"></textarea>
+
+          <strong>固有技能</strong>
+          <div v-for="(s, i) in phantasmForm.skills" :key="'s'+i" style="margin: 6px 0; padding: 8px; background: #fff; border-radius: 4px;">
+            <input v-model="s.name" placeholder="技能名" style="width: 100%; margin-bottom: 4px;" />
+            <textarea v-model="s.desc" rows="2" placeholder="效果" style="width: 100%;"></textarea>
+            <button type="button" @click="removeInnateSkill(i)">删此栏</button>
+          </div>
+          <button type="button" @click="addInnateSkill">+ 固有技能栏</button>
+
+          <div v-if="phantasmForm.category === 'Boss'" style="margin-top: 12px;">
+            <strong>特殊技能（Boss）</strong>
+            <div v-for="(s, i) in phantasmForm.boss_skills" :key="'b'+i" style="margin: 6px 0; padding: 8px; background: #fff8e1; border-radius: 4px;">
+              <input v-model="s.name" placeholder="特殊技名" style="width: 100%; margin-bottom: 4px;" />
+              <textarea v-model="s.desc" rows="2" placeholder="效果" style="width: 100%;"></textarea>
+              <button type="button" @click="removeBossSkill(i)">删此栏</button>
+            </div>
+            <button type="button" @click="addBossSkill">+ 特殊技能栏</button>
+          </div>
+
+          <div style="margin-top: 12px;">
+            <button type="button" @click="savePhantasmItem" style="padding: 8px 16px; background: #e65100; color: #fff; border: none; border-radius: 4px;">保存到图鉴</button>
+            <button type="button" @click="editingPhantasm = null">取消</button>
+          </div>
+        </div>
+
+        <!-- 图鉴选用 -->
+        <div v-if="showPhantasmLib" style="padding: 12px; background: #f5f5f5; border-radius: 8px; margin-bottom: 16px;">
+          <div v-for="cat in ['常规','难敌','Boss']" :key="cat" style="margin-bottom: 12px;">
+            <strong>{{ cat }}</strong>
+            <div v-if="!phantasmsByCategory(phantasmList, cat).length" style="color:#aaa; font-size:13px;">暂无</div>
+            <div v-for="p in phantasmsByCategory(phantasmList, cat)" :key="p.id"
+                 style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #eee;">
+              <span>{{ p.name }}　HP{{ p.hp }} / ATK{{ p.atk }}</span>
+              <span>
+                <button type="button" @click="editPhantasmItem(p)">编辑</button>
+                <button type="button" @click="addPhantasmToBook(p.id)">选用到本战役</button>
+                <button type="button" @click="deletePhantasmItem(p)" style="color:#c62828;">删图鉴</button>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 本战役已选用 -->
+        <div v-for="cat in ['常规','难敌','Boss']" :key="'sel'+cat" style="margin-top: 10px;">
+          <strong>{{ cat }}（本战役）</strong>
+          <div v-if="!phantasmsByCategory(bookPhantasms, cat).length" style="color:#aaa; font-size:13px;">未选用</div>
+          <div v-for="p in phantasmsByCategory(bookPhantasms, cat)" :key="p.linkId"
+               style="display:flex; justify-content:space-between; padding:6px 0;">
+            <span>{{ p.name }}</span>
+            <button type="button" @click="removePhantasmFromBook(p.linkId)">从本战役移除</button>
+          </div>
+        </div>
+      </div>
+
         <div v-if="bookNodes.length === 0" style="color: #888; margin-bottom: 12px;">暂无节点</div>
 
         <div
@@ -2712,6 +3005,19 @@ onUnmounted(() => {
       </div>
     </div>
     <hr style="margin: 20px 0;" />
+
+    <div v-if="currentMission" style="margin-bottom: 20px; padding: 16px; border: 1px solid #bf360c; border-radius: 10px; background: #fbe9e7;">
+      <strong style="color: #bf360c;">本局空想种</strong>
+      <div v-if="!missionPhantasms.length" style="margin-top: 8px; color: #888;">本局未复制到空想种</div>
+      <div v-for="cat in ['常规','难敌','Boss']" :key="'m'+cat" style="margin-top: 10px;">
+        <div style="font-weight: bold; font-size: 14px;">{{ cat }}</div>
+        <div v-for="e in phantasmsByCategory(missionPhantasms, cat)" :key="e.id"
+             style="padding: 8px; margin: 6px 0; background: #fff; border-radius: 6px; font-size: 13px;">
+          <strong>{{ e.name }}</strong>
+          <span style="color:#666; margin-left:8px;">HP {{ e.hp_current }}/{{ e.hp }}　ATK {{ e.atk }}　SPD {{ e.spd }}</span>
+        </div>
+      </div>
+    </div>
 
         <!-- 神秘事件（本局） -->
     <div style="margin-bottom: 20px; padding: 16px; border: 1px solid #5c6bc0; border-radius: 10px; background: #e8eaf6;">
