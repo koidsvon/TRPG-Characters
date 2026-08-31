@@ -2600,8 +2600,14 @@ function enterCharacter(char) {
   const charCopy = { ...char }
 
 function viewCharacterAsGM(char) {
-  if (!isGM.value) return
+  if (!isGM.value) {
+    alert('只有 GM 可以查看其他角色')
+    return
+  }
+  if (!char) return
   enterCharacter(char)
+  currentCharacter.value = charCopy
+  page.value = 'character'
 }
 
 if (!charCopy.learnedMagic) {
@@ -3536,31 +3542,30 @@ onUnmounted(() => {
     <h2>成员名单</h2>
     <div v-if="characters.length === 0" style="color: #888;">暂无角色</div>
     <div
-      v-for="char in characters"
-      :key="char.id"
-      style="border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;"
-    >
-      <div>
-        <strong style="font-size: 17px;">{{ char.name }}</strong>
-        <span style="color: #666; margin-left: 8px;">（{{ char.player_name }}）</span>
-        <span v-if="char.name === myCharacterName" style="margin-left: 8px; font-size: 12px; color: #2e7d32;">我</span>
-        <span v-if="char.is_locked" style="margin-left: 6px; font-size: 12px; color: #e65100;">使用中</span>
-        <div style="font-size: 13px; color: #888; margin-top: 4px;">
-          {{ char.class_name || '未选择' }} ｜ Lv.{{ char.level || 1 }}
+        v-for="char in characters"
+        :key="char.id"
+        style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee;"
+      >
+        <div>
+          <strong>{{ char.name }}</strong>
+          <span style="color:#888; margin-left: 8px;">{{ char.player_name }}</span>
+          <span v-if="char.is_locked" style="margin-left: 8px; font-size: 12px; color: #e65100;">使用中</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button
+            v-if="isGM"
+            type="button"
+            @click="viewCharacterAsGM(char)"
+            style="padding: 6px 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;"
+          >查看</button>
+          <button
+            v-if="char.name === myCharacterName"
+            type="button"
+            @click="enterCharacter(char); page = 'character'"
+            style="padding: 6px 12px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;"
+          >进入角色</button>
         </div>
       </div>
-      <div>
-        <button
-          v-if="char.name === myCharacterName"
-          type="button"
-          @click="enterMyCharacterFromLobby(char)"
-          style="padding: 6px 14px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;"
-        >
-          进入角色
-        </button>
-        <span v-else style="font-size: 13px; color: #bbb;">不可查看</span>
-      </div>
-    </div>
   </div>
   
   <div v-if="page === 'battle'" style="max-width: 1100px; margin: 16px auto; font-family: sans-serif; padding: 0 12px;">
