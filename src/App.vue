@@ -2578,16 +2578,11 @@ async function unlockCharacter(char) {
 function enterMyCharacterFromLobby(char) {
   if (!char) return
   // 只允许自己的角色（按名字绑定）
-  if (char.name !== myCharacterName.value && !isGM.value) {
+  if (!isGM.value && char.name !== myCharacterName.value) {
     alert('只能查看自己的角色')
     return
   }
   // GM 若也要限制，可去掉 !isGM 例外；目前：玩家只能看自己，GM 可看全部（方便）
-  // 若你希望 GM 也不能看别人卡，改成只判断名字：
-  if (char.name !== myCharacterName.value) {
-    alert('只能查看自己的角色')
-    return
-  }
   enterCharacter(char)
 }
 
@@ -2599,16 +2594,7 @@ function backToLobby() {
 function enterCharacter(char) {
   const charCopy = { ...char }
 
-function viewCharacterAsGM(char) {
-  if (!isGM.value) {
-    alert('只有 GM 可以查看其他角色')
-    return
-  }
-  if (!char) return
-  enterCharacter(char)
-  currentCharacter.value = charCopy
-  page.value = 'character'
-}
+
 
 if (!charCopy.learnedMagic) {
   charCopy.learnedMagic = []
@@ -2669,6 +2655,15 @@ if (!charCopy.abilitySkills) {
 
   currentCharacter.value = charCopy
   page.value = 'character'
+}
+
+function viewCharacterAsGM(char) {
+  if (!isGM.value) {
+    alert('只有 GM 可以查看其他角色')
+    return
+  }
+  if (!char) return
+  enterCharacter(char)
 }
 
 function addItem() {
