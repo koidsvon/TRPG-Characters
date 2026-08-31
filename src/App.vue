@@ -25,6 +25,21 @@ const bookForm = ref({
   summary: ''
 })
 
+const MAP_W = 50
+const MAP_H = 50
+const VIEW = 28
+
+const viewX = ref(0)
+const viewY = ref(0)
+const battleMap = ref(null)
+const battleTokens = ref([])
+const selectedTokenId = ref('')
+const pendingMoveTokenId = ref('')
+const tokenStatIndex = ref({})
+const STAT_CYCLE = ['hp', 'atk', 'def', 'res']
+const diceLogs = ref([])
+const customDice = ref('1d6')
+
 const phantasmList = ref([])
 const bookPhantasms = ref([])      // 本战役已选用（带图鉴信息）
 const missionPhantasms = ref([])
@@ -285,6 +300,280 @@ async function loadMissionPhantasms() {
     .order('category')
   if (!error) missionPhantasms.value = data || []
 }
+
+function clampView() {
+  viewX.value = Math.max(0, Math.min(MAP_W - VIEW, viewX.value))
+  viewY.value = Math.max(0, Math.min(MAP_H - VIEW, viewY.value))
+}
+
+function tokenAt(x, y) {
+  return battleTokens.value.find(t => t.x === x && t.y === y)
+}
+
+function canMoveToken(t) {
+  if (!t) return false
+  if (isGM.value) return true
+  if (t.kind !== 'player') return false
+  const ch = characters.value.find(c => c.id === t.ref_id)
+  return !!(ch && ch.name === myCharacterName.value)
+}
+
+function canEditHp(t) {
+  if (!t) return false
+  if (isGM.value) return true
+  if (t.kind !== 'player') return false
+  const ch = characters.value.find(c => c.id === t.ref_id)
+  return !!(ch && ch.name === myCharacterName.value)
+}
+
+function getTokenSource(t) {
+  if (!t) return null
+  if (t.kind === 'player') return characters.value.find(c => c.id === t.ref_id) || null
+  return missionPhantasms.value.find(p => p.id === t.ref_id) || null
+}
+
+function tokenDisplayName(t) {
+  const src = getTokenSource(t)
+  if (t?.kind === 'player') return src?.name || t.label
+  return src?.name || t.label
+}
+
+function tokenStatKey(t) {
+  return STAT_CYCLE[tokenStatIndex.value[t.id] || 0]
+}
+
+function cycleTokenStat(t, dir) {
+  const cur = tokenStatIndex.value[t.id] || 0
+  tokenStatIndex.value = { ...tokenStatIndex.value, [t.id]: (cur + dir + 4) % 4 }
+}
+
+function tokenStatValue(t) {
+  const src = getTokenSource(t)
+  const key = tokenStatKey(t)
+  if (!src) return 0
+  if (key === 'hp') {
+    if (t.kind === 'player') return src.hp_current ?? src.hp_max ?? 0
+    return src.hp_current ?? src.hp ?? 0
+  }
+  if (key === 'atk') return src.atk ?? 0
+  if (key === 'def') return src.def ?? 0
+  if (key === 'res') return src.res ?? 0
+  return 0
+}
+
+async function loadDiceLogs() {
+  diceLogs.value = []
+  if (!currentSession.value?.id) return
+  const { data } = await supabase
+    .from('dice_logs')
+    .select('*')
+    .eq('session_id', currentSession.value.id)
+    .order('created_at', { ascending: false })
+    .limit(20)
+  diceLogs.value = data || []
+}
+
+function parseDiceFormula(raw) {
+  const s = String(raw || '').trim().toLowerCase().replace(/\s/g, '')
+  const m = s.match(/^(\d+)d(\d+)([+-]\d+)?$/)
+  if (!m) return null
+  const n = Number(m[1])
+  const sides = Number(m[2])
+  const mod = m[3] ? Number(m[3]) : 0
+  if (n < 1 || n > 20 || sides < 2 || sides > 1000) return null
+  return { n, sides, mod, formula: s }
+}
+
+function rollLocal(parsed) {
+  const parts = []
+  let sum = 0
+  for (let i = 0; i < parsed.n; i++) {
+    const r = 1 + Math.floor(Math.random() * parsed.sides)
+    parts.push(r)
+    sum += r
+  }
+  return { result: sum + parsed.mod, detail: parts.join('+') + (parsed.mod ? (parsed.mod > 0 ? '+' + parsed.mod : String(parsed.mod)) : '') }
+}
+
+async function rollDice(formula) {
+  if (!currentSession.value?.id) {
+    alert('请先进入房间')
+    return
+  }
+  const parsed = parseDiceFormula(formula)
+  if (!parsed) {
+    alert('格式不对，请用 1d20 或 2d6+1')
+    return
+  }
+  const rolled = rollLocal(parsed)
+  const roller = isGM.value ? 'GM' : (myCharacterName.value || '玩家')
+  const { error } = await supabase.from('dice_logs').insert({
+    session_id: currentSession.value.id,
+    roller_name: roller,
+    formula: parsed.formula,
+    result: rolled.result,
+    detail: rolled.detail
+  })
+  if (error) alert('掷骰失败：' + error.message)
+  else await loadDiceLogs()
+}
+
+async function loadBattleMap() {
+  battleMap.value = null
+  battleTokens.value = []
+  if (!currentMission.value?.id) return
+  const { data: maps } = await supabase
+    .from('battle_maps')
+    .select('*')
+    .eq('mission_id', currentMission.value.id)
+    .order('created_at', { ascending: true })
+    .limit(1)
+  battleMap.value = maps?.[0] || null
+  if (!battleMap.value) return
+  const { data: tokens } = await supabase
+    .from('battle_tokens')
+    .select('*')
+    .eq('map_id', battleMap.value.id)
+  battleTokens.value = tokens || []
+}
+
+async function ensureBattleSetup() {
+  if (!currentMission.value?.id) {
+    alert('请先开启神秘事件')
+    return null
+  }
+  await loadMissionPhantasms()
+  await loadCharacters()
+  await loadBattleMap()
+  if (battleMap.value) return battleMap.value
+
+  const { data: map, error: mapErr } = await supabase
+    .from('battle_maps')
+    .insert({
+      mission_id: currentMission.value.id,
+      name: '战斗地图',
+      width: MAP_W,
+      height: MAP_H
+    })
+    .select()
+    .single()
+  if (mapErr) {
+    alert('创建战斗地图失败：' + mapErr.message)
+    return null
+  }
+
+  const tokens = []
+  const players = [...characters.value].sort((a, b) => String(a.name).localeCompare(b.name))
+  players.forEach((ch, i) => {
+    tokens.push({
+      map_id: map.id,
+      kind: 'player',
+      ref_id: ch.id,
+      label: 'P' + (i + 1),
+      x: 2 + (i % 8),
+      y: 2 + Math.floor(i / 8)
+    })
+  })
+  const enemies = [...missionPhantasms.value]
+  let eIndex = 1
+  let bossIndex = 1
+  enemies.forEach((e, i) => {
+    const isBoss = e.category === 'Boss'
+    tokens.push({
+      map_id: map.id,
+      kind: 'enemy',
+      ref_id: e.id,
+      label: isBoss ? (bossIndex === 1 ? 'BOSS' : 'BOSS' + bossIndex) : 'E' + eIndex,
+      x: 20 + (i % 8),
+      y: 20 + Math.floor(i / 8)
+    })
+    if (isBoss) bossIndex++
+    else eIndex++
+  })
+  if (tokens.length) {
+    const { error } = await supabase.from('battle_tokens').insert(tokens)
+    if (error) alert('生成 token 失败：' + error.message)
+  }
+
+  await supabase
+    .from('missions')
+    .update({ current_battle_map_id: map.id })
+    .eq('id', currentMission.value.id)
+
+  await loadBattleMap()
+  return battleMap.value
+}
+
+async function enterBattle() {
+  const map = await ensureBattleSetup()
+  if (!map) return
+  await supabase.from('missions').update({ show_battle: true }).eq('id', currentMission.value.id)
+  currentMission.value.show_battle = true
+  viewX.value = 0
+  viewY.value = 0
+  page.value = 'battle'
+  loadDiceLogs()
+}
+
+async function exitBattle() {
+  if (currentMission.value?.id) {
+    await supabase.from('missions').update({ show_battle: false }).eq('id', currentMission.value.id)
+    currentMission.value.show_battle = false
+  }
+  page.value = 'lobby'
+}
+
+function onCellClick(x, y) {
+  if (pendingMoveTokenId.value) {
+    const t = battleTokens.value.find(i => i.id === pendingMoveTokenId.value)
+    if (t) moveTokenTo(t, x, y)
+    pendingMoveTokenId.value = ''
+    return
+  }
+  const t = tokenAt(x, y)
+  selectedTokenId.value = t ? t.id : ''
+}
+
+function beginMove(t) {
+  if (!canMoveToken(t)) {
+    alert('不能移动这个 token')
+    return
+  }
+  pendingMoveTokenId.value = t.id
+  selectedTokenId.value = t.id
+}
+
+async function moveTokenTo(t, x, y) {
+  if (!canMoveToken(t)) return
+  if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) return
+  if (tokenAt(x, y) && tokenAt(x, y).id !== t.id) {
+    alert('该格已有单位')
+    return
+  }
+  const { error } = await supabase.from('battle_tokens').update({ x, y }).eq('id', t.id)
+  if (error) alert('移动失败：' + error.message)
+  else await loadBattleMap()
+}
+
+async function updateTokenHp(t, value) {
+  if (!canEditHp(t)) {
+    alert('不能修改这个单位的 HP')
+    return
+  }
+  const hp = Number(value)
+  if (Number.isNaN(hp)) return
+  if (t.kind === 'player') {
+    const { error } = await supabase.from('characters').update({ hp_current: hp }).eq('id', t.ref_id)
+    if (error) alert(error.message)
+    else await loadCharacters()
+  } else {
+    const { error } = await supabase.from('mission_phantasms').update({ hp_current: hp }).eq('id', t.ref_id)
+    if (error) alert(error.message)
+    else await loadMissionPhantasms()
+  }
+}
+
+const selectedToken = computed(() => battleTokens.value.find(t => t.id === selectedTokenId.value) || null)
 
 function openBook() {
   editingBook.value = null
@@ -671,6 +960,8 @@ async function loadCurrentMission() {
 
   await loadMissionNodes()
   await loadMissionPhantasms()
+   await loadBattleMap()
+   await loadDiceLogs()
 }
 
 async function debugMap() {
@@ -3039,6 +3330,18 @@ onUnmounted(() => {
         >
           结束本局
         </button>
+                <button
+          v-if="isGM"
+          type="button"
+          @click="enterBattle"
+          style="margin-left: 8px; padding: 6px 12px; cursor: pointer;"
+        >进入战斗地图</button>
+        <button
+          v-if="!isGM && currentMission.show_battle"
+          type="button"
+          @click="enterBattle"
+          style="margin-left: 8px; padding: 6px 12px; cursor: pointer;"
+        >进入战斗地图</button>
       </div>
 
       <div v-else style="margin-top: 12px;">
@@ -3150,6 +3453,24 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <div style="margin: 16px 0; padding: 12px; border: 1px solid #ccc; border-radius: 8px; background: #fafafa;">
+      <strong>骰子</strong>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+        <button type="button" @click="rollDice('1d6')">1d6</button>
+        <button type="button" @click="rollDice('1d10')">1d10</button>
+        <button type="button" @click="rollDice('1d12')">1d12</button>
+        <button type="button" @click="rollDice('1d20')">1d20</button>
+        <input v-model="customDice" placeholder="2d6+1" style="width: 80px; padding: 4px;" />
+        <button type="button" @click="rollDice(customDice)">自定义</button>
+      </div>
+      <div style="margin-top: 8px; font-size: 13px; max-height: 120px; overflow: auto;">
+        <div v-for="d in diceLogs" :key="d.id" style="padding: 2px 0;">
+          {{ d.roller_name }} 掷 {{ d.formula }} → <strong>{{ d.result }}</strong>
+          <span style="color:#888;">（{{ d.detail }}）</span>
+        </div>
+      </div>
+    </div>
+    
     <h2>成员名单</h2>
     <div v-if="characters.length === 0" style="color: #888;">暂无角色</div>
     <div
@@ -3217,6 +3538,122 @@ onUnmounted(() => {
                 style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
       </div>
       <div style="font-size: 13px; color: #555; margin-top: 6px;">{{ m.desc }}</div>
+    </div>
+  </div>
+
+    <div v-if="page === 'battle'" style="max-width: 1100px; margin: 16px auto; font-family: sans-serif; padding: 0 12px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <h1 style="margin: 0;">战斗地图</h1>
+      <div>
+        <button type="button" @click="exitBattle" style="padding: 8px 14px;">返回大厅</button>
+      </div>
+    </div>
+    <p style="color:#666; font-size:13px;">
+      视野 {{ VIEW }}×{{ VIEW }} ／ 全图 {{ MAP_W }}×{{ MAP_H }}
+      ｜ 先点 token 再点「移动」，然后点空格
+      ｜ 三角切换 HP / ATK / DEF / RES
+    </p>
+
+    <div style="margin-bottom: 8px;">
+      <button type="button" @click="viewY = viewY - 4; clampView()">上</button>
+      <button type="button" @click="viewY = viewY + 4; clampView()">下</button>
+      <button type="button" @click="viewX = viewX - 4; clampView()">左</button>
+      <button type="button" @click="viewX = viewX + 4; clampView()">右</button>
+      <span style="margin-left: 8px; font-size: 13px; color:#666;">原点 ({{ viewX }}, {{ viewY }})</span>
+    </div>
+
+    <div style="display: flex; gap: 16px; align-items: flex-start;">
+      <div>
+        <div
+          v-for="row in VIEW"
+          :key="'r'+row"
+          style="display: flex;"
+        >
+          <div
+            v-for="col in VIEW"
+            :key="'c'+col"
+            @click="onCellClick(viewX + col - 1, viewY + row - 1)"
+            :style="{
+              width: '36px',
+              height: '36px',
+              border: '1px solid #ddd',
+              boxSizing: 'border-box',
+              position: 'relative',
+              background: tokenAt(viewX + col - 1, viewY + row - 1)
+                ? (tokenAt(viewX + col - 1, viewY + row - 1).kind === 'player' ? '#e3f2fd' : '#ffebee')
+                : ((viewX + col - 1 + viewY + row - 1) % 2 ? '#fafafa' : '#fff'),
+              outline: selectedTokenId && tokenAt(viewX + col - 1, viewY + row - 1)?.id === selectedTokenId ? '2px solid #1565c0' : 'none',
+              cursor: 'pointer'
+            }"
+          >
+            <template v-if="tokenAt(viewX + col - 1, viewY + row - 1)">
+              <div
+                style="position: absolute; top: -18px; left: -8px; right: -8px; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; z-index: 2;"
+                @click.stop
+              >
+                <button type="button" style="padding:0 2px; font-size:10px;" @click="cycleTokenStat(tokenAt(viewX + col - 1, viewY + row - 1), -1)">◀</button>
+                {{ tokenStatKey(tokenAt(viewX + col - 1, viewY + row - 1)).toUpperCase() }}
+                {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1)) }}
+                <button type="button" style="padding:0 2px; font-size:10px;" @click="cycleTokenStat(tokenAt(viewX + col - 1, viewY + row - 1), 1)">▶</button>
+              </div>
+              <div style="font-size: 11px; font-weight: bold; text-align: center; line-height: 36px;">
+                {{ tokenAt(viewX + col - 1, viewY + row - 1).label }}
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <div style="width: 260px; padding: 12px; border: 1px solid #ddd; border-radius: 8px;">
+        <div v-if="!selectedToken" style="color:#888;">点击格子上的 token</div>
+        <div v-else>
+          <div style="font-size: 18px; font-weight: bold;">{{ selectedToken.label }}</div>
+          <div style="margin: 6px 0;">{{ tokenDisplayName(selectedToken) }}</div>
+          <div style="font-size: 13px; color:#555;">
+            ATK {{ getTokenSource(selectedToken)?.atk ?? '—' }}
+            ｜ DEF {{ getTokenSource(selectedToken)?.def ?? '—' }}
+            ｜ RES {{ getTokenSource(selectedToken)?.res ?? '—' }}
+          </div>
+          <div v-if="canEditHp(selectedToken)" style="margin-top: 10px;">
+            <label>HP</label>
+          <input
+              type="number"
+              :value="selectedToken.kind === 'player'
+                ? (getTokenSource(selectedToken)?.hp_current ?? 0)
+                : (getTokenSource(selectedToken)?.hp_current ?? getTokenSource(selectedToken)?.hp ?? 0)"
+              @change="updateTokenHp(selectedToken, $event.target.value)"
+              style="width: 80px; margin-left: 6px;"
+            />
+            <div style="font-size: 12px; color:#888; margin-top: 4px;">改的是当前生命（失焦/回车后写入）</div>
+          </div>
+          <button
+            v-if="canMoveToken(selectedToken)"
+            type="button"
+            @click="beginMove(selectedToken)"
+            style="margin-top: 10px; padding: 6px 12px;"
+          >
+            {{ pendingMoveTokenId === selectedToken.id ? '点空格完成移动' : '移动' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+        <div style="margin: 16px 0; padding: 12px; border: 1px solid #ccc; border-radius: 8px; background: #fafafa;">
+      <strong>骰子</strong>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+        <button type="button" @click="rollDice('1d6')">1d6</button>
+        <button type="button" @click="rollDice('1d10')">1d10</button>
+        <button type="button" @click="rollDice('1d12')">1d12</button>
+        <button type="button" @click="rollDice('1d20')">1d20</button>
+        <input v-model="customDice" placeholder="2d6+1" style="width: 80px; padding: 4px;" />
+        <button type="button" @click="rollDice(customDice)">自定义</button>
+      </div>
+      <div style="margin-top: 8px; font-size: 13px; max-height: 120px; overflow: auto;">
+        <div v-for="d in diceLogs" :key="d.id" style="padding: 2px 0;">
+          {{ d.roller_name }} 掷 {{ d.formula }} → <strong>{{ d.result }}</strong>
+          <span style="color:#888;">（{{ d.detail }}）</span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
