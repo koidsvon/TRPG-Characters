@@ -35,6 +35,7 @@ const battleMap = ref(null)
 const battleTokens = ref([])
 const selectedTokenId = ref('')
 const pendingMoveTokenId = ref('')
+const addEnemyId = ref('')
 const tokenStatIndex = ref({})
 const STAT_CYCLE = ['hp', 'atk', 'def', 'res']
 const diceLogs = ref([])
@@ -437,6 +438,71 @@ async function loadBattleMap() {
   battleTokens.value = tokens || []
 }
 
+function nextEnemyLabel(category) {
+  if (category === 'Boss') {
+    const n = battleTokens.value.filter(t => t.kind === 'enemy' && String(t.label).startsWith('BOSS')).length
+    return n === 0 ? 'BOSS' : 'BOSS' + (n + 1)
+  }
+  const n = battleTokens.value.filter(t => t.kind === 'enemy' && String(t.label).startsWith('E')).length
+  return 'E' + (n + 1)
+}
+
+function emptyCellNear(sx, sy) {
+  for (let y = sy; y < MAP_H; y++) {
+    for (let x = sx; x < MAP_W; x++) {
+      if (!tokenAt(x, y)) return { x, y }
+    }
+  }
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      if (!tokenAt(x, y)) return { x, y }
+    }
+  }
+  return null
+}
+
+async function addEnemyToMap() {
+  if (!isGM.value) return
+  if (!battleMap.value?.id) {
+    alert('地图还没建好')
+    return
+  }
+  const p = missionPhantasms.value.find(i => i.id === addEnemyId.value)
+  if (!p) {
+    alert('请选择要添加的空想种')
+    return
+  }
+  const pos = emptyCellNear(viewX.value + 4, viewY.value + 4)
+  if (!pos) {
+    alert('没有空位')
+    return
+  }
+  const { error } = await supabase.from('battle_tokens').insert({
+    map_id: battleMap.value.id,
+    kind: 'enemy',
+    ref_id: p.id,
+    label: nextEnemyLabel(p.category),
+    x: pos.x,
+    y: pos.y
+  })
+  if (error) alert('添加失败：' + error.message)
+  else {
+    addEnemyId.value = ''
+    await loadBattleMap()
+  }
+}
+
+async function removeToken(t) {
+  if (!isGM.value) return
+  if (!confirm('从地图上移除 ' + t.label + '？')) return
+  const { error } = await supabase.from('battle_tokens').delete().eq('id', t.id)
+  if (error) alert(error.message)
+  else {
+    selectedTokenId.value = ''
+    await loadBattleMap()
+  }
+}
+
 async function ensureBattleSetup() {
   if (!currentMission.value?.id) {
     alert('请先开启神秘事件')
@@ -473,22 +539,6 @@ async function ensureBattleSetup() {
       x: 2 + (i % 8),
       y: 2 + Math.floor(i / 8)
     })
-  })
-  const enemies = [...missionPhantasms.value]
-  let eIndex = 1
-  let bossIndex = 1
-  enemies.forEach((e, i) => {
-    const isBoss = e.category === 'Boss'
-    tokens.push({
-      map_id: map.id,
-      kind: 'enemy',
-      ref_id: e.id,
-      label: isBoss ? (bossIndex === 1 ? 'BOSS' : 'BOSS' + bossIndex) : 'E' + eIndex,
-      x: 20 + (i % 8),
-      y: 20 + Math.floor(i / 8)
-    })
-    if (isBoss) bossIndex++
-    else eIndex++
   })
   if (tokens.length) {
     const { error } = await supabase.from('battle_tokens').insert(tokens)
@@ -3522,6 +3572,17 @@ onUnmounted(() => {
       <span style="margin-left: 8px; font-size: 13px; color:#666;">原点 ({{ viewX }}, {{ viewY }})</span>
     </div>
 
+    <div v-if="isGM" style="margin: 10px 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+      <label>添加敌人</label>
+      <select v-model="addEnemyId">
+        <option value="">选择本局空想种</option>
+        <option v-for="e in missionPhantasms" :key="e.id" :value="e.id">
+          [{{ e.category }}] {{ e.name }}
+        </option>
+      </select>
+      <button type="button" @click="addEnemyToMap">放到地图</button>
+    </div>
+
     <div style="display: flex; gap: 16px; align-items: flex-start;">
       <div>
         <div
@@ -3594,6 +3655,12 @@ onUnmounted(() => {
           >
             {{ pendingMoveTokenId === selectedToken.id ? '点空格完成移动' : '移动' }}
           </button>
+          <button
+            v-if="isGM"
+            type="button"
+            @click="removeToken(selectedToken)"
+            style="margin-top: 8px; color: #c62828;"
+          >从地图移除</button>
         </div>
       </div>
     </div>
