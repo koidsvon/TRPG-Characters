@@ -2599,6 +2599,11 @@ function backToLobby() {
 function enterCharacter(char) {
   const charCopy = { ...char }
 
+function viewCharacterAsGM(char) {
+  if (!isGM.value) return
+  enterCharacter(char)
+}
+
 if (!charCopy.learnedMagic) {
   charCopy.learnedMagic = []
 }
@@ -3202,9 +3207,6 @@ onUnmounted(() => {
     </div>
    <div style="min-width: 260px; flex: 1;">
   <label style="font-size: 13px; color: #666;">物品</label>
- 
-
-  <h2>角色列表</h2>
 
   <!-- 已选中的物品显示 -->
   <div v-if="grantItemId" style="margin-top: 6px; padding: 8px 10px; background: #fff8e1; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
@@ -3292,33 +3294,43 @@ onUnmounted(() => {
       </p>
     </div>
 
-    <h2>角色列表</h2>
+        <h2>角色列表</h2>
     <div v-if="characters.length === 0" style="color: #888; margin: 20px 0;">目前还没有角色，创建一个吧。</div>
-    <div v-for="char in characters" :key="char.id"
-     style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-  <div>
-    <strong style="font-size: 18px;">{{ char.name }}</strong>
-    <span style="color: #666; margin-left: 10px;">（{{ char.player_name }}）</span>
-    <span v-if="char.is_locked" style="margin-left: 8px; font-size: 12px; color: #e65100;">使用中</span>
-    <div style="font-size: 14px; color: #888; margin-top: 4px;">
-      职业：{{ char.class_name || '未选择' }}　|　等级：{{ char.level || 1 }}
+    <div
+      v-for="char in characters"
+      :key="char.id"
+      style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;"
+    >
+      <div>
+        <strong style="font-size: 18px;">{{ char.name }}</strong>
+        <span style="color: #666; margin-left: 10px;">（{{ char.player_name }}）</span>
+        <span v-if="char.is_locked" style="margin-left: 8px; font-size: 12px; color: #e65100;">使用中</span>
+        <div style="font-size: 14px; color: #888; margin-top: 4px;">
+          职业：{{ char.class_name || '未选择' }}　|　等级：{{ char.level || 1 }}
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <button
+          v-if="isGM"
+          type="button"
+          @click="viewCharacterAsGM(char)"
+          style="padding: 6px 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;"
+        >查看</button>
+        <button
+          v-if="!char.is_locked || char.locked_name === myCharacterName || char.name === myCharacterName"
+          type="button"
+          @click="claimAndEnterCharacter(char)"
+          style="padding: 6px 12px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;"
+        >扮演角色</button>
+        <span v-else style="font-size: 13px; color: #999;">已被扮演</span>
+        <button
+          v-if="isGM && char.is_locked"
+          type="button"
+          @click="unlockCharacter(char)"
+          style="padding: 6px 12px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;"
+        >解除锁定</button>
+      </div>
     </div>
-  </div>
-  <div style="display: flex; gap: 8px; align-items: center;">
-    <button
-      v-if="!char.is_locked || myCharacterName === char.name"
-      @click="claimAndEnterCharacter(char)"
-      style="padding: 6px 12px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;"
-    >扮演角色</button>
-    <span v-else style="font-size: 13px; color: #999;">已被扮演</span>
-
-    <button
-      v-if="isGM && char.is_locked"
-      @click="unlockCharacter(char)"
-      style="padding: 6px 12px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;"
-    >解除锁定</button>
-  </div>
-</div>
     <hr style="margin: 30px 0;" />
     <h3>创建新角色</h3>
     <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
@@ -3347,7 +3359,7 @@ onUnmounted(() => {
     </div>
     <hr style="margin: 20px 0;" />
 
-    <div v-if="currentMission" style="margin-bottom: 20px; padding: 16px; border: 1px solid #bf360c; border-radius: 10px; background: #fbe9e7;">
+    <div v-if="isGM && currentMission" style="margin-bottom: 20px; padding: 16px; border: 1px solid #bf360c; border-radius: 10px; background: #fbe9e7;">
       <strong style="color: #bf360c;">本局空想种</strong>
       <div v-if="!missionPhantasms.length" style="margin-top: 8px; color: #888;">本局未复制到空想种</div>
       <div v-for="cat in ['常规','难敌','Boss']" :key="'m'+cat" style="margin-top: 10px;">
