@@ -78,6 +78,11 @@ const displayMissionNode = computed(() => {
   return n
 })
 
+const announceMessages = ref([])
+const chatMessages = ref([])
+const announceDraft = ref('')
+const chatDraft = ref('')
+
 const nodeForm = ref({
   name: '',
   description: '',
@@ -2212,6 +2217,7 @@ function restoreSessionFromLocal() {
       isGM.value = data.isGM
       myCharacterName.value = localStorage.getItem('rpg_char_' + data.session.code) || ''
       loadCharacters()
+      loadRoomMessages()
       startRealtime()
       loadCurrentMission()
       // 已绑定角色名 → 大厅；否则 → 房间选角页
@@ -2249,6 +2255,7 @@ async function createRoom() {
     page.value = 'room'
     saveSessionToLocal()
     loadCharacters()
+    loadRoomMessages()
     loadCurrentMission()
     startRealtime()
   }
@@ -2280,6 +2287,7 @@ async function joinRoom() {
   page.value = 'room'
   saveSessionToLocal()
   loadCharacters()
+  loadRoomMessages()
   loadCurrentMission()
   startRealtime()
 }
@@ -2295,6 +2303,58 @@ async function loadCharacters() {
   if (!error) {
     characters.value = data || []
   }
+}
+
+async function loadRoomMessages() {
+  announceMessages.value = []
+  chatMessages.value = []
+  if (!currentSession.value?.id) return
+  const { data, error } = await supabase
+    .from('room_messages')
+    .select('*')
+    .eq('session_id', currentSession.value.id)
+    .order('created_at', { ascending: true })
+  if (error) {
+    console.error(error)
+    return
+  }
+  const rows = data || []
+  announceMessages.value = rows.filter(m => m.channel === 'announce')
+  chatMessages.value = rows.filter(m => m.channel === 'chat')
+}
+
+function posterName() {
+  if (isGM.value) return myCharacterName.value ? ('GM · ' + myCharacterName.value) : 'GM'
+  return myCharacterName.value || '未绑定角色'
+}
+
+async function sendRoomMessage(channel) {
+  if (!currentSession.value?.id) {
+    alert('不在房间内')
+    return
+  }
+  const draft = channel === 'announce' ? announceDraft : chatDraft
+  const text = (draft.value || '').trim()
+  if (!text) {
+    alert('请输入内容')
+    return
+  }
+  if (channel === 'announce' && !isGM.value) {
+    alert('只有 GM 可以发公告')
+    return
+  }
+  if (channel === 'chat' && !isGM.value && !myCharacterName.value) {
+    alert('请先绑定角色再发言')
+    return
+  }
+  const { error } = await supabase.from('room_messages').insert({
+    session_id: currentSession.value.id,
+    channel,
+    author_name: channel === 'announce' ? 'GM' : posterName(),
+    body: text
+  })
+  if (error) alert('发送失败：' + error.message)
+  else draft.value = ''
 }
 
 function startRealtime() {
@@ -2400,6 +2460,18 @@ function startRealtime() {
 
           currentCharacter.value = updated
         }
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'room_messages',
+        filter: `session_id=eq.${currentSession.value.id}`
+      },
+      () => {
+        loadRoomMessages()
       }
     )
     .on(
@@ -4602,6 +4674,36 @@ onUnmounted(() => {
 
 <h2>备注 / 讯息栏</h2>
 <textarea v-model="currentCharacter.notes" rows="4" style="width: 100%; padding: 8px; margin-top: 8px;" placeholder="临时状态、任务笔记等..."></textarea>
+<h2>解体熔炉事件公告栏</h2>
+<div style="border: 1px solid #ffcc80; border-radius: 8px; padding: 12px; margin: 10px 0 24px; background: #fff8e1;">
+  <div v-if="announceMessages.length === 0" style="color: #888; font-size: 13px;">暂无公告</div>
+  <div v-for="m in announceMessages" :key="m.id" style="padding: 8px 0; border-bottom: 1px solid #ffe0b2;">
+    <div style="font-size: 12px; color: #ef6c00;">{{ m.author_name }} · {{ m.created_at?.slice(0, 16)?.replace('T', ' ') }}</div>
+    <div style="white-space: pre-wrap; margin-top: 4px;">{{ m.body }}</div>
+  </div>
+  <div v-if="isGM" style="margin-top: 10px;">
+    <textarea v-model="announceDraft" rows="3" style="width: 100%; padding: 8px;" placeholder="GM 发布公告..."></textarea>
+    <button type="button" @click="sendRoomMessage('announce')"
+            style="margin-top: 8px; padding: 8px 16px; background: #ef6c00; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      发布公告
+    </button>
+  </div>
+  <div v-else style="margin-top: 8px; font-size: 12px; color: #888;">仅 GM 可发布，全员可见、实时同步。</div>
+</div>
+
+<h2>工作人员沟通群</h2>
+<div style="border: 1px solid #bbdefb; border-radius: 8px; padding: 12px; margin: 10px 0 24px; background: #e3f2fd;">
+  <div v-if="chatMessages.length === 0" style="color: #888; font-size: 13px;">还没有消息</div>
+  <div v-for="m in chatMessages" :key="m.id" style="padding: 8px 0; border-bottom: 1px solid #bbdefb;">
+    <div style="font-size: 12px; color: #1565c0;">{{ m.author_name }} · {{ m.created_at?.slice(0, 16)?.replace('T', ' ') }}</div>
+    <div style="white-space: pre-wrap; margin-top: 4px;">{{ m.body }}</div>
+  </div>
+  <textarea v-model="chatDraft" rows="3" style="width: 100%; padding: 8px; margin-top: 10px;" placeholder="输入消息..."></textarea>
+  <button type="button" @click="sendRoomMessage('chat')"
+          style="margin-top: 8px; padding: 8px 16px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer;">
+    发送
+  </button>
+</div>
 </div>
 
 
