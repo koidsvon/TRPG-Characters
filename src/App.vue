@@ -3500,48 +3500,8 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
-
-  <!-- 角色详情页 -->
-<div v-else-if="page === 'character'" style="max-width: 950px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <h1>扮演角色</h1>
-    <div>
-      <button @click="openHandbook('character')" style="padding: 8px 14px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">
-        查看员工手册
-      </button>
-      <button @click="saveCharacter" :disabled="saving" style="padding: 8px 20px; background: #4CAF50; color: white; border: none; margin-right: 10px; cursor: pointer;">
-        {{ saving ? '保存中...' : '保存' }}
-      </button>
-      <button @click="backToLobby">返回大厅</button>
-      <button v-if="isGM" @click="page = 'room'">房间管理（发物品/解锁）</button>
-    </div>
-  </div>
-<template v-if="currentCharacter && ['魔术师','术士','Code Wizard'].includes(currentCharacter.class_name)">
-  <h2>魔术收藏</h2>
-  <div style="margin-bottom: 12px; font-size: 14px; color: #666;">
-    栏位：
-    <strong>{{ currentCharacter.learnedMagic?.length || 0 }}</strong>
-    /
-    {{ magicCollectionCapacity }}
-    <button type="button" @click="openMagicTable"
-            style="margin-left: 12px; padding: 6px 12px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      打开魔术表
-    </button>
-  </div>
-  <div style="border: 1px solid #e1bee7; border-radius: 8px; padding: 12px; margin-bottom: 24px; background: #faf5ff;">
-    <div v-if="!(currentCharacter.learnedMagic?.length)" style="color: #999; font-size: 13px;">尚未学习魔术</div>
-    <div v-for="(m, i) in (currentCharacter.learnedMagic || [])" :key="m.name + i"
-         style="margin: 8px 0; padding: 10px; background: white; border-radius: 6px;">
-      <div style="display: flex; justify-content: space-between;">
-        <strong style="color: #6a1b9a;">{{ m.name }}</strong>
-        <button type="button" @click="removeMagicSpell(i)"
-                style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
-      </div>
-      <div style="font-size: 13px; color: #555; margin-top: 6px;">{{ m.desc }}</div>
-    </div>
-  </div>
-
-    <div v-if="page === 'battle'" style="max-width: 1100px; margin: 16px auto; font-family: sans-serif; padding: 0 12px;">
+  
+  <div v-if="page === 'battle'" style="max-width: 1100px; margin: 16px auto; font-family: sans-serif; padding: 0 12px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
       <h1 style="margin: 0;">战斗地图</h1>
       <div>
@@ -3656,6 +3616,46 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
+
+  <!-- 角色详情页 -->
+<div v-else-if="page === 'character'" style="max-width: 950px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h1>扮演角色</h1>
+    <div>
+      <button @click="openHandbook('character')" style="padding: 8px 14px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">
+        查看员工手册
+      </button>
+      <button @click="saveCharacter" :disabled="saving" style="padding: 8px 20px; background: #4CAF50; color: white; border: none; margin-right: 10px; cursor: pointer;">
+        {{ saving ? '保存中...' : '保存' }}
+      </button>
+      <button @click="backToLobby">返回大厅</button>
+      <button v-if="isGM" @click="page = 'room'">房间管理（发物品/解锁）</button>
+    </div>
+  </div>
+<template v-if="currentCharacter && ['魔术师','术士','Code Wizard'].includes(currentCharacter.class_name)">
+  <h2>魔术收藏</h2>
+  <div style="margin-bottom: 12px; font-size: 14px; color: #666;">
+    栏位：
+    <strong>{{ currentCharacter.learnedMagic?.length || 0 }}</strong>
+    /
+    {{ magicCollectionCapacity }}
+    <button type="button" @click="openMagicTable"
+            style="margin-left: 12px; padding: 6px 12px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      打开魔术表
+    </button>
+  </div>
+  <div style="border: 1px solid #e1bee7; border-radius: 8px; padding: 12px; margin-bottom: 24px; background: #faf5ff;">
+    <div v-if="!(currentCharacter.learnedMagic?.length)" style="color: #999; font-size: 13px;">尚未学习魔术</div>
+    <div v-for="(m, i) in (currentCharacter.learnedMagic || [])" :key="m.name + i"
+         style="margin: 8px 0; padding: 10px; background: white; border-radius: 6px;">
+      <div style="display: flex; justify-content: space-between;">
+        <strong style="color: #6a1b9a;">{{ m.name }}</strong>
+        <button type="button" @click="removeMagicSpell(i)"
+                style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
+      </div>
+      <div style="font-size: 13px; color: #555; margin-top: 6px;">{{ m.desc }}</div>
+    </div>
+  </div>  
 </template>
 
     <!-- 基础信息 -->
