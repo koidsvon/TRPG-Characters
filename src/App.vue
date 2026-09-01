@@ -6,6 +6,7 @@ import { supabase } from './supabase.js'
 const page = ref('home')
 
 const slotExpanded = ref('')  // 当前展开的栏位：helmet / chest / legs / amulet / backpack
+const backpackOpenId = ref(null)
 
 const currentMission = ref(null)
 const missionTitle = ref('')
@@ -1813,6 +1814,23 @@ function equipItem(slot, itemId) {
     }
   }
   eq[slot] = itemId
+}
+
+function discardItem(index) {
+  if (!currentCharacter.value?.inventory?.items) return
+  const entry = currentCharacter.value.inventory.items[index]
+  if (!entry) return
+  const item = getItemById(entry.item_id)
+  const label = item?.name || '该物品'
+  if (!confirm(`确定丢掉「${label}」×${entry.quantity || 1} 吗？丢掉后无法找回。`)) return
+
+  const eq = currentCharacter.value.inventory.equipment || {}
+  for (const slot of Object.keys(eq)) {
+    if (eq[slot] && String(eq[slot]) === String(entry.item_id)) {
+      eq[slot] = null
+    }
+  }
+  currentCharacter.value.inventory.items.splice(index, 1)
 }
 
 // 实时订阅
@@ -4621,41 +4639,22 @@ onUnmounted(() => {
 
 <!-- 物品栏（背包内） -->
 <h2>物品栏（背包内）</h2>
-
-<div style="margin-bottom: 12px; padding: 10px 14px; background: #f5f5f5; border-radius: 6px; font-size: 14px; line-height: 1.6;">
-  <div>
-    背包格：
-    <strong>{{ normalUsed }}</strong> / {{ backpackCapacity }}
-    <span v-if="!currentCharacter.inventory.equipment.backpack" style="color: #888; font-size: 12px; margin-left: 6px;">
-      （未装备背包，默认 5 格）
-    </span>
-  </div>
-  <div>
-    超重格：
-    <strong :style="{ color: overweightUsed > 0 ? '#e65100' : '#333' }">
-      {{ overweightUsed }}
-    </strong>
-    / {{ overweightCapacity }}
-    <span v-if="overweightUsed > 0" style="color: #e65100; font-size: 12px; margin-left: 6px;">
-      （超重中，SPD 将受惩罚）
-    </span>
-  </div>
-</div>
-
 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 15px 0;">
-  <div v-if="!currentCharacter.inventory?.items || currentCharacter.inventory.items.length === 0" style="color: #888; margin-bottom: 15px;">
+  <div v-if="!currentCharacter.inventory?.items || currentCharacter.inventory.items.length === 0"
+       style="color: #888; margin-bottom: 8px;">
     目前没有物品（需要 GM 发放后才会出现）
   </div>
 
   <div v-for="(entry, index) in currentCharacter.inventory.items" :key="entry.id || index"
-       style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee;">
-    <div style="display: flex; align-items: center; gap: 8px;">
+       style="border-bottom: 1px solid #eee; padding: 10px 0;">
+    <div @click="backpackOpenId = backpackOpenId === (entry.item_id + '-' + index) ? null : (entry.item_id + '-' + index)"
+         style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
       <img
-        v-if="getItemIcon(getItemById(entry.item_id))"
-        :src="getItemIcon(getItemById(entry.item_id))"
-        style="width: 32px; height: 32px; image-rendering: pixelated; flex-shrink: 0;"
+        v-if="getItemById(entry.item_id)?.image_url || getItemIcon(getItemById(entry.item_id))"
+        :src="getItemById(entry.item_id)?.image_url || getItemIcon(getItemById(entry.item_id))"
+        style="width: 48px; height: 48px; object-fit: contain; image-rendering: pixelated; flex-shrink: 0; background: #fafafa; border-radius: 4px;"
       />
-      <div>
+      <div style="flex: 1;">
         <strong>{{ getItemById(entry.item_id)?.name || '未知物品' }}</strong>
         <span style="color: #666; margin-left: 8px;">× {{ entry.quantity }}</span>
         <span v-if="getItemById(entry.item_id)" style="color: #999; margin-left: 8px; font-size: 13px;">
@@ -4665,9 +4664,46 @@ onUnmounted(() => {
           占用 {{ ((getItemById(entry.item_id)?.slots) || 1) * (entry.quantity || 1) }} 格
         </div>
       </div>
+      <span style="color: #888; font-size: 13px;">
+        {{ backpackOpenId === (entry.item_id + '-' + index) ? '收起' : '详情' }}
+      </span>
     </div>
-    <div style="font-size: 13px; color: #888; max-width: 40%; text-align: right;">
-      {{ getItemById(entry.item_id)?.description || '' }}
+
+    <div v-if="backpackOpenId === (entry.item_id + '-' + index)"
+         style="margin-top: 10px; padding: 12px; background: #fafafa; border-radius: 8px; display: flex; gap: 16px; flex-wrap: wrap;">
+      <img
+        v-if="getItemById(entry.item_id)?.image_url"
+        :src="getItemById(entry.item_id).image_url"
+        style="width: 160px; height: 160px; object-fit: contain; background: #fff; border-radius: 6px;"
+      />
+      <div style="flex: 1; min-width: 220px;">
+        <div style="font-size: 14px; color: #555; margin-bottom: 8px; white-space: pre-wrap;">
+          {{ getItemById(entry.item_id)?.description || '暂无简介' }}
+        </div>
+        <div style="font-size: 13px; color: #333; line-height: 1.7;">
+          <div v-if="getItemById(entry.item_id)?.armor_type">防具种类：{{ getItemById(entry.item_id).armor_type }}</div>
+          <div v-if="Number(getItemById(entry.item_id)?.strength)">力量 +{{ getItemById(entry.item_id).strength }}</div>
+          <div v-if="Number(getItemById(entry.item_id)?.agility)">敏捷 +{{ getItemById(entry.item_id).agility }}</div>
+          <div v-if="Number(getItemById(entry.item_id)?.intelligence)">智力 +{{ getItemById(entry.item_id).intelligence }}</div>
+          <div v-if="Number(getItemById(entry.item_id)?.atk)">ATK +{{ getItemById(entry.item_id).atk }}</div>
+          <div v-if="Number(getItemById(entry.item_id)?.hp)">HP +{{ getItemById(entry.item_id).hp }}</div>
+          <div v-if="Number(getItemById(entry.item_id)?.def)">DEF +{{ getItemById(entry.item_id).def }}</div>
+          <div v-if="Number(getItemById(entry.item_id)?.res)">RES +{{ getItemById(entry.item_id).res }}</div>
+          <div v-if="Number(getItemById(entry.item_id)?.spd)">SPD +{{ getItemById(entry.item_id).spd }}</div>
+          <div v-if="Number(getItemById(entry.item_id)?.satiety)">恢复饱食度 {{ getItemById(entry.item_id).satiety }}</div>
+        </div>
+        <div v-if="getItemById(entry.item_id)?.skills?.length" style="margin-top: 8px;">
+          <div v-for="(sk, si) in getItemById(entry.item_id).skills" :key="si"
+               style="font-size: 13px; margin-top: 4px;">
+            <strong>{{ sk.name }}</strong>
+            <span style="color: #666;">　{{ sk.desc }}</span>
+          </div>
+        </div>
+        <button type="button" @click.stop="discardItem(index)"
+                style="margin-top: 12px; padding: 6px 12px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+          丢掉
+        </button>
+      </div>
     </div>
   </div>
 </div>
