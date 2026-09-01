@@ -54,6 +54,8 @@ function emptyPhantasmForm() {
     category: '常规',
     hp: 0, atk: 0, spd: 0, def: 0, res: 0,
     strength: 0, intelligence: 0, agility: 0,
+    attack_range: 1,
+    move_range: 4,
     skills: [{ name: '', desc: '' }],
     boss_skills: [{ name: '', desc: '' }, { name: '', desc: '' }],
     token_url: '',
@@ -244,7 +246,9 @@ async function savePhantasmItem() {
     res: Number(f.res) || 0,
     strength: Number(f.strength) || 0,
     intelligence: Number(f.intelligence) || 0,
-    agility: Number(f.agility) || 0,
+    agility: Number(f.agility) || 0,     
+    attack_range: Number(f.attack_range) || 1,
+    move_range: Number(f.move_range) || 4,
     skills: f.skills || [],
     boss_skills: f.category === 'Boss' ? (f.boss_skills || []) : [],
     token_url: f.token_url || '',
@@ -305,7 +309,7 @@ async function loadMissionPhantasms() {
     .select('*')
     .eq('mission_id', currentMission.value.id)
     .order('category')
-  if (!error) missionPhantasms.value = data || []
+  if (!error) missionPhantasms.value = (data || []).map(normalizeMissionPhantasm)
 }
 
 function clampView() {
@@ -339,6 +343,93 @@ function getTokenSource(t) {
   return missionPhantasms.value.find(p => p.id === t.ref_id) || null
 }
 
+function defaultEnemyReveal() {
+  return {
+    hp: false,
+    atk: false,
+    def: false,
+    res: false,
+    spd: false,
+    strength: false,
+    agility: false,
+    intelligence: false,
+    attack_range: false,
+    move_range: false,
+    skills: {},
+    boss_skills: {}
+  }
+}
+
+function normalizeMissionPhantasm(p) {
+  if (!p) return p
+  if (p.attack_range == null) p.attack_range = 1
+  if (p.move_range == null) p.move_range = 4
+  if (!Array.isArray(p.skills)) p.skills = []
+  if (!Array.isArray(p.boss_skills)) p.boss_skills = []
+  const r = { ...defaultEnemyReveal(), ...(p.reveal || {}) }
+  if (!r.skills || typeof r.skills !== 'object') r.skills = {}
+  if (!r.boss_skills || typeof r.boss_skills !== 'object') r.boss_skills = {}
+  p.reveal = r
+  return p
+}
+
+function isEnemyStatPublic(src, key) {
+  if (!src) return false
+  if (isGM.value) return true
+  return !!(src.reveal && src.reveal[key])
+}
+
+function shownEnemyStat(src, key) {
+  if (!src) return '—'
+  if (isEnemyStatPublic(src, key)) {
+    if (key === 'hp') return (src.hp_current ?? src.hp ?? 0) + ' / ' + (src.hp ?? 0)
+    const v = src[key]
+    return v == null || v === '' ? '—' : v
+  }
+  return '未知'
+}
+
+function isEnemySkillPublic(src, listKey, index) {
+  if (!src) return false
+  if (isGM.value) return true
+  return !!(src.reveal && src.reveal[listKey] && src.reveal[listKey][index])
+}
+
+function shownEnemySkillDesc(src, listKey, index) {
+  const list = src?.[listKey] || []
+  const sk = list[index]
+  if (!sk) return ''
+  if (isEnemySkillPublic(src, listKey, index)) return sk.desc || '—'
+  return '未知'
+}
+
+async function setEnemyReveal(src, key, value) {
+  if (!isGM.value || !src?.id) return
+  const reveal = { ...defaultEnemyReveal(), ...(src.reveal || {}) }
+  reveal[key] = value
+  src.reveal = reveal
+  const { error } = await supabase
+    .from('mission_phantasms')
+    .update({ reveal })
+    .eq('id', src.id)
+  if (error) alert('更新可见性失败：' + error.message)
+  else await loadMissionPhantasms()
+}
+
+async function setEnemySkillReveal(src, listKey, index, value) {
+  if (!isGM.value || !src?.id) return
+  const reveal = { ...defaultEnemyReveal(), ...(src.reveal || {}) }
+  reveal[listKey] = { ...(reveal[listKey] || {}) }
+  reveal[listKey][index] = value
+  src.reveal = reveal
+  const { error } = await supabase
+    .from('mission_phantasms')
+    .update({ reveal })
+    .eq('id', src.id)
+  if (error) alert('更新可见性失败：' + error.message)
+  else await loadMissionPhantasms()
+}
+
 function tokenDisplayName(t) {
   const src = getTokenSource(t)
   if (t?.kind === 'player') return src?.name || t.label
@@ -357,11 +448,16 @@ function cycleTokenStat(t, dir) {
 function tokenStatValue(t) {
   const src = getTokenSource(t)
   const key = tokenStatKey(t)
-  if (!src) return 0
-  if (key === 'hp') {
-    if (t.kind === 'player') return src.hp_current ?? src.hp_max ?? 0
-    return src.hp_current ?? src.hp ?? 0
+  if (!src) return '—'
+  if (t.kind === 'player') {
+    if (key === 'hp') return src.hp_current ?? src.hp_max ?? 0
+    if (key === 'atk') return src.atk ?? 0
+    if (key === 'def') return src.def ?? 0
+    if (key === 'res') return src.res ?? 0
+    return 0
   }
+  if (!isEnemyStatPublic(src, key)) return '未知'
+  if (key === 'hp') return src.hp_current ?? src.hp ?? 0
   if (key === 'atk') return src.atk ?? 0
   if (key === 'def') return src.def ?? 0
   if (key === 'res') return src.res ?? 0
@@ -879,6 +975,9 @@ async function startMissionFromBook(bookId) {
       strength: p.strength || 0,
       intelligence: p.intelligence || 0,
       agility: p.agility || 0,
+      attack_range: p.attack_range ?? 1,
+        move_range: p.move_range ?? 4,
+        reveal: {},
       skills: p.skills || [],
       boss_skills: p.boss_skills || [],
       token_url: p.token_url || '',
@@ -2504,6 +2603,16 @@ function startRealtime() {
         loadCurrentMission()
       }
     )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'mission_phantasms' },
+      () => { loadMissionPhantasms() }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'battle_tokens' },
+      () => { loadBattleMap() }
+    )
     .subscribe()
 }
 
@@ -3114,6 +3223,8 @@ onUnmounted(() => {
             <label>力量 <input type="number" v-model.number="phantasmForm.strength" style="width: 100%;" /></label>
             <label>智力 <input type="number" v-model.number="phantasmForm.intelligence" style="width: 100%;" /></label>
             <label>敏捷 <input type="number" v-model.number="phantasmForm.agility" style="width: 100%;" /></label>
+            <label>攻击距离 <input type="number" v-model.number="phantasmForm.attack_range" style="width: 100%;" /></label>
+            <label>移动格 <input type="number" v-model.number="phantasmForm.move_range" style="width: 100%;" /></label>
           </div>
           <input v-model="phantasmForm.token_url" placeholder="TOKEN 图片 URL（可空）" style="width: 100%; padding: 8px; margin-bottom: 6px; box-sizing: border-box;" />
           <textarea v-model="phantasmForm.notes" rows="2" placeholder="备注" style="width: 100%; padding: 8px; margin-bottom: 8px; box-sizing: border-box;"></textarea>
@@ -3685,7 +3796,7 @@ onUnmounted(() => {
       <button type="button" @click="addEnemyToMap">放到地图</button>
     </div>
 
-    <div style="display: flex; gap: 16px; align-items: flex-start;">
+        <div style="display: flex; gap: 16px; align-items: flex-start;">
       <div>
         <div
           v-for="row in VIEW"
@@ -3727,9 +3838,10 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div style="width: 260px; padding: 12px; border: 1px solid #ddd; border-radius: 8px;">
+      <div style="width: 320px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; max-height: 70vh; overflow: auto;">
         <div v-if="!selectedToken" style="color:#888;">点击格子上的 token</div>
-        <div v-else>
+
+        <div v-else-if="selectedToken.kind === 'player'">
           <div style="font-size: 18px; font-weight: bold;">{{ selectedToken.label }}</div>
           <div style="margin: 6px 0;">{{ tokenDisplayName(selectedToken) }}</div>
           <div style="font-size: 13px; color:#555;">
@@ -3739,35 +3851,95 @@ onUnmounted(() => {
           </div>
           <div v-if="canEditHp(selectedToken)" style="margin-top: 10px;">
             <label>HP</label>
-          <input
+            <input
               type="number"
-              :value="selectedToken.kind === 'player'
-                ? (getTokenSource(selectedToken)?.hp_current ?? 0)
-                : (getTokenSource(selectedToken)?.hp_current ?? getTokenSource(selectedToken)?.hp ?? 0)"
+              :value="getTokenSource(selectedToken)?.hp_current ?? 0"
               @change="updateTokenHp(selectedToken, $event.target.value)"
               style="width: 80px; margin-left: 6px;"
             />
-            <div style="font-size: 12px; color:#888; margin-top: 4px;">改的是当前生命（失焦/回车后写入）</div>
           </div>
-          <button
-            v-if="canMoveToken(selectedToken)"
-            type="button"
-            @click="beginMove(selectedToken)"
-            style="margin-top: 10px; padding: 6px 12px;"
-          >
+          <button v-if="canMoveToken(selectedToken)" type="button" @click="beginMove(selectedToken)" style="margin-top: 10px; padding: 6px 12px;">
             {{ pendingMoveTokenId === selectedToken.id ? '点空格完成移动' : '移动' }}
           </button>
-          <button
-            v-if="isGM"
-            type="button"
-            @click="removeToken(selectedToken)"
-            style="margin-top: 8px; color: #c62828;"
-          >从地图移除</button>
+          <button v-if="isGM" type="button" @click="removeToken(selectedToken)" style="margin-top: 8px; color: #c62828;">从地图移除</button>
+        </div>
+
+        <div v-else>
+          <div style="font-size: 18px; font-weight: bold;">{{ tokenDisplayName(selectedToken) }}</div>
+          <div style="font-size: 12px; color:#888; margin: 4px 0 8px;">{{ selectedToken.label }}</div>
+          <p style="white-space: pre-wrap; font-size: 13px; color:#555; margin: 0 0 12px;">
+            {{ getTokenSource(selectedToken)?.notes || '暂无简介' }}
+          </p>
+          <div v-for="row in [
+            { key: 'hp', label: 'HP' },
+            { key: 'atk', label: 'ATK' },
+            { key: 'def', label: 'DEF' },
+            { key: 'res', label: 'RES' },
+            { key: 'spd', label: 'SPD' },
+            { key: 'strength', label: '力量' },
+            { key: 'agility', label: '敏捷' },
+            { key: 'intelligence', label: '智力' },
+            { key: 'attack_range', label: '攻击距离' },
+            { key: 'move_range', label: '移动格' },
+          ]" :key="row.key"
+               style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #eee; font-size:13px; gap:8px;">
+            <span>{{ row.label }}</span>
+            <span style="text-align:right;">
+              <strong>{{ shownEnemyStat(getTokenSource(selectedToken), row.key) }}</strong>
+              <label v-if="isGM" style="display:block; font-size:11px; color:#666; margin-top:2px;">
+                <input type="checkbox"
+                       :checked="!!getTokenSource(selectedToken)?.reveal?.[row.key]"
+                       @change="setEnemyReveal(getTokenSource(selectedToken), row.key, $event.target.checked)" />
+                公开
+              </label>
+            </span>
+          </div>
+          <div v-if="isGM && canEditHp(selectedToken)" style="margin-top: 10px;">
+            <label>当前 HP</label>
+            <input
+              type="number"
+              :value="getTokenSource(selectedToken)?.hp_current ?? getTokenSource(selectedToken)?.hp ?? 0"
+              @change="updateTokenHp(selectedToken, $event.target.value)"
+              style="width: 80px; margin-left: 6px;"
+            />
+          </div>
+          <h4 style="margin: 14px 0 6px;">固有技能</h4>
+          <div v-if="!(getTokenSource(selectedToken)?.skills || []).length" style="color:#999; font-size:13px;">无</div>
+          <div v-for="(sk, i) in (getTokenSource(selectedToken)?.skills || [])" :key="'s'+i" style="margin: 8px 0; font-size:13px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong>{{ sk.name || ('技能' + (i+1)) }}</strong>
+              <label v-if="isGM" style="font-size:11px; color:#666;">
+                <input type="checkbox"
+                       :checked="!!getTokenSource(selectedToken)?.reveal?.skills?.[i]"
+                       @change="setEnemySkillReveal(getTokenSource(selectedToken), 'skills', i, $event.target.checked)" />
+                公开效果
+              </label>
+            </div>
+            <div style="color:#555; margin-top:2px;">{{ shownEnemySkillDesc(getTokenSource(selectedToken), 'skills', i) }}</div>
+          </div>
+          <h4 style="margin: 14px 0 6px;">特殊技能</h4>
+          <div v-if="!(getTokenSource(selectedToken)?.boss_skills || []).length" style="color:#999; font-size:13px;">无</div>
+          <div v-for="(sk, i) in (getTokenSource(selectedToken)?.boss_skills || [])" :key="'b'+i" style="margin: 8px 0; font-size:13px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong>{{ sk.name || ('特殊技' + (i+1)) }}</strong>
+              <label v-if="isGM" style="font-size:11px; color:#666;">
+                <input type="checkbox"
+                       :checked="!!getTokenSource(selectedToken)?.reveal?.boss_skills?.[i]"
+                       @change="setEnemySkillReveal(getTokenSource(selectedToken), 'boss_skills', i, $event.target.checked)" />
+                公开效果
+              </label>
+            </div>
+            <div style="color:#555; margin-top:2px;">{{ shownEnemySkillDesc(getTokenSource(selectedToken), 'boss_skills', i) }}</div>
+          </div>
+          <button v-if="isGM" type="button" @click="beginMove(selectedToken)" style="margin-top: 12px; padding: 6px 12px;">
+            {{ pendingMoveTokenId === selectedToken.id ? '点空格完成移动' : '移动' }}
+          </button>
+          <button v-if="isGM" type="button" @click="removeToken(selectedToken)" style="margin-top: 8px; color: #c62828;">从地图移除</button>
         </div>
       </div>
     </div>
 
-        <div style="margin: 16px 0; padding: 12px; border: 1px solid #ccc; border-radius: 8px; background: #fafafa;">
+    <div style="margin: 16px 0; padding: 12px; border: 1px solid #ccc; border-radius: 8px; background: #fafafa;">
       <strong>骰子</strong>
       <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
         <button type="button" @click="rollDice('1d6')">1d6</button>
