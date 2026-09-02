@@ -4789,6 +4789,12 @@ onUnmounted(() => {
 <!-- 背包（装备位） -->
 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
   <label style="font-weight: bold;">背包</label>
+    <div style="font-size: 12px; color: #666; margin-top: 4px;">
+      {{ backpackCapacity }} 格 / 超重 {{ overweightCapacity }} 格
+    </div>
+  <div style="font-size: 12px; color: #666; margin-top: 4px;">
+    {{ backpackCapacity }} 格 / 超重 {{ overweightCapacity }} 格
+  </div>
   <div @click="slotExpanded = slotExpanded === 'backpack' ? '' : 'backpack'"
        style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
     <span v-if="getItemById(currentCharacter.inventory.equipment.backpack)" style="display: flex; align-items: center; gap: 6px;">
@@ -4827,6 +4833,21 @@ onUnmounted(() => {
 
 <!-- 物品栏（背包内） -->
 <h2>物品栏（背包内）</h2>
+<div style="margin-bottom: 12px; padding: 10px 14px; background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; font-size: 15px; line-height: 1.7;">
+  <div>
+    背包格：
+    <strong>{{ normalUsed }}</strong> / {{ backpackCapacity }}
+    <span v-if="!currentCharacter.inventory?.equipment?.backpack" style="color: #888; font-size: 12px; margin-left: 6px;">
+      （未装备背包，默认 5 格）
+    </span>
+  </div>
+  <div>
+    超重格：
+    <strong :style="{ color: overweightUsed > 0 ? '#e65100' : '#333' }">{{ overweightUsed }}</strong>
+    / {{ overweightCapacity }}
+    <span v-if="overweightUsed > 0" style="color: #e65100; font-size: 12px; margin-left: 6px;">（超重中）</span>
+  </div>
+</div>
 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 15px 0;">
   <div v-if="!currentCharacter.inventory?.items || currentCharacter.inventory.items.length === 0"
        style="color: #888; margin-bottom: 8px;">
