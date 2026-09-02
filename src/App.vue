@@ -1557,45 +1557,55 @@ const newPlayerName = ref('')
 const currentCharacter = ref(null)
 const saving = ref(false)
 
+function itemBagBonus(item) {
+  if (!item) return { bag: 0, over: 0 }
+  const bag = Number(item.bag_slots ?? item.capacity ?? 0) || 0
+  const over = Number(item.overweight_slots ?? item.overweight_capacity ?? 0) || 0
+  return { bag, over }
+}
+
+function equippedSlotBonuses() {
+  const eq = currentCharacter.value?.inventory?.equipment
+  if (!eq) return { bag: 0, over: 0 }
+  let bag = 0
+  let over = 0
+  for (const slot of ['helmet', 'chest', 'legs', 'mainHand', 'offHand', 'amulet', 'backpack']) {
+    const item = getItemById(eq[slot])
+    const b = itemBagBonus(item)
+    bag += b.bag
+    over += b.over
+  }
+  return { bag, over }
+}
+
 const backpackCapacity = computed(() => {
-  if (!currentCharacter.value?.inventory?.equipment) return 5
-  const bpId = currentCharacter.value.inventory.equipment.backpack
-  if (!bpId) return 5
-  const item = getItemById(bpId)
-  return (item && item.capacity > 0) ? item.capacity : 5
+  const extra = equippedSlotBonuses().bag
+  return extra > 0 ? extra : 5
 })
 
-const overweightCapacity = computed(() => {
-  if (!currentCharacter.value?.inventory?.equipment) return 0
-  const bpId = currentCharacter.value.inventory.equipment.backpack
-  if (!bpId) return 0
-  const item = getItemById(bpId)
-  return (item && item.overweight_capacity) ? item.overweight_capacity : 0
-})
+const overweightCapacity = computed(() => equippedSlotBonuses().over)
 
 const backpackUsed = computed(() => {
   if (!currentCharacter.value?.inventory?.items) return 0
   let total = 0
+  const eq = currentCharacter.value.inventory.equipment || {}
+  const equippedIds = new Set(Object.values(eq).filter(Boolean).map(id => String(id)))
   for (const entry of currentCharacter.value.inventory.items) {
+    if (equippedIds.has(String(entry.item_id))) continue
     const item = getItemById(entry.item_id)
-    const per = (item && item.slots) ? item.slots : 1
+    const per = (item && item.slots) ? Number(item.slots) : 1
     total += per * (entry.quantity || 1)
   }
   return total
 })
 
-// 正常格占用（不超过容量）
 const normalUsed = computed(() => Math.min(backpackUsed.value, backpackCapacity.value))
-
-// 超重格占用
 const overweightUsed = computed(() => Math.max(0, backpackUsed.value - backpackCapacity.value))
-
-// 总可装：正常 + 超重
 const totalCapacity = computed(() => backpackCapacity.value + overweightCapacity.value)
 
 function canFitItem(itemId, quantity = 1) {
   const item = getItemById(itemId)
-  const need = ((item && item.slots) ? item.slots : 1) * quantity
+  const need = ((item && item.slots) ? Number(item.slots) : 1) * quantity
   return backpackUsed.value + need <= totalCapacity.value
 }
 
@@ -1747,10 +1757,16 @@ async function grantItemToCharacter() {
     })
   }
 
-const bpId = inv.equipment?.backpack
-const bpItem = bpId ? itemCatalog.value.find(i => i.id === bpId) : null
-const capacity = (bpItem && bpItem.capacity > 0) ? bpItem.capacity : 5
-const overCap = (bpItem && bpItem.overweight_capacity) ? bpItem.overweight_capacity : 0
+const eq = inv.equipment || {}
+let capacity = 0
+let overCap = 0
+for (const slot of ['helmet', 'chest', 'legs', 'mainHand', 'offHand', 'amulet', 'backpack']) {
+  const it = getItemById(eq[slot])
+  const b = itemBagBonus(it)
+  capacity += b.bag
+  overCap += b.over
+}
+if (capacity <= 0) capacity = 5
 const totalCap = capacity + overCap
 
 let used = 0
