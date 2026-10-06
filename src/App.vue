@@ -2721,8 +2721,22 @@ function addItem() {
   newItemQuantity.value = 1
 }
 
-function removeItem(index) {
-  currentCharacter.value.inventory.items.splice(index, 1)
+function discardItem(index, all = false) {
+  const items = currentCharacter.value?.inventory?.items
+  if (!items || !items[index]) return
+  const entry = items[index]
+  const name = getItemById(entry.item_id)?.name || '该物品'
+  const qty = all ? (entry.quantity || 1) : 1
+  if (!confirm('确认丢弃「' + name + '」×' + qty + '？丢弃后无法撤回。')) return
+  const eq = currentCharacter.value.inventory.equipment || {}
+  if ((entry.quantity || 1) - qty <= 0) {
+    for (const slot of Object.keys(eq)) {
+      if (eq[slot] && String(eq[slot]) === String(entry.item_id)) eq[slot] = null
+    }
+    items.splice(index, 1)
+  } else {
+    entry.quantity = (entry.quantity || 1) - qty
+  }
 }
 
 let autoSaveTimer = null
@@ -4723,8 +4737,14 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-    <div style="font-size: 13px; color: #888; max-width: 40%; text-align: right;">
-      {{ getItemById(entry.item_id)?.description || '' }}
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: 42%;">
+      <div style="font-size: 13px; color: #888; text-align: right;">
+        {{ getItemById(entry.item_id)?.description || '' }}
+      </div>
+      <div style="display: flex; gap: 6px;">
+        <button type="button" @click="discardItem(index, false)" style="padding: 4px 10px; background: #fff; color: #c62828; border: 1px solid #ef9a9a; border-radius: 4px; cursor: pointer; font-size: 12px;">丢弃 1</button>
+        <button v-if="(entry.quantity || 1) > 1" type="button" @click="discardItem(index, true)" style="padding: 4px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">全部丢弃</button>
+      </div>
     </div>
   </div>
 </div>
