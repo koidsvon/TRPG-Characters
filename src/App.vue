@@ -2890,6 +2890,23 @@ function randDec(min, max, step = 0.1) {
   const n = Math.round((min + Math.random() * (max - min)) / step)
   return Math.round(n * step * 10) / 10
 }
+function syncClassProficiency(clsName) {
+  const c = currentCharacter.value
+  if (!c) return
+  if (!c.skills) c.skills = {}
+  const prev = c.skills._proficiencyClass || ''
+  if (prev && prev !== clsName && classTemplates[prev]?.skillBonuses) {
+    for (const [key, bonus] of Object.entries(classTemplates[prev].skillBonuses)) {
+      c.skills[key] = (Number(c.skills[key]) || 0) - Number(bonus || 0)
+    }
+  }
+  if (clsName && clsName !== '未选择' && prev !== clsName && classTemplates[clsName]?.skillBonuses) {
+    for (const [key, bonus] of Object.entries(classTemplates[clsName].skillBonuses)) {
+      c.skills[key] = (Number(c.skills[key]) || 4) + Number(bonus || 0)
+    }
+  }
+  c.skills._proficiencyClass = clsName && clsName !== '未选择' ? clsName : ''
+}
 function applyClassStatDefaults(clsName) {
   const c = currentCharacter.value
   const info = classTemplates[clsName]
@@ -2957,7 +2974,9 @@ function randomizeLevel1Stats() {
 watch(
   () => currentCharacter.value && currentCharacter.value.class_name,
   (name) => {
-    if (!name || name === '未选择' || !currentCharacter.value) return
+    if (!currentCharacter.value) return
+    syncClassProficiency(name)
+    if (!name || name === '未选择') return
     if ((currentCharacter.value.level || 1) !== 1) return
     applyClassStatDefaults(name)
   }
