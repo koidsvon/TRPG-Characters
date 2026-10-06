@@ -1763,6 +1763,7 @@ function selectGrantItem(itemId) {
 // 物品栏相关
 const newItemName = ref('')
 const newItemQuantity = ref(1)
+const expandedItemIndex = ref(-1)
 
 const mainHandExpanded = ref(false)   // 主手是否展开选择面板
 const offHandExpanded = ref(false)    // 副手是否展开选择面板
@@ -1823,21 +1824,77 @@ function getItemsByCategory(slot, category) {
     })
 }
 
-// 装备时：如果该物品已在其他栏位，先卸下
+const GEAR_STAT_KEYS = [
+  ['strength', 'strength'],
+  ['agility', 'agility'],
+  ['intelligence', 'intelligence'],
+  ['atk', 'atk'],
+  ['hp', 'hp_max'],
+  ['def', 'def'],
+  ['res', 'res'],
+  ['spd', 'spd']
+]
+function gearBonus(item) {
+  const bonus = {}
+  if (!item) return bonus
+  for (const [from, to] of GEAR_STAT_KEYS) {
+    const n = Number(item[from]) || 0
+    if (n) bonus[to] = n
+  }
+  return bonus
+}
+function applyGearDelta(item, sign) {
+  const c = currentCharacter.value
+  if (!c || !item || !sign) return
+  const bonus = gearBonus(item)
+  for (const key of Object.keys(bonus)) {
+    c[key] = (Number(c[key]) || 0) + bonus[key] * sign
+  }
+  if (bonus.hp_max) c.hp_current = (Number(c.hp_current) || 0) + bonus.hp_max * sign
+}
+function syncEquippedBonuses() {
+  const c = currentCharacter.value
+  if (!c?.inventory?.equipment) return
+  if (!c.inventory.gearApplied) c.inventory.gearApplied = {}
+  const eq = c.inventory.equipment
+  const applied = c.inventory.gearApplied
+  for (const slot of Object.keys(eq)) {
+    const id = eq[slot] || null
+    const oldId = applied[slot] || null
+    if (oldId && oldId !== id) applyGearDelta(getItemById(oldId), -1)
+    if (id && id !== oldId) applyGearDelta(getItemById(id), 1)
+    applied[slot] = id
+  }
+}
 function equipItem(slot, itemId) {
   if (!currentCharacter.value?.inventory?.equipment) return
+  const eq = currentCharacter.value.inventory.equipment
+  if (!currentCharacter.value.inventory.gearApplied) currentCharacter.value.inventory.gearApplied = {}
+  const applied = currentCharacter.value.inventory.gearApplied
   if (!itemId) {
-    currentCharacter.value.inventory.equipment[slot] = null
+    unequipItem(slot)
     return
   }
-  // 从其他栏位卸下同一件物品
-  const eq = currentCharacter.value.inventory.equipment
+  let moved = false
   for (const key of Object.keys(eq)) {
     if (key !== slot && eq[key] === itemId) {
       eq[key] = null
+      applied[key] = null
+      moved = true
     }
   }
+  const prev = eq[slot]
+  if (prev && prev !== itemId) {
+    applyGearDelta(getItemById(prev), -1)
+    applied[slot] = null
+  }
   eq[slot] = itemId
+  if (!moved && itemId !== prev) {
+    applyGearDelta(getItemById(itemId), 1)
+    applied[slot] = itemId
+  } else {
+    applied[slot] = itemId
+  }
 }
 
 // 实时订阅
@@ -2693,7 +2750,7 @@ if (!charCopy.abilitySkills) {
   skipAutoSave = true
   currentCharacter.value = charCopy
   page.value = 'character'
-  setTimeout(() => { skipAutoSave = false }, 400)
+  setTimeout(() => { skipAutoSave = false; syncEquippedBonuses() }, 400)
 }
 
 function viewCharacterAsGM(char) {
@@ -2735,7 +2792,7 @@ function discardItem(index, all = false) {
   const eq = currentCharacter.value.inventory.equipment || {}
   if ((entry.quantity || 1) - qty <= 0) {
     for (const slot of Object.keys(eq)) {
-      if (eq[slot] && String(eq[slot]) === String(entry.item_id)) eq[slot] = null
+      if (eq[slot] && String(eq[slot]) === String(entry.item_id)) unequipItem(slot)
     }
     items.splice(index, 1)
   } else {
@@ -2922,7 +2979,12 @@ function getEquippableItems(slot) {
 // 卸下装备
 function unequipItem(slot) {
   if (!currentCharacter.value?.inventory?.equipment) return
-  currentCharacter.value.inventory.equipment[slot] = null
+  const eq = currentCharacter.value.inventory.equipment
+  if (!currentCharacter.value.inventory.gearApplied) currentCharacter.value.inventory.gearApplied = {}
+  const id = eq[slot]
+  if (id) applyGearDelta(getItemById(id), -1)
+  eq[slot] = null
+  currentCharacter.value.inventory.gearApplied[slot] = null
 }
 
 function leaveRoom() {
@@ -3016,6 +3078,7 @@ async function loadItemCatalog() {
     alert('加载物品库失败：' + error.message)
   } else {
     itemCatalog.value = data || []
+    syncEquippedBonuses()
   }
   loadingItems.value = false
 }
@@ -4727,31 +4790,44 @@ onUnmounted(() => {
   </div>
 
   <div v-for="(entry, index) in currentCharacter.inventory.items" :key="entry.id || index"
-       style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee;">
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <img
-        v-if="getItemIcon(getItemById(entry.item_id))"
-        :src="getItemIcon(getItemById(entry.item_id))"
-        style="width: 32px; height: 32px; image-rendering: pixelated; flex-shrink: 0;"
-      />
-      <div>
-        <strong>{{ getItemById(entry.item_id)?.name || '未知物品' }}</strong>
-        <span style="color: #666; margin-left: 8px;">× {{ entry.quantity }}</span>
-        <span v-if="getItemById(entry.item_id)" style="color: #999; margin-left: 8px; font-size: 13px;">
-          （{{ getItemById(entry.item_id).category }} · {{ getItemById(entry.item_id).sub_type }}）
-        </span>
-        <div style="font-size: 12px; color: #aaa; margin-top: 2px;">
-          占用 {{ ((getItemById(entry.item_id)?.slots) || 1) * (entry.quantity || 1) }} 格
+       style="padding: 10px 0; border-bottom: 1px solid #eee;">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+      <div @click="expandedItemIndex = expandedItemIndex === index ? -1 : index" style="display: flex; align-items: center; gap: 8px; cursor: pointer; flex: 1;">
+        <img
+          v-if="getItemIcon(getItemById(entry.item_id))"
+          :src="getItemIcon(getItemById(entry.item_id))"
+          style="width: 32px; height: 32px; image-rendering: pixelated; flex-shrink: 0;"
+        />
+        <div>
+          <strong>{{ getItemById(entry.item_id)?.name || '未知物品' }}</strong>
+          <span style="color: #666; margin-left: 8px;">× {{ entry.quantity }}</span>
+          <span v-if="getItemById(entry.item_id)" style="color: #999; margin-left: 8px; font-size: 13px;">
+            （{{ getItemById(entry.item_id).category }} · {{ getItemById(entry.item_id).sub_type }}）
+          </span>
+          <div style="font-size: 12px; color: #aaa; margin-top: 2px;">
+            占用 {{ ((getItemById(entry.item_id)?.slots) || 1) * (entry.quantity || 1) }} 格 · {{ expandedItemIndex === index ? '收起详情' : '查看详情' }}
+          </div>
         </div>
-      </div>
-    </div>
-    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: 42%;">
-      <div style="font-size: 13px; color: #888; text-align: right;">
-        {{ getItemById(entry.item_id)?.description || '' }}
       </div>
       <div style="display: flex; gap: 6px;">
         <button type="button" @click="discardItem(index, false)" style="padding: 4px 10px; background: #fff; color: #c62828; border: 1px solid #ef9a9a; border-radius: 4px; cursor: pointer; font-size: 12px;">丢弃 1</button>
         <button v-if="(entry.quantity || 1) > 1" type="button" @click="discardItem(index, true)" style="padding: 4px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">全部丢弃</button>
+      </div>
+    </div>
+    <div v-if="expandedItemIndex === index && getItemById(entry.item_id)" style="margin-top: 10px; padding: 12px; background: #fafafa; border-radius: 8px; display: flex; gap: 14px;">
+      <img v-if="getItemById(entry.item_id).image_url" :src="getItemById(entry.item_id).image_url" style="width: 140px; height: 140px; object-fit: contain; background: #fff; border-radius: 6px;" />
+      <div style="flex: 1; font-size: 14px; line-height: 1.6;">
+        <div><strong>{{ getItemById(entry.item_id).name }}</strong></div>
+        <div style="color: #666;">{{ getItemById(entry.item_id).category }} · {{ getItemById(entry.item_id).sub_type }} · 占用 {{ getItemById(entry.item_id).slots || 1 }} 格 · 攻击距离 {{ itemAttackRange(getItemById(entry.item_id)) }}</div>
+        <div style="margin-top: 6px; color: #333;">
+          力量 {{ getItemById(entry.item_id).strength || 0 }}　敏捷 {{ getItemById(entry.item_id).agility || 0 }}　智力 {{ getItemById(entry.item_id).intelligence || 0 }}　ATK {{ getItemById(entry.item_id).atk || 0 }}　HP {{ getItemById(entry.item_id).hp || 0 }}　DEF {{ getItemById(entry.item_id).def || 0 }}　RES {{ getItemById(entry.item_id).res || 0 }}　SPD {{ getItemById(entry.item_id).spd || 0 }}
+        </div>
+        <div v-if="getItemById(entry.item_id).skills && getItemById(entry.item_id).skills.length" style="margin-top: 8px;">
+          <div v-for="(sk, si) in getItemById(entry.item_id).skills" :key="si">
+            <strong>{{ sk.name }}</strong>：{{ sk.desc }}
+          </div>
+        </div>
+        <div style="margin-top: 8px; white-space: pre-wrap;">{{ getItemById(entry.item_id).description }}</div>
       </div>
     </div>
   </div>
