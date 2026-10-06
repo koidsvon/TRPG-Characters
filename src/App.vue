@@ -1764,6 +1764,11 @@ function selectGrantItem(itemId) {
 const newItemName = ref('')
 const newItemQuantity = ref(1)
 const expandedItemIndex = ref(-1)
+const classIntroExpanded = ref(false)
+const noticeExpanded = ref(false)
+const chatExpanded = ref(false)
+const noticeDraft = ref('')
+const chatDraft = ref('')
 
 const mainHandExpanded = ref(false)   // 主手是否展开选择面板
 const offHandExpanded = ref(false)    // 副手是否展开选择面板
@@ -2987,6 +2992,54 @@ function unequipItem(slot) {
   currentCharacter.value.inventory.gearApplied[slot] = null
 }
 
+
+const roomBoard = computed(() => characters.value.find(c => c.name === '__room_board') || null)
+function boardData() {
+  const raw = roomBoard.value?.notes
+  if (!raw) return { notice: '', chat: [] }
+  try { return JSON.parse(raw) } catch { return { notice: '', chat: [] } }
+}
+const roomNotice = computed(() => boardData().notice || '')
+const roomChat = computed(() => boardData().chat || [])
+async function saveRoomBoard(data) {
+  if (!currentSession.value) return
+  const notes = JSON.stringify(data)
+  if (roomBoard.value) {
+    await supabase.from('characters').update({ notes }).eq('id', roomBoard.value.id)
+  } else {
+    await supabase.from('characters').insert({
+      session_id: currentSession.value.id,
+      name: '__room_board',
+      player_name: '系统',
+      class_name: '未选择',
+      level: 1,
+      notes
+    })
+  }
+  loadCharacters()
+}
+async function saveNotice() {
+  if (!isGM.value) return alert('只有 GM 可以发布公告')
+  const data = boardData()
+  data.notice = noticeDraft.value
+  await saveRoomBoard(data)
+  alert('公告已发布')
+}
+async function sendChat() {
+  const textMsg = chatDraft.value.trim()
+  if (!textMsg) return
+  const data = boardData()
+  data.chat = data.chat || []
+  data.chat.push({
+    name: currentCharacter.value?.name || (isGM.value ? 'GM' : '玩家'),
+    text: textMsg,
+    at: new Date().toLocaleString()
+  })
+  data.chat = data.chat.slice(-50)
+  chatDraft.value = ''
+  await saveRoomBoard(data)
+}
+
 function leaveRoom() {
   if (realtimeChannel) {
     supabase.removeChannel(realtimeChannel)
@@ -3406,7 +3459,7 @@ onUnmounted(() => {
       <label style="font-size: 13px; color: #666;">目标角色</label><br />
       <select v-model="grantTargetId" style="padding: 8px; min-width: 160px;">
         <option value="">选择角色</option>
-        <option v-for="c in characters" :key="c.id" :value="c.id">
+        <option v-for="c in characters.filter(x => x.name !== '__room_board')" :key="c.id" :value="c.id">
           {{ c.name }}（{{ c.player_name || '未知玩家' }}）
         </option>
       </select>
@@ -3503,7 +3556,7 @@ onUnmounted(() => {
         <h2>角色列表</h2>
     <div v-if="characters.length === 0" style="color: #888; margin: 20px 0;">目前还没有角色，创建一个吧。</div>
     <div
-      v-for="char in characters"
+      v-for="char in characters.filter(x => x.name !== '__room_board')"
       :key="char.id"
       style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;"
     >
@@ -3742,7 +3795,7 @@ onUnmounted(() => {
     <h2>成员名单</h2>
     <div v-if="characters.length === 0" style="color: #888;">暂无角色</div>
     <div
-        v-for="char in characters"
+        v-for="char in characters.filter(x => x.name !== '__room_board')"
         :key="char.id"
         style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee;"
       >
@@ -3916,6 +3969,39 @@ onUnmounted(() => {
       <button v-if="isGM" @click="page = 'room'">房间管理（发物品/解锁）</button>
     </div>
   </div>
+  <div style="border: 1px solid #ffb74d; border-radius: 8px; margin-bottom: 12px; background: #fff8e1;">
+    <div @click="noticeExpanded = !noticeExpanded; noticeDraft = roomNotice" style="padding: 12px 14px; cursor: pointer; display: flex; justify-content: space-between;">
+      <strong>GM 公告栏</strong>
+      <span style="color: #888;">{{ noticeExpanded ? '收起' : '展开' }}</span>
+    </div>
+    <div v-if="noticeExpanded" style="padding: 0 14px 14px;">
+      <div style="white-space: pre-wrap; background: white; border-radius: 6px; padding: 10px; min-height: 40px;">{{ roomNotice || '暂无公告' }}</div>
+      <template v-if="isGM">
+        <textarea v-model="noticeDraft" rows="3" style="width: 100%; margin-top: 8px; padding: 8px; box-sizing: border-box;" placeholder="GM 公告"></textarea>
+        <button type="button" @click="saveNotice" style="margin-top: 6px; padding: 6px 12px; background: #ef6c00; color: white; border: none; border-radius: 4px; cursor: pointer;">发布公告</button>
+      </template>
+    </div>
+  </div>
+  <div style="border: 1px solid #90caf9; border-radius: 8px; margin-bottom: 16px; background: #e3f2fd;">
+    <div @click="chatExpanded = !chatExpanded" style="padding: 12px 14px; cursor: pointer; display: flex; justify-content: space-between;">
+      <strong>玩家交流栏</strong>
+      <span style="color: #888;">{{ chatExpanded ? '收起' : '展开' }}</span>
+    </div>
+    <div v-if="chatExpanded" style="padding: 0 14px 14px;">
+      <div style="max-height: 220px; overflow: auto; background: white; border-radius: 6px; padding: 10px;">
+        <div v-if="!roomChat.length" style="color: #888;">还没有消息</div>
+        <div v-for="(m, i) in roomChat" :key="i" style="margin-bottom: 8px;">
+          <strong>{{ m.name }}</strong>
+          <span style="color: #999; font-size: 12px; margin-left: 6px;">{{ m.at }}</span>
+          <div>{{ m.text }}</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 8px;">
+        <input v-model="chatDraft" placeholder="说点什么" style="flex: 1; padding: 8px;" @keyup.enter="sendChat" />
+        <button type="button" @click="sendChat" style="padding: 8px 12px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer;">发送</button>
+      </div>
+    </div>
+  </div>
 <template v-if="currentCharacter && ['魔术师','术士','Code Wizard'].includes(currentCharacter.class_name)">
   <h2>魔术收藏</h2>
   <div style="margin-bottom: 12px; font-size: 14px; color: #666;">
@@ -3997,8 +4083,9 @@ onUnmounted(() => {
 
     <!-- 职业介绍卡片 -->
 <div v-if="currentClassInfo" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 10px; padding: 20px; margin-bottom: 30px;">
-  <div style="display: flex; justify-content: space-between; align-items: center;">
+  <div @click="classIntroExpanded = !classIntroExpanded" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
     <h2 style="margin: 0;">{{ currentClassInfo.name }}</h2>
+    <span style="color: #666;">{{ classIntroExpanded ? '收起介绍' : '展开介绍' }}</span>
     <span v-if="currentClassInfo.status === '待补' || currentClassInfo.status === '施工中'"
           style="background: #ff9800; color: white; padding: 4px 10px; border-radius: 4px; font-size: 13px;">
       {{ currentClassInfo.status }}
@@ -4008,6 +4095,7 @@ onUnmounted(() => {
       已完成
     </span>
   </div>
+  <div v-show="classIntroExpanded">
   <p style="color: #555; line-height: 1.6; margin-top: 12px;">{{ currentClassInfo.description }}</p>
 
   <template v-if="currentClassInfo.status === '完'">
@@ -4096,6 +4184,7 @@ onUnmounted(() => {
         style="padding: 8px 16px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
   查看魔术表
 </button>
+  </div>
   </div>
 </div>
 
