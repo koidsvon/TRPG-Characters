@@ -2100,8 +2100,36 @@ const classTemplates = {
   '狙击手': {
     name: '狙击手',
     description: '只能使用狙击枪、步枪、手枪的远距离打击特化型射手。无法使用buff。可携带两种枪械，擅长在远距离精准打击。',
-    status: '待补',
+    mainAttribute: '智力',
     canUseBuff: false,
+    status: '完',
+    initialATK: 10,
+    initialSPD: 45,
+    initialRES: 10,
+    initialDEF: 3,
+    initialHP: -12,
+    initialMove: 5,
+    initialPP: 75,
+    attributeRequirement: '初始敏捷≥20，敏捷成长值≥1.8，智力成长值≥2',
+    allocatablePoints: 60,
+    statRules: { agilityMin: 20, agilityGrowthMin: 1.8, intelligenceGrowthMin: 2, points: 60 },
+    proficiency: '运动+2；特技+2；隐匿+6；察觉+1',
+    skillBonuses: { athletics: 2, acrobatics: 2, stealth: 6, perception: 1 },
+    equipment: '狙击枪、步枪、手枪、轻甲。最多可携带两把武器。',
+    levelRewards: [
+      { level: 1, content: '射击阵地建立：（只能在每回合移动前使用）使用后在当前所处位置建立射击阵地，获得等同于当前等级+2的额外ATK，并且可以使用枪械造成暴击（1d10=10时），所有效果在进行移动时失效。使用后本回合不再可以进行移动。' },
+      { level: 2, content: '被动I：可从被动页I中选择一项。' },
+      { level: 3, content: '战术优化：选择任意一项额外效果。\n1.越野训练：移动格+1。\n2.致命瞄准：暴击范围提升至1d10=9或10。' },
+      { level: 4, content: '被动I：可从被动页I中选择一项。' },
+      { level: 5, content: '火力戒备：（只能在攻击前使用）锁定某一攻击距离内的敌人，然后结束回合。被锁定的敌人在进行移动时会受到狙击手的攻击，此次攻击的伤害总值+5并且若判定百分比≥4，则此次攻击会打断该敌人的行动。' },
+      { level: 6, content: '被动II：可从被动页II中选择一项。' },
+      { level: 7, content: '被动II：可从被动页II中选择一项。' },
+      { level: 8, content: '主属性增强：智力+14。' },
+      { level: 9, content: '战术优化：选择任意一项额外效果。\n1.先进射击阵地：现在设立射击阵地时攻击距离+1，并且额外ATK提升至两倍当前等级+10，此外建立阵地后可以获得等同于当前等级+2的额外DEF。\n2.制高点：现在进行火力戒备时可以锁定攻击距离内3名敌人，且伤害总值提升至+10。' },
+      { level: 10, content: '被动III：可从被动页III中选择一项。' },
+      { level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
+    ],
+    stances: [],
     subclasses: []
   },
   '指挥官': {
@@ -2123,8 +2151,36 @@ const classTemplates = {
   '处刑者': {
     name: '处刑者',
     description: '使用巨斧的弱点特化型职业，可以使用buff。通过攻击造成伤口，进而通过伤口将敌人处决。',
-    status: '待补',
+    mainAttribute: '力量',
     canUseBuff: true,
+    status: '完',
+    initialATK: 1,
+    initialSPD: 51,
+    initialRES: 12,
+    initialDEF: 2,
+    initialHP: 10,
+    initialMove: 4,
+    initialPP: 75,
+    attributeRequirement: '力量成长值固定为4',
+    allocatablePoints: 60,
+    statRules: { mainGrowth: 4, points: 60 },
+    proficiency: '坚韧+4；驯兽+1；求生+2',
+    skillBonuses: { toughness: 4, animal: 1, survival: 2 },
+    equipment: '巨斧、锁甲、重甲、护身符。',
+    levelRewards: [
+      { level: 1, content: '死期将至：每次攻击都将对目标施加一层特殊状态「弱点发现」，每一层减少目标1点DEF和1点最大生命值（不致死）。若目标拥有8层「弱点发现」则他将无法驱散自身所有的状态异常。' },
+      { level: 2, content: '被动I：可从被动页I中选择一项。' },
+      { level: 3, content: '捕杀本能：选择一种额外效果路线。\n1.惩戒：每层「弱点发现」使处刑者DEF+1，并且拥有4层时便无法驱散状态异常。现在每层「弱点发现」还会减少目标1点ATK。\n2.伤痕：每层「弱点发现」使处刑者SPD+1，并且拥有4层时便无法驱散状态异常。现在每层「弱点发现」还会减少目标1点SPD。' },
+      { level: 4, content: '被动I：可从被动页I中选择一项。' },
+      { level: 5, content: '捕杀本能：选择一种额外效果路线。\n1.高级惩戒：若目标拥有8层「弱点发现」则他将陷入状态异常「失能」一回合，然后减少4层「弱点发现」。\n2.高级伤痕：目标每拥有8层「弱点发现」则使目标拥有的所有状态异常额外延续两回合，属性异常额外追加4层。' },
+      { level: 6, content: '被动II：可从被动页II中选择一项。' },
+      { level: 7, content: '被动II：可从被动页II中选择一项。' },
+      { level: 8, content: 'HP增强：HP+24。' },
+      { level: 9, content: '捕杀本能：选择一种额外效果路线。\n1.卫士：每名拥有「弱点发现」的敌人死亡时，给予所有友军相应层数的特殊状态「胜算发现」，每层提供+2ATK和+2DEF。\n2.猎手：每层「弱点发现」都可以被视为任意一种属性异常，现在处刑者每次攻击将施加两层「弱点发现」。' },
+      { level: 10, content: '被动III：可从被动页III中选择一项。' },
+      { level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
+    ],
+    stances: [],
     subclasses: []
   },
   '术士': {
@@ -4065,15 +4121,15 @@ onUnmounted(() => {
             <option value="剑士">剑士</option>
             <option value="赏金猎人">赏金猎人</option>
             <option value="魔术师">魔术师</option>
+            <option value="狙击手">狙击手</option>
+            <option value="处刑者">处刑者</option>
           </optgroup>
           <optgroup label="近战（待补）">
             <option value="长枪兵">长枪兵</option>
             <option value="格斗家">格斗家</option>
-            <option value="处刑者">处刑者</option>
           </optgroup>
           <optgroup label="射手（待补）">
             <option value="射手">射手</option>
-            <option value="狙击手">狙击手</option>
             <option value="指挥官">指挥官</option>
           </optgroup>
           <optgroup label="特化（待补）">
@@ -4127,6 +4183,7 @@ onUnmounted(() => {
       <div><strong>初始DEF：</strong>{{ currentClassInfo.initialDEF }}</div>
       <div><strong>初始移动格：</strong>{{ currentClassInfo.initialMove }}</div>
       <div><strong>初始PP：</strong>{{ currentClassInfo.initialPP }}</div>
+      <div><strong>初始HP：</strong>{{ currentClassInfo.initialHP }}</div>
     </div>
     <p style="font-size: 14px;"><strong>属性要求：</strong>{{ currentClassInfo.attributeRequirement }}</p>
     <p style="font-size: 14px;"><strong>可分配属性点：</strong>{{ currentClassInfo.allocatablePoints }}</p>
@@ -5110,7 +5167,7 @@ onUnmounted(() => {
     <p>
       <button type="button" @click="openClassInHandbook('射手')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">射手（施工）</button>
       ·
-      <button type="button" @click="openClassInHandbook('狙击手')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">狙击手（补）</button>
+      <button type="button" @click="openClassInHandbook('狙击手')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">狙击手（完）</button>
       ·
       <button type="button" @click="openClassInHandbook('指挥官')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">指挥官（补）</button>
     </p>
@@ -5119,7 +5176,7 @@ onUnmounted(() => {
     <p>
       <button type="button" @click="openClassInHandbook('斥候')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">斥候（补）</button>
       ·
-      <button type="button" @click="openClassInHandbook('处刑者')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">处刑者（补）</button>
+      <button type="button" @click="openClassInHandbook('处刑者')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">处刑者（完）</button>
       ·
       <button type="button" @click="openClassInHandbook('赏金猎人')" style="background: none; border: none; color: #5c6bc0; cursor: pointer; text-decoration: underline; padding: 0; font-size: 16px;">赏金猎人（完）</button>
     </p>
