@@ -1769,27 +1769,37 @@ const offHandExpanded = ref(false)    // 副手是否展开选择面板
 const otherSlotExpanded = ref('')     // 其他栏位展开状态
 
 // 获取背包中某个栏位实际拥有的大类（排除已被其他栏位装备的物品）
+function itemAttackRange(item) {
+  if (!item) return 0
+  if (item.attack_range != null && item.attack_range !== '') return Number(item.attack_range) || 0
+  const m = String(item.description || '').match(/攻击距离[:：]\s*(\d+)/)
+  return m ? Number(m[1]) : 0
+}
+function canEquipIn(item, slot) {
+  if (!item) return false
+  if (slot === 'mainHand') return item.slot === 'mainHand' || item.slot === 'twoHand'
+  if (slot === 'offHand') return item.slot === 'offHand' || item.slot === 'twoHand'
+  return item.slot === slot
+}
+const attackRange = computed(() => {
+  const eq = currentCharacter.value?.inventory?.equipment
+  if (!eq) return 0
+  let total = 0
+  for (const slot of ['helmet', 'chest', 'legs', 'mainHand', 'offHand', 'amulet', 'backpack']) {
+    total += itemAttackRange(getItemById(eq[slot]))
+  }
+  return total
+})
 function getOwnedCategories(slot) {
   if (!currentCharacter.value?.inventory?.items) return []
   const equippedIds = Object.values(currentCharacter.value.inventory.equipment || {})
     .filter(id => id && id !== currentCharacter.value.inventory.equipment[slot])
-
   const cats = new Set()
   currentCharacter.value.inventory.items.forEach(entry => {
-    if (equippedIds.includes(entry.item_id)) return  // 已被其他栏位占用
+    if (equippedIds.includes(entry.item_id)) return
     const item = getItemById(entry.item_id)
-    if (!item) return
-    if (slot === 'mainHand' && item.slot === 'mainHand') {
-      cats.add(item.category)
-    } else if (slot === 'offHand') {
-      if (['刀剑', '枪械', '斧子', '魔导用具', '盾牌'].includes(item.category)) {
-        // 副手刀剑只允许：长剑、刺剑、匕首（按你最初设定）
-        if (item.category === '刀剑' && !['长剑', '刺剑', '匕首'].includes(item.sub_type)) return
-        cats.add(item.category)
-      }
-    } else if (item.slot === slot) {
-      cats.add(item.category)
-    }
+    if (!item || !canEquipIn(item, slot)) return
+    cats.add(item.category)
   })
   return Array.from(cats)
 }
@@ -1809,13 +1819,7 @@ function getItemsByCategory(slot, category) {
       if (!x) return false
       if (equippedIds.includes(x.item_id)) return false
       if (x.item.category !== category) return false
-      if (slot === 'mainHand') return x.item.slot === 'mainHand'
-      if (slot === 'offHand') {
-        if (!['刀剑', '枪械', '斧子', '魔导用具', '盾牌'].includes(x.item.category)) return false
-        if (x.item.category === '刀剑' && !['长剑', '刺剑', '匕首'].includes(x.item.sub_type)) return false
-        return true
-      }
-      return x.item.slot === slot
+      return canEquipIn(x.item, slot)
     })
 }
 
@@ -2912,8 +2916,7 @@ function getEquippableItems(slot) {
       const item = getItemById(entry.item_id)
       return item ? { ...entry, item } : null
     })
-    .filter(x => x && (x.item.slot === slot || x.item.slot === 'mainHand' && slot === 'offHand'))
-    // 上面简单处理：部分主手物品也可副手（以后可再精细化）
+    .filter(x => x && canEquipIn(x.item, slot))
 }
 
 // 卸下装备
@@ -4111,6 +4114,11 @@ onUnmounted(() => {
   <div>
     <label>移动格</label><br />
     <input type="number" v-model.number="currentCharacter.move_range" style="width: 100%; padding: 8px;" />
+  </div>
+  <div>
+    <label>攻击距离</label><br />
+    <input type="number" :value="attackRange" disabled style="width: 100%; padding: 8px; background: #f0f0f0;" />
+    <div style="font-size: 12px; color: #666;">装备加成合计，默认 0，不可手动改</div>
   </div>
   <div>
     <label>PP</label><br />
