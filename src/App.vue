@@ -4101,96 +4101,80 @@ onUnmounted(() => {
 
     <!-- 核心属性 -->
 <h2>核心属性</h2>
-
-<!-- 三属性 + 成长值 -->
-<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; margin: 15px 0 10px;">
-  <div>
-    <label>力量</label><br />
-    <input type="number" step="0.1" v-model.number="currentCharacter.strength" style="width: 100%; padding: 8px;" />
+<div style="margin: 12px 0 20px; display: flex; flex-direction: column; gap: 10px;">
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+    <div style="border: 2px solid #e53935; border-radius: 8px; padding: 8px 10px; background: #fff5f5;">
+      <label style="color: #c62828; font-weight: 600;">力量</label>
+      <input type="number" step="0.1" v-model.number="currentCharacter.strength" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 2px solid #1e88e5; border-radius: 8px; padding: 8px 10px; background: #f3f8ff;">
+      <label style="color: #1565c0; font-weight: 600;">智力</label>
+      <input type="number" step="0.1" v-model.number="currentCharacter.intelligence" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 2px solid #43a047; border-radius: 8px; padding: 8px 10px; background: #f3fbf4;">
+      <label style="color: #2e7d32; font-weight: 600;">敏捷</label>
+      <input type="number" step="0.1" v-model.number="currentCharacter.agility" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
   </div>
-  <div>
-    <label>力量成长</label><br />
-    <input type="number" step="0.1" v-model.number="currentCharacter.strength_growth" style="width: 100%; padding: 8px;" />
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+    <div style="border: 2px solid #e53935; border-radius: 8px; padding: 8px 10px; background: #fff5f5;">
+      <label style="color: #c62828; font-weight: 600;">力量成长</label>
+      <input type="number" step="0.1" v-model.number="currentCharacter.strength_growth" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 2px solid #1e88e5; border-radius: 8px; padding: 8px 10px; background: #f3f8ff;">
+      <label style="color: #1565c0; font-weight: 600;">智力成长</label>
+      <input type="number" step="0.1" v-model.number="currentCharacter.intelligence_growth" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 2px solid #43a047; border-radius: 8px; padding: 8px 10px; background: #f3fbf4;">
+      <label style="color: #2e7d32; font-weight: 600;">敏捷成长</label>
+      <input type="number" step="0.1" v-model.number="currentCharacter.agility_growth" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
   </div>
-  <div>
-    <label>智力</label><br />
-    <input type="number" step="0.1" v-model.number="currentCharacter.intelligence" style="width: 100%; padding: 8px;" />
+  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>当前 HP</label>
+      <input type="number" :value="Math.floor(currentCharacter.hp_current || 0)" @input="currentCharacter.hp_current = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>最大 HP</label>
+      <input type="number" :value="Math.floor(currentCharacter.hp_max || 0)" @input="currentCharacter.hp_max = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>PP</label>
+      <input type="number" v-model.number="currentCharacter.pp" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>主属性加值</label>
+      <input type="number" :value="mainAttrBonus" disabled style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; background: #f0f0f0;" />
+    </div>
   </div>
-  <div>
-    <label>智力成长</label><br />
-    <input type="number" step="0.1" v-model.number="currentCharacter.intelligence_growth" style="width: 100%; padding: 8px;" />
+  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>ATK</label>
+      <input type="number" :value="Math.floor(currentCharacter.atk || 0)" @input="currentCharacter.atk = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>DEF</label>
+      <input type="number" :value="Math.floor(currentCharacter.def || 0)" @input="currentCharacter.def = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>RES</label>
+      <input type="number" :value="Math.floor(currentCharacter.res || 0)" @input="currentCharacter.res = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>SPD</label>
+      <input type="number" :value="Math.floor(currentCharacter.spd || 0)" @input="currentCharacter.spd = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
   </div>
-  <div>
-    <label>敏捷</label><br />
-    <input type="number" step="0.1" v-model.number="currentCharacter.agility" style="width: 100%; padding: 8px;" />
-  </div>
-  <div>
-    <label>敏捷成长</label><br />
-    <input type="number" step="0.1" v-model.number="currentCharacter.agility_growth" style="width: 100%; padding: 8px;" />
-  </div>
-</div>
-
-<!-- 派生属性（显示时向下取整） -->
-<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; margin: 10px 0 20px;">
-  <div>
-    <label>HP 当前</label><br />
-    <input type="number"
-           :value="Math.floor(currentCharacter.hp_current || 0)"
-           @input="currentCharacter.hp_current = Number($event.target.value)"
-           style="width: 100%; padding: 8px;" />
-  </div>
-  <div>
-    <label>HP 最大</label><br />
-    <input type="number"
-           :value="Math.floor(currentCharacter.hp_max || 0)"
-           @input="currentCharacter.hp_max = Number($event.target.value)"
-           style="width: 100%; padding: 8px;" />
-  </div>
-  <div>
-    <label>ATK</label><br />
-    <input type="number"
-           :value="Math.floor(currentCharacter.atk || 0)"
-           @input="currentCharacter.atk = Number($event.target.value)"
-           style="width: 100%; padding: 8px;" />
-  </div>
-  <div>
-    <label>DEF</label><br />
-    <input type="number"
-           :value="Math.floor(currentCharacter.def || 0)"
-           @input="currentCharacter.def = Number($event.target.value)"
-           style="width: 100%; padding: 8px;" />
-  </div>
-  <div>
-    <label>RES</label><br />
-    <input type="number"
-           :value="Math.floor(currentCharacter.res || 0)"
-           @input="currentCharacter.res = Number($event.target.value)"
-           style="width: 100%; padding: 8px;" />
-  </div>
-  <div>
-    <label>SPD</label><br />
-    <input type="number"
-           :value="Math.floor(currentCharacter.spd || 0)"
-           @input="currentCharacter.spd = Number($event.target.value)"
-           style="width: 100%; padding: 8px;" />
-  </div>
-  <div>
-    <label>移动格</label><br />
-    <input type="number" v-model.number="currentCharacter.move_range" style="width: 100%; padding: 8px;" />
-  </div>
-  <div>
-    <label>攻击距离</label><br />
-    <input type="number" :value="attackRange" disabled style="width: 100%; padding: 8px; background: #f0f0f0;" />
-    <div style="font-size: 12px; color: #666;">装备加成合计，默认 0，不可手动改</div>
-  </div>
-  <div>
-    <label>PP</label><br />
-    <input type="number" v-model.number="currentCharacter.pp" style="width: 100%; padding: 8px;" />
-  </div>
-  <div>
-    <label>主属性加值</label><br />
-    <input type="number" :value="mainAttrBonus" disabled style="width: 100%; padding: 8px; background: #f0f0f0;" />
-    <div style="font-size: 12px; color: #666;">主属性÷10（向下取整）</div>
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>移动格</label>
+      <input type="number" v-model.number="currentCharacter.move_range" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>攻击距离</label>
+      <input type="number" :value="attackRange" disabled style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; background: #f0f0f0;" />
+    </div>
   </div>
 </div>
 
