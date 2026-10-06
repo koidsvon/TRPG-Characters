@@ -1,12 +1,11 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { supabase } from './supabase.js'
 
 // 页面状态：home / room / lobby / character / magic / buff
 const page = ref('home')
 
 const slotExpanded = ref('')  // 当前展开的栏位：helmet / chest / legs / amulet / backpack
-const backpackOpenId = ref(null)
 
 const currentMission = ref(null)
 const missionTitle = ref('')
@@ -54,8 +53,6 @@ function emptyPhantasmForm() {
     category: '常规',
     hp: 0, atk: 0, spd: 0, def: 0, res: 0,
     strength: 0, intelligence: 0, agility: 0,
-    attack_range: 1,
-    move_range: 4,
     skills: [{ name: '', desc: '' }],
     boss_skills: [{ name: '', desc: '' }, { name: '', desc: '' }],
     token_url: '',
@@ -80,11 +77,6 @@ const displayMissionNode = computed(() => {
   }
   return n
 })
-
-const announceMessages = ref([])
-const chatMessages = ref([])
-const announceDraft = ref('')
-const chatDraft = ref('')
 
 const nodeForm = ref({
   name: '',
@@ -246,9 +238,7 @@ async function savePhantasmItem() {
     res: Number(f.res) || 0,
     strength: Number(f.strength) || 0,
     intelligence: Number(f.intelligence) || 0,
-    agility: Number(f.agility) || 0,     
-    attack_range: Number(f.attack_range) || 1,
-    move_range: Number(f.move_range) || 4,
+    agility: Number(f.agility) || 0,
     skills: f.skills || [],
     boss_skills: f.category === 'Boss' ? (f.boss_skills || []) : [],
     token_url: f.token_url || '',
@@ -309,7 +299,7 @@ async function loadMissionPhantasms() {
     .select('*')
     .eq('mission_id', currentMission.value.id)
     .order('category')
-  if (!error) missionPhantasms.value = (data || []).map(normalizeMissionPhantasm)
+  if (!error) missionPhantasms.value = data || []
 }
 
 function clampView() {
@@ -343,93 +333,6 @@ function getTokenSource(t) {
   return missionPhantasms.value.find(p => p.id === t.ref_id) || null
 }
 
-function defaultEnemyReveal() {
-  return {
-    hp: false,
-    atk: false,
-    def: false,
-    res: false,
-    spd: false,
-    strength: false,
-    agility: false,
-    intelligence: false,
-    attack_range: false,
-    move_range: false,
-    skills: {},
-    boss_skills: {}
-  }
-}
-
-function normalizeMissionPhantasm(p) {
-  if (!p) return p
-  if (p.attack_range == null) p.attack_range = 1
-  if (p.move_range == null) p.move_range = 4
-  if (!Array.isArray(p.skills)) p.skills = []
-  if (!Array.isArray(p.boss_skills)) p.boss_skills = []
-  const r = { ...defaultEnemyReveal(), ...(p.reveal || {}) }
-  if (!r.skills || typeof r.skills !== 'object') r.skills = {}
-  if (!r.boss_skills || typeof r.boss_skills !== 'object') r.boss_skills = {}
-  p.reveal = r
-  return p
-}
-
-function isEnemyStatPublic(src, key) {
-  if (!src) return false
-  if (isGM.value) return true
-  return !!(src.reveal && src.reveal[key])
-}
-
-function shownEnemyStat(src, key) {
-  if (!src) return '—'
-  if (isEnemyStatPublic(src, key)) {
-    if (key === 'hp') return (src.hp_current ?? src.hp ?? 0) + ' / ' + (src.hp ?? 0)
-    const v = src[key]
-    return v == null || v === '' ? '—' : v
-  }
-  return '未知'
-}
-
-function isEnemySkillPublic(src, listKey, index) {
-  if (!src) return false
-  if (isGM.value) return true
-  return !!(src.reveal && src.reveal[listKey] && src.reveal[listKey][index])
-}
-
-function shownEnemySkillDesc(src, listKey, index) {
-  const list = src?.[listKey] || []
-  const sk = list[index]
-  if (!sk) return ''
-  if (isEnemySkillPublic(src, listKey, index)) return sk.desc || '—'
-  return '未知'
-}
-
-async function setEnemyReveal(src, key, value) {
-  if (!isGM.value || !src?.id) return
-  const reveal = { ...defaultEnemyReveal(), ...(src.reveal || {}) }
-  reveal[key] = value
-  src.reveal = reveal
-  const { error } = await supabase
-    .from('mission_phantasms')
-    .update({ reveal })
-    .eq('id', src.id)
-  if (error) alert('更新可见性失败：' + error.message)
-  else await loadMissionPhantasms()
-}
-
-async function setEnemySkillReveal(src, listKey, index, value) {
-  if (!isGM.value || !src?.id) return
-  const reveal = { ...defaultEnemyReveal(), ...(src.reveal || {}) }
-  reveal[listKey] = { ...(reveal[listKey] || {}) }
-  reveal[listKey][index] = value
-  src.reveal = reveal
-  const { error } = await supabase
-    .from('mission_phantasms')
-    .update({ reveal })
-    .eq('id', src.id)
-  if (error) alert('更新可见性失败：' + error.message)
-  else await loadMissionPhantasms()
-}
-
 function tokenDisplayName(t) {
   const src = getTokenSource(t)
   if (t?.kind === 'player') return src?.name || t.label
@@ -448,16 +351,11 @@ function cycleTokenStat(t, dir) {
 function tokenStatValue(t) {
   const src = getTokenSource(t)
   const key = tokenStatKey(t)
-  if (!src) return '—'
-  if (t.kind === 'player') {
-    if (key === 'hp') return src.hp_current ?? src.hp_max ?? 0
-    if (key === 'atk') return src.atk ?? 0
-    if (key === 'def') return src.def ?? 0
-    if (key === 'res') return src.res ?? 0
-    return 0
+  if (!src) return 0
+  if (key === 'hp') {
+    if (t.kind === 'player') return src.hp_current ?? src.hp_max ?? 0
+    return src.hp_current ?? src.hp ?? 0
   }
-  if (!isEnemyStatPublic(src, key)) return '未知'
-  if (key === 'hp') return src.hp_current ?? src.hp ?? 0
   if (key === 'atk') return src.atk ?? 0
   if (key === 'def') return src.def ?? 0
   if (key === 'res') return src.res ?? 0
@@ -975,9 +873,6 @@ async function startMissionFromBook(bookId) {
       strength: p.strength || 0,
       intelligence: p.intelligence || 0,
       agility: p.agility || 0,
-      attack_range: p.attack_range ?? 1,
-        move_range: p.move_range ?? 4,
-        reveal: {},
       skills: p.skills || [],
       boss_skills: p.boss_skills || [],
       token_url: p.token_url || '',
@@ -1559,8 +1454,13 @@ const saving = ref(false)
 
 function itemBagBonus(item) {
   if (!item) return { bag: 0, over: 0 }
-  const bag = Number(item.bag_slots ?? item.capacity ?? 0) || 0
-  const over = Number(item.overweight_slots ?? item.overweight_capacity ?? 0) || 0
+  let bag = Number(item.bag_slots ?? item.capacity ?? 0) || 0
+  let over = Number(item.overweight_slots ?? item.overweight_capacity ?? 0) || 0
+  // 数据库还没写列时，制式基础背包仍按设计值生效
+  if (bag === 0 && over === 0 && String(item.name || '').includes('制式基础背包')) {
+    bag = 45
+    over = 10
+  }
   return { bag, over }
 }
 
@@ -1570,8 +1470,7 @@ function equippedSlotBonuses() {
   let bag = 0
   let over = 0
   for (const slot of ['helmet', 'chest', 'legs', 'mainHand', 'offHand', 'amulet', 'backpack']) {
-    const item = getItemById(eq[slot])
-    const b = itemBagBonus(item)
+    const b = itemBagBonus(getItemById(eq[slot]))
     bag += b.bag
     over += b.over
   }
@@ -1587,25 +1486,29 @@ const overweightCapacity = computed(() => equippedSlotBonuses().over)
 
 const backpackUsed = computed(() => {
   if (!currentCharacter.value?.inventory?.items) return 0
-  let total = 0
   const eq = currentCharacter.value.inventory.equipment || {}
   const equippedIds = new Set(Object.values(eq).filter(Boolean).map(id => String(id)))
+  let total = 0
   for (const entry of currentCharacter.value.inventory.items) {
     if (equippedIds.has(String(entry.item_id))) continue
     const item = getItemById(entry.item_id)
-    const per = (item && item.slots) ? Number(item.slots) : 1
-    total += per * (entry.quantity || 1)
+    total += ((item && item.slots) ? Number(item.slots) : 1) * (entry.quantity || 1)
   }
   return total
 })
 
+// 正常格占用（不超过容量）
 const normalUsed = computed(() => Math.min(backpackUsed.value, backpackCapacity.value))
+
+// 超重格占用
 const overweightUsed = computed(() => Math.max(0, backpackUsed.value - backpackCapacity.value))
+
+// 总可装：正常 + 超重
 const totalCapacity = computed(() => backpackCapacity.value + overweightCapacity.value)
 
 function canFitItem(itemId, quantity = 1) {
   const item = getItemById(itemId)
-  const need = ((item && item.slots) ? Number(item.slots) : 1) * quantity
+  const need = ((item && item.slots) ? item.slots : 1) * quantity
   return backpackUsed.value + need <= totalCapacity.value
 }
 
@@ -1761,16 +1664,18 @@ const eq = inv.equipment || {}
 let capacity = 0
 let overCap = 0
 for (const slot of ['helmet', 'chest', 'legs', 'mainHand', 'offHand', 'amulet', 'backpack']) {
-  const it = getItemById(eq[slot])
+  const it = itemCatalog.value.find(i => i.id === eq[slot])
   const b = itemBagBonus(it)
   capacity += b.bag
   overCap += b.over
 }
 if (capacity <= 0) capacity = 5
 const totalCap = capacity + overCap
+const equippedIds = new Set(Object.values(eq).filter(Boolean).map(id => String(id)))
 
 let used = 0
 for (const entry of inv.items) {
+  if (equippedIds.has(String(entry.item_id))) continue
   const it = itemCatalog.value.find(i => i.id === entry.item_id)
   used += ((it && it.slots) ? it.slots : 1) * (entry.quantity || 1)
 }
@@ -1931,23 +1836,6 @@ function equipItem(slot, itemId) {
   eq[slot] = itemId
 }
 
-function discardItem(index) {
-  if (!currentCharacter.value?.inventory?.items) return
-  const entry = currentCharacter.value.inventory.items[index]
-  if (!entry) return
-  const item = getItemById(entry.item_id)
-  const label = item?.name || '该物品'
-  if (!confirm(`确定丢掉「${label}」×${entry.quantity || 1} 吗？丢掉后无法找回。`)) return
-
-  const eq = currentCharacter.value.inventory.equipment || {}
-  for (const slot of Object.keys(eq)) {
-    if (eq[slot] && String(eq[slot]) === String(entry.item_id)) {
-      eq[slot] = null
-    }
-  }
-  currentCharacter.value.inventory.items.splice(index, 1)
-}
-
 // 实时订阅
 let realtimeChannel = null
 
@@ -1968,6 +1856,7 @@ const classTemplates = {
     initialPP: 75,
     attributeRequirement: '初始力量≤30，次要属性的成长值≥1.6',
     allocatablePoints: 60,
+    statRules: { strengthMax: 30, secondaryGrowthMin: 1.6, points: 60 },
     proficiency: '运动+3；洞悉+5；察觉+5；巧手+2',
     skillBonuses: {
   athletics: 3,   // 运动+3
@@ -2020,6 +1909,7 @@ const classTemplates = {
     initialPP: 100,
     attributeRequirement: '主属性成长值固定为2.4，次属性成长值固定为2.3',
     allocatablePoints: 60,
+    statRules: { mainGrowth: 2.4, secondaryGrowth: 2.3, points: 60 },
     proficiency: '隐匿+3；求生+4；驯兽+4；知识+2；说服+2；调查+5',
     skillBonuses: {
   stealth: 3,
@@ -2078,6 +1968,7 @@ const classTemplates = {
     initialPP: 70,
     attributeRequirement: '初始智力=31',
     allocatablePoints: 55,
+    statRules: { intelligenceFixed: 31, points: 55 },
     proficiency: '洞悉+2；巫毒-2；知识+4；医疗+2；调查+3',
     skillBonuses: {
   insight: 2,
@@ -2350,7 +2241,6 @@ function restoreSessionFromLocal() {
       isGM.value = data.isGM
       myCharacterName.value = localStorage.getItem('rpg_char_' + data.session.code) || ''
       loadCharacters()
-      loadRoomMessages()
       startRealtime()
       loadCurrentMission()
       // 已绑定角色名 → 大厅；否则 → 房间选角页
@@ -2388,7 +2278,6 @@ async function createRoom() {
     page.value = 'room'
     saveSessionToLocal()
     loadCharacters()
-    loadRoomMessages()
     loadCurrentMission()
     startRealtime()
   }
@@ -2420,7 +2309,6 @@ async function joinRoom() {
   page.value = 'room'
   saveSessionToLocal()
   loadCharacters()
-  loadRoomMessages()
   loadCurrentMission()
   startRealtime()
 }
@@ -2436,58 +2324,6 @@ async function loadCharacters() {
   if (!error) {
     characters.value = data || []
   }
-}
-
-async function loadRoomMessages() {
-  announceMessages.value = []
-  chatMessages.value = []
-  if (!currentSession.value?.id) return
-  const { data, error } = await supabase
-    .from('room_messages')
-    .select('*')
-    .eq('session_id', currentSession.value.id)
-    .order('created_at', { ascending: true })
-  if (error) {
-    console.error(error)
-    return
-  }
-  const rows = data || []
-  announceMessages.value = rows.filter(m => m.channel === 'announce')
-  chatMessages.value = rows.filter(m => m.channel === 'chat')
-}
-
-function posterName() {
-  if (isGM.value) return myCharacterName.value ? ('GM · ' + myCharacterName.value) : 'GM'
-  return myCharacterName.value || '未绑定角色'
-}
-
-async function sendRoomMessage(channel) {
-  if (!currentSession.value?.id) {
-    alert('不在房间内')
-    return
-  }
-  const draft = channel === 'announce' ? announceDraft : chatDraft
-  const text = (draft.value || '').trim()
-  if (!text) {
-    alert('请输入内容')
-    return
-  }
-  if (channel === 'announce' && !isGM.value) {
-    alert('只有 GM 可以发公告')
-    return
-  }
-  if (channel === 'chat' && !isGM.value && !myCharacterName.value) {
-    alert('请先绑定角色再发言')
-    return
-  }
-  const { error } = await supabase.from('room_messages').insert({
-    session_id: currentSession.value.id,
-    channel,
-    author_name: channel === 'announce' ? 'GM' : posterName(),
-    body: text
-  })
-  if (error) alert('发送失败：' + error.message)
-  else draft.value = ''
 }
 
 function startRealtime() {
@@ -2600,34 +2436,12 @@ function startRealtime() {
       {
         event: '*',
         schema: 'public',
-        table: 'room_messages',
-        filter: `session_id=eq.${currentSession.value.id}`
-      },
-      () => {
-        loadRoomMessages()
-      }
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
         table: 'missions',
         filter: `session_id=eq.${currentSession.value.id}`
       },
       () => {
         loadCurrentMission()
       }
-    )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'mission_phantasms' },
-      () => { loadMissionPhantasms() }
-    )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'battle_tokens' },
-      () => { loadBattleMap() }
     )
     .subscribe()
 }
@@ -2793,11 +2607,16 @@ async function unlockCharacter(char) {
 function enterMyCharacterFromLobby(char) {
   if (!char) return
   // 只允许自己的角色（按名字绑定）
-  if (!isGM.value && char.name !== myCharacterName.value) {
+  if (char.name !== myCharacterName.value && !isGM.value) {
     alert('只能查看自己的角色')
     return
   }
   // GM 若也要限制，可去掉 !isGM 例外；目前：玩家只能看自己，GM 可看全部（方便）
+  // 若你希望 GM 也不能看别人卡，改成只判断名字：
+  if (char.name !== myCharacterName.value) {
+    alert('只能查看自己的角色')
+    return
+  }
   enterCharacter(char)
 }
 
@@ -2867,9 +2686,10 @@ if (!charCopy.abilitySkills) {
     hero: charCopy.abilitySkills.hero || [],
   }
 }
-
+  skipAutoSave = true
   currentCharacter.value = charCopy
   page.value = 'character'
+  setTimeout(() => { skipAutoSave = false }, 400)
 }
 
 function viewCharacterAsGM(char) {
@@ -2905,8 +2725,11 @@ function removeItem(index) {
   currentCharacter.value.inventory.items.splice(index, 1)
 }
 
-async function saveCharacter() {
-  if (!currentCharacter.value) return
+let autoSaveTimer = null
+let skipAutoSave = false
+
+async function saveCharacter(silent = true) {
+  if (!currentCharacter.value?.id) return
   saving.value = true
   const { error } = await supabase
     .from('characters')
@@ -2921,8 +2744,8 @@ async function saveCharacter() {
       intelligence: currentCharacter.value.intelligence,
       agility: currentCharacter.value.agility,
       strength_growth: currentCharacter.value.strength_growth,
-intelligence_growth: currentCharacter.value.intelligence_growth,
-agility_growth: currentCharacter.value.agility_growth,
+      intelligence_growth: currentCharacter.value.intelligence_growth,
+      agility_growth: currentCharacter.value.agility_growth,
       hp_current: currentCharacter.value.hp_current,
       hp_max: currentCharacter.value.hp_max,
       atk: currentCharacter.value.atk,
@@ -2937,12 +2760,16 @@ agility_growth: currentCharacter.value.agility_growth,
     })
     .eq('id', currentCharacter.value.id)
   saving.value = false
-  if (error) {
-    alert('保存失败：' + error.message)
-  } else {
-    alert('保存成功！')
-  }
+  if (error && !silent) alert('保存失败：' + error.message)
 }
+
+function scheduleAutoSave() {
+  if (skipAutoSave || page.value !== 'character' || !currentCharacter.value?.id) return
+  clearTimeout(autoSaveTimer)
+  autoSaveTimer = setTimeout(() => saveCharacter(true), 500)
+}
+
+watch(currentCharacter, () => scheduleAutoSave(), { deep: true })
 
 function applyLevelGrowth() {
   if (!currentCharacter.value) return
@@ -2975,6 +2802,87 @@ function applyLevelGrowth() {
 
   alert('已应用本级成长值（小数会累计，显示时再向下取整）')
 }
+
+function randInt(min, max) {
+  return min + Math.floor(Math.random() * (max - min + 1))
+}
+function randDec(min, max, step = 0.1) {
+  const n = Math.round((min + Math.random() * (max - min)) / step)
+  return Math.round(n * step * 10) / 10
+}
+function applyClassStatDefaults(clsName) {
+  const c = currentCharacter.value
+  const info = classTemplates[clsName]
+  if (!c || !info) return
+  const rules = info.statRules || {}
+  if (rules.intelligenceFixed != null) c.intelligence = rules.intelligenceFixed
+  if (rules.mainGrowth != null) {
+    const main = info.mainAttribute
+    if (main === '力量') c.strength_growth = rules.mainGrowth
+    if (main === '智力') c.intelligence_growth = rules.mainGrowth
+    if (main === '敏捷') c.agility_growth = rules.mainGrowth
+  }
+  if (rules.secondaryGrowth != null) {
+    const main = info.mainAttribute
+    if (main !== '力量') c.strength_growth = rules.secondaryGrowth
+    if (main !== '智力') c.intelligence_growth = rules.secondaryGrowth
+    if (main !== '敏捷') c.agility_growth = rules.secondaryGrowth
+  }
+}
+function randomizeLevel1Stats() {
+  const c = currentCharacter.value
+  const info = currentClassInfo.value
+  if (!c || !info) return
+  if ((c.level || 1) !== 1) {
+    alert('只有 1 级可以随机属性')
+    return
+  }
+  const rules = info.statRules || { points: info.allocatablePoints || 60 }
+  const points = rules.points || info.allocatablePoints || 60
+  const main = info.mainAttribute
+  if (rules.intelligenceFixed != null) {
+    c.intelligence = rules.intelligenceFixed
+    const left = Math.max(2, points - rules.intelligenceFixed)
+    const s = randInt(1, left - 1)
+    c.strength = s
+    c.agility = left - s
+  } else if (rules.strengthMax != null) {
+    const sMax = Math.min(rules.strengthMax, points - 2)
+    c.strength = randInt(8, sMax)
+    const left = points - c.strength
+    const intel = randInt(1, left - 1)
+    c.intelligence = intel
+    c.agility = left - intel
+  } else {
+    const a = randInt(8, points - 16)
+    const b = randInt(8, points - a - 8)
+    c.strength = a
+    c.intelligence = b
+    c.agility = points - a - b
+  }
+  const gmin = rules.secondaryGrowthMin || 1.0
+  if (rules.mainGrowth != null) {
+    if (main === '力量') c.strength_growth = rules.mainGrowth
+    if (main === '智力') c.intelligence_growth = rules.mainGrowth
+    if (main === '敏捷') c.agility_growth = rules.mainGrowth
+    if (main !== '力量') c.strength_growth = rules.secondaryGrowth
+    if (main !== '智力') c.intelligence_growth = rules.secondaryGrowth
+    if (main !== '敏捷') c.agility_growth = rules.secondaryGrowth
+  } else {
+    c.strength_growth = main === '力量' ? randDec(1.6, 3.0) : randDec(gmin, 2.8)
+    c.intelligence_growth = main === '智力' ? randDec(1.6, 3.0) : randDec(gmin, 2.8)
+    c.agility_growth = main === '敏捷' ? randDec(1.6, 3.0) : randDec(gmin, 2.8)
+  }
+}
+watch(
+  () => currentCharacter.value && currentCharacter.value.class_name,
+  (name) => {
+    if (!name || name === '未选择' || !currentCharacter.value) return
+    if ((currentCharacter.value.level || 1) !== 1) return
+    applyClassStatDefaults(name)
+  }
+)
+
 
 // 根据 item_id 从物品库找到物品信息
 function getItemById(itemId) {
@@ -3100,6 +3008,8 @@ onUnmounted(() => {
     supabase.removeChannel(realtimeChannel)
   }
 })
+
+
 </script>
 
 <template>
@@ -3239,8 +3149,6 @@ onUnmounted(() => {
             <label>力量 <input type="number" v-model.number="phantasmForm.strength" style="width: 100%;" /></label>
             <label>智力 <input type="number" v-model.number="phantasmForm.intelligence" style="width: 100%;" /></label>
             <label>敏捷 <input type="number" v-model.number="phantasmForm.agility" style="width: 100%;" /></label>
-            <label>攻击距离 <input type="number" v-model.number="phantasmForm.attack_range" style="width: 100%;" /></label>
-            <label>移动格 <input type="number" v-model.number="phantasmForm.move_range" style="width: 100%;" /></label>
           </div>
           <input v-model="phantasmForm.token_url" placeholder="TOKEN 图片 URL（可空）" style="width: 100%; padding: 8px; margin-bottom: 6px; box-sizing: border-box;" />
           <textarea v-model="phantasmForm.notes" rows="2" placeholder="备注" style="width: 100%; padding: 8px; margin-bottom: 8px; box-sizing: border-box;"></textarea>
@@ -3812,7 +3720,7 @@ onUnmounted(() => {
       <button type="button" @click="addEnemyToMap">放到地图</button>
     </div>
 
-        <div style="display: flex; gap: 16px; align-items: flex-start;">
+    <div style="display: flex; gap: 16px; align-items: flex-start;">
       <div>
         <div
           v-for="row in VIEW"
@@ -3854,10 +3762,9 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div style="width: 320px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; max-height: 70vh; overflow: auto;">
+      <div style="width: 260px; padding: 12px; border: 1px solid #ddd; border-radius: 8px;">
         <div v-if="!selectedToken" style="color:#888;">点击格子上的 token</div>
-
-        <div v-else-if="selectedToken.kind === 'player'">
+        <div v-else>
           <div style="font-size: 18px; font-weight: bold;">{{ selectedToken.label }}</div>
           <div style="margin: 6px 0;">{{ tokenDisplayName(selectedToken) }}</div>
           <div style="font-size: 13px; color:#555;">
@@ -3867,95 +3774,35 @@ onUnmounted(() => {
           </div>
           <div v-if="canEditHp(selectedToken)" style="margin-top: 10px;">
             <label>HP</label>
-            <input
+          <input
               type="number"
-              :value="getTokenSource(selectedToken)?.hp_current ?? 0"
+              :value="selectedToken.kind === 'player'
+                ? (getTokenSource(selectedToken)?.hp_current ?? 0)
+                : (getTokenSource(selectedToken)?.hp_current ?? getTokenSource(selectedToken)?.hp ?? 0)"
               @change="updateTokenHp(selectedToken, $event.target.value)"
               style="width: 80px; margin-left: 6px;"
             />
+            <div style="font-size: 12px; color:#888; margin-top: 4px;">改的是当前生命（失焦/回车后写入）</div>
           </div>
-          <button v-if="canMoveToken(selectedToken)" type="button" @click="beginMove(selectedToken)" style="margin-top: 10px; padding: 6px 12px;">
+          <button
+            v-if="canMoveToken(selectedToken)"
+            type="button"
+            @click="beginMove(selectedToken)"
+            style="margin-top: 10px; padding: 6px 12px;"
+          >
             {{ pendingMoveTokenId === selectedToken.id ? '点空格完成移动' : '移动' }}
           </button>
-          <button v-if="isGM" type="button" @click="removeToken(selectedToken)" style="margin-top: 8px; color: #c62828;">从地图移除</button>
-        </div>
-
-        <div v-else>
-          <div style="font-size: 18px; font-weight: bold;">{{ tokenDisplayName(selectedToken) }}</div>
-          <div style="font-size: 12px; color:#888; margin: 4px 0 8px;">{{ selectedToken.label }}</div>
-          <p style="white-space: pre-wrap; font-size: 13px; color:#555; margin: 0 0 12px;">
-            {{ getTokenSource(selectedToken)?.notes || '暂无简介' }}
-          </p>
-          <div v-for="row in [
-            { key: 'hp', label: 'HP' },
-            { key: 'atk', label: 'ATK' },
-            { key: 'def', label: 'DEF' },
-            { key: 'res', label: 'RES' },
-            { key: 'spd', label: 'SPD' },
-            { key: 'strength', label: '力量' },
-            { key: 'agility', label: '敏捷' },
-            { key: 'intelligence', label: '智力' },
-            { key: 'attack_range', label: '攻击距离' },
-            { key: 'move_range', label: '移动格' },
-          ]" :key="row.key"
-               style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #eee; font-size:13px; gap:8px;">
-            <span>{{ row.label }}</span>
-            <span style="text-align:right;">
-              <strong>{{ shownEnemyStat(getTokenSource(selectedToken), row.key) }}</strong>
-              <label v-if="isGM" style="display:block; font-size:11px; color:#666; margin-top:2px;">
-                <input type="checkbox"
-                       :checked="!!getTokenSource(selectedToken)?.reveal?.[row.key]"
-                       @change="setEnemyReveal(getTokenSource(selectedToken), row.key, $event.target.checked)" />
-                公开
-              </label>
-            </span>
-          </div>
-          <div v-if="isGM && canEditHp(selectedToken)" style="margin-top: 10px;">
-            <label>当前 HP</label>
-            <input
-              type="number"
-              :value="getTokenSource(selectedToken)?.hp_current ?? getTokenSource(selectedToken)?.hp ?? 0"
-              @change="updateTokenHp(selectedToken, $event.target.value)"
-              style="width: 80px; margin-left: 6px;"
-            />
-          </div>
-          <h4 style="margin: 14px 0 6px;">固有技能</h4>
-          <div v-if="!(getTokenSource(selectedToken)?.skills || []).length" style="color:#999; font-size:13px;">无</div>
-          <div v-for="(sk, i) in (getTokenSource(selectedToken)?.skills || [])" :key="'s'+i" style="margin: 8px 0; font-size:13px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <strong>{{ sk.name || ('技能' + (i+1)) }}</strong>
-              <label v-if="isGM" style="font-size:11px; color:#666;">
-                <input type="checkbox"
-                       :checked="!!getTokenSource(selectedToken)?.reveal?.skills?.[i]"
-                       @change="setEnemySkillReveal(getTokenSource(selectedToken), 'skills', i, $event.target.checked)" />
-                公开效果
-              </label>
-            </div>
-            <div style="color:#555; margin-top:2px;">{{ shownEnemySkillDesc(getTokenSource(selectedToken), 'skills', i) }}</div>
-          </div>
-          <h4 style="margin: 14px 0 6px;">特殊技能</h4>
-          <div v-if="!(getTokenSource(selectedToken)?.boss_skills || []).length" style="color:#999; font-size:13px;">无</div>
-          <div v-for="(sk, i) in (getTokenSource(selectedToken)?.boss_skills || [])" :key="'b'+i" style="margin: 8px 0; font-size:13px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <strong>{{ sk.name || ('特殊技' + (i+1)) }}</strong>
-              <label v-if="isGM" style="font-size:11px; color:#666;">
-                <input type="checkbox"
-                       :checked="!!getTokenSource(selectedToken)?.reveal?.boss_skills?.[i]"
-                       @change="setEnemySkillReveal(getTokenSource(selectedToken), 'boss_skills', i, $event.target.checked)" />
-                公开效果
-              </label>
-            </div>
-            <div style="color:#555; margin-top:2px;">{{ shownEnemySkillDesc(getTokenSource(selectedToken), 'boss_skills', i) }}</div>
-          </div>
-          <button v-if="isGM" type="button" @click="beginMove(selectedToken)" style="margin-top: 12px; padding: 6px 12px;">
-            {{ pendingMoveTokenId === selectedToken.id ? '点空格完成移动' : '移动' }}
-          </button>
-          <button v-if="isGM" type="button" @click="removeToken(selectedToken)" style="margin-top: 8px; color: #c62828;">从地图移除</button>
+          <button
+            v-if="isGM"
+            type="button"
+            @click="removeToken(selectedToken)"
+            style="margin-top: 8px; color: #c62828;"
+          >从地图移除</button>
         </div>
       </div>
     </div>
 
-    <div style="margin: 16px 0; padding: 12px; border: 1px solid #ccc; border-radius: 8px; background: #fafafa;">
+        <div style="margin: 16px 0; padding: 12px; border: 1px solid #ccc; border-radius: 8px; background: #fafafa;">
       <strong>骰子</strong>
       <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
         <button type="button" @click="rollDice('1d6')">1d6</button>
@@ -3982,9 +3829,9 @@ onUnmounted(() => {
       <button @click="openHandbook('character')" style="padding: 8px 14px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">
         查看员工手册
       </button>
-      <button @click="saveCharacter" :disabled="saving" style="padding: 8px 20px; background: #4CAF50; color: white; border: none; margin-right: 10px; cursor: pointer;">
-        {{ saving ? '保存中...' : '保存' }}
-      </button>
+      <span style="margin-right: 10px; color: #666; font-size: 13px;">
+        {{ saving ? '同步中…' : '已自动保存' }}
+      </span>
       <button @click="backToLobby">返回大厅</button>
       <button v-if="isGM" @click="page = 'room'">房间管理（发物品/解锁）</button>
     </div>
@@ -4060,6 +3907,9 @@ onUnmounted(() => {
     <input type="number" v-model.number="currentCharacter.level" style="width: 100%; padding: 8px;" />
     <button @click="applyLevelGrowth" style="padding: 8px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">
       应用本级成长
+    </button>
+    <button v-if="(currentCharacter.level || 1) === 1" type="button" @click="randomizeLevel1Stats" style="padding: 8px 12px; background: #7e57c2; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+      随机属性与成长
     </button>
   </div>
 </div>
@@ -4789,12 +4639,7 @@ onUnmounted(() => {
 <!-- 背包（装备位） -->
 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
   <label style="font-weight: bold;">背包</label>
-    <div style="font-size: 12px; color: #666; margin-top: 4px;">
-      {{ backpackCapacity }} 格 / 超重 {{ overweightCapacity }} 格
-    </div>
-  <div style="font-size: 12px; color: #666; margin-top: 4px;">
-    {{ backpackCapacity }} 格 / 超重 {{ overweightCapacity }} 格
-  </div>
+  <div style="font-size: 12px; color: #666; margin-top: 4px;">{{ backpackCapacity }} 格 / 超重 {{ overweightCapacity }} 格</div>
   <div @click="slotExpanded = slotExpanded === 'backpack' ? '' : 'backpack'"
        style="margin-top: 8px; padding: 10px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
     <span v-if="getItemById(currentCharacter.inventory.equipment.backpack)" style="display: flex; align-items: center; gap: 6px;">
@@ -4833,37 +4678,41 @@ onUnmounted(() => {
 
 <!-- 物品栏（背包内） -->
 <h2>物品栏（背包内）</h2>
-<div style="margin-bottom: 12px; padding: 10px 14px; background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; font-size: 15px; line-height: 1.7;">
+
+<div style="margin-bottom: 12px; padding: 10px 14px; background: #f5f5f5; border-radius: 6px; font-size: 14px; line-height: 1.6;">
   <div>
     背包格：
     <strong>{{ normalUsed }}</strong> / {{ backpackCapacity }}
-    <span v-if="!currentCharacter.inventory?.equipment?.backpack" style="color: #888; font-size: 12px; margin-left: 6px;">
+    <span v-if="!currentCharacter.inventory.equipment.backpack" style="color: #888; font-size: 12px; margin-left: 6px;">
       （未装备背包，默认 5 格）
     </span>
   </div>
   <div>
     超重格：
-    <strong :style="{ color: overweightUsed > 0 ? '#e65100' : '#333' }">{{ overweightUsed }}</strong>
+    <strong :style="{ color: overweightUsed > 0 ? '#e65100' : '#333' }">
+      {{ overweightUsed }}
+    </strong>
     / {{ overweightCapacity }}
-    <span v-if="overweightUsed > 0" style="color: #e65100; font-size: 12px; margin-left: 6px;">（超重中）</span>
+    <span v-if="overweightUsed > 0" style="color: #e65100; font-size: 12px; margin-left: 6px;">
+      （超重中，SPD 将受惩罚）
+    </span>
   </div>
 </div>
+
 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 15px 0;">
-  <div v-if="!currentCharacter.inventory?.items || currentCharacter.inventory.items.length === 0"
-       style="color: #888; margin-bottom: 8px;">
+  <div v-if="!currentCharacter.inventory?.items || currentCharacter.inventory.items.length === 0" style="color: #888; margin-bottom: 15px;">
     目前没有物品（需要 GM 发放后才会出现）
   </div>
 
   <div v-for="(entry, index) in currentCharacter.inventory.items" :key="entry.id || index"
-       style="border-bottom: 1px solid #eee; padding: 10px 0;">
-    <div @click="backpackOpenId = backpackOpenId === (entry.item_id + '-' + index) ? null : (entry.item_id + '-' + index)"
-         style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+       style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee;">
+    <div style="display: flex; align-items: center; gap: 8px;">
       <img
-        v-if="getItemById(entry.item_id)?.image_url || getItemIcon(getItemById(entry.item_id))"
-        :src="getItemById(entry.item_id)?.image_url || getItemIcon(getItemById(entry.item_id))"
-        style="width: 48px; height: 48px; object-fit: contain; image-rendering: pixelated; flex-shrink: 0; background: #fafafa; border-radius: 4px;"
+        v-if="getItemIcon(getItemById(entry.item_id))"
+        :src="getItemIcon(getItemById(entry.item_id))"
+        style="width: 32px; height: 32px; image-rendering: pixelated; flex-shrink: 0;"
       />
-      <div style="flex: 1;">
+      <div>
         <strong>{{ getItemById(entry.item_id)?.name || '未知物品' }}</strong>
         <span style="color: #666; margin-left: 8px;">× {{ entry.quantity }}</span>
         <span v-if="getItemById(entry.item_id)" style="color: #999; margin-left: 8px; font-size: 13px;">
@@ -4873,82 +4722,15 @@ onUnmounted(() => {
           占用 {{ ((getItemById(entry.item_id)?.slots) || 1) * (entry.quantity || 1) }} 格
         </div>
       </div>
-      <span style="color: #888; font-size: 13px;">
-        {{ backpackOpenId === (entry.item_id + '-' + index) ? '收起' : '详情' }}
-      </span>
     </div>
-
-    <div v-if="backpackOpenId === (entry.item_id + '-' + index)"
-         style="margin-top: 10px; padding: 12px; background: #fafafa; border-radius: 8px; display: flex; gap: 16px; flex-wrap: wrap;">
-      <img
-        v-if="getItemById(entry.item_id)?.image_url"
-        :src="getItemById(entry.item_id).image_url"
-        style="width: 160px; height: 160px; object-fit: contain; background: #fff; border-radius: 6px;"
-      />
-      <div style="flex: 1; min-width: 220px;">
-        <div style="font-size: 14px; color: #555; margin-bottom: 8px; white-space: pre-wrap;">
-          {{ getItemById(entry.item_id)?.description || '暂无简介' }}
-        </div>
-        <div style="font-size: 13px; color: #333; line-height: 1.7;">
-          <div v-if="getItemById(entry.item_id)?.armor_type">防具种类：{{ getItemById(entry.item_id).armor_type }}</div>
-          <div v-if="Number(getItemById(entry.item_id)?.strength)">力量 +{{ getItemById(entry.item_id).strength }}</div>
-          <div v-if="Number(getItemById(entry.item_id)?.agility)">敏捷 +{{ getItemById(entry.item_id).agility }}</div>
-          <div v-if="Number(getItemById(entry.item_id)?.intelligence)">智力 +{{ getItemById(entry.item_id).intelligence }}</div>
-          <div v-if="Number(getItemById(entry.item_id)?.atk)">ATK +{{ getItemById(entry.item_id).atk }}</div>
-          <div v-if="Number(getItemById(entry.item_id)?.hp)">HP +{{ getItemById(entry.item_id).hp }}</div>
-          <div v-if="Number(getItemById(entry.item_id)?.def)">DEF +{{ getItemById(entry.item_id).def }}</div>
-          <div v-if="Number(getItemById(entry.item_id)?.res)">RES +{{ getItemById(entry.item_id).res }}</div>
-          <div v-if="Number(getItemById(entry.item_id)?.spd)">SPD +{{ getItemById(entry.item_id).spd }}</div>
-          <div v-if="Number(getItemById(entry.item_id)?.satiety)">恢复饱食度 {{ getItemById(entry.item_id).satiety }}</div>
-        </div>
-        <div v-if="getItemById(entry.item_id)?.skills?.length" style="margin-top: 8px;">
-          <div v-for="(sk, si) in getItemById(entry.item_id).skills" :key="si"
-               style="font-size: 13px; margin-top: 4px;">
-            <strong>{{ sk.name }}</strong>
-            <span style="color: #666;">　{{ sk.desc }}</span>
-          </div>
-        </div>
-        <button type="button" @click.stop="discardItem(index)"
-                style="margin-top: 12px; padding: 6px 12px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
-          丢掉
-        </button>
-      </div>
+    <div style="font-size: 13px; color: #888; max-width: 40%; text-align: right;">
+      {{ getItemById(entry.item_id)?.description || '' }}
     </div>
   </div>
 </div>
 
 <h2>备注 / 讯息栏</h2>
 <textarea v-model="currentCharacter.notes" rows="4" style="width: 100%; padding: 8px; margin-top: 8px;" placeholder="临时状态、任务笔记等..."></textarea>
-<h2>解体熔炉事件公告栏</h2>
-<div style="border: 1px solid #ffcc80; border-radius: 8px; padding: 12px; margin: 10px 0 24px; background: #fff8e1;">
-  <div v-if="announceMessages.length === 0" style="color: #888; font-size: 13px;">暂无公告</div>
-  <div v-for="m in announceMessages" :key="m.id" style="padding: 8px 0; border-bottom: 1px solid #ffe0b2;">
-    <div style="font-size: 12px; color: #ef6c00;">{{ m.author_name }} · {{ m.created_at?.slice(0, 16)?.replace('T', ' ') }}</div>
-    <div style="white-space: pre-wrap; margin-top: 4px;">{{ m.body }}</div>
-  </div>
-  <div v-if="isGM" style="margin-top: 10px;">
-    <textarea v-model="announceDraft" rows="3" style="width: 100%; padding: 8px;" placeholder="GM 发布公告..."></textarea>
-    <button type="button" @click="sendRoomMessage('announce')"
-            style="margin-top: 8px; padding: 8px 16px; background: #ef6c00; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      发布公告
-    </button>
-  </div>
-  <div v-else style="margin-top: 8px; font-size: 12px; color: #888;">仅 GM 可发布，全员可见、实时同步。</div>
-</div>
-
-<h2>工作人员沟通群</h2>
-<div style="border: 1px solid #bbdefb; border-radius: 8px; padding: 12px; margin: 10px 0 24px; background: #e3f2fd;">
-  <div v-if="chatMessages.length === 0" style="color: #888; font-size: 13px;">还没有消息</div>
-  <div v-for="m in chatMessages" :key="m.id" style="padding: 8px 0; border-bottom: 1px solid #bbdefb;">
-    <div style="font-size: 12px; color: #1565c0;">{{ m.author_name }} · {{ m.created_at?.slice(0, 16)?.replace('T', ' ') }}</div>
-    <div style="white-space: pre-wrap; margin-top: 4px;">{{ m.body }}</div>
-  </div>
-  <textarea v-model="chatDraft" rows="3" style="width: 100%; padding: 8px; margin-top: 10px;" placeholder="输入消息..."></textarea>
-  <button type="button" @click="sendRoomMessage('chat')"
-          style="margin-top: 8px; padding: 8px 16px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer;">
-    发送
-  </button>
-</div>
 </div>
 
 
