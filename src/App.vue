@@ -709,7 +709,9 @@ async function saveBookNode(bookId) {
     description: nodeForm.value.description || '',
     image_url: nodeForm.value.image_url || '',
     visible_to_players: nodeForm.value.visible_to_players !== false,
-    sort_order: nodeForm.value.sort_order || 0
+    sort_order: nodeForm.value.sort_order || 0,
+    node_type: nodeForm.value.node_type || 'normal',
+    shop_items: nodeForm.value.shop_items || []
   }
 
   if (editingNodeId.value) {
@@ -1942,7 +1944,11 @@ const classTemplates = {
       { level: 8, content: '主属性增强：力量+10。' },
       { level: 9, content: '子职III：\n剑士γ：反击伤害变为造成敌人造成的伤害而非自身收到的伤害。同时结果大于等于2即可判定为反击成功。' },
       { level: 10, content: '被动III：可从被动页III中选择一项。' },
-      { level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
+      { level: 11, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 12, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 13, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 14, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+{ level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
     ],
     stances: [
       { name: '学徒的清击', desc: '在攻击时如果1d10的结果≥5，则伤害总值+6点。LVL3提升至8，LVL9提升至14，LVL15提升至25，同时结果只需≥4即可触发。' },
@@ -1997,7 +2003,11 @@ const classTemplates = {
       { level: 8, content: '主属性增强：敏捷+10。' },
       { level: 9, content: '赏金猎人的契约：选择任意一项额外效果：\n· 施暴者：暴击的判定范围提升1。每次暴击时获得20PP。\n· 赏金猎人的报酬EX3：持有100以上PP时激活。激活后每1PP都可提供0.1的次要属性（永久报酬）。' },
       { level: 10, content: '被动III：可从被动页III中选择一项。' },
-      { level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
+      { level: 11, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 12, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 13, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 14, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+{ level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
     ],
     rewards: {
   permanent: [
@@ -2067,7 +2077,11 @@ const classTemplates = {
     content: '于魔道之止境：踏出步伐——\n· 战胜者：（除毒属性伤害以外的）所有造成单次伤害的魔术伤害+30。\n· 求识者：可学习魔术数量+5。每回合使用魔术后获得一次额外施法机会，本回合中可以使用册数比触发魔术小2册的魔术，并且消耗减少10点。' 
   },
   { level: 10, content: '被动III：可从被动页III中选择一项。' },
-  { level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
+      { level: 11, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 12, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 13, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 14, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+{ level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
 ],
     stances: [],
     subclasses: []
@@ -2127,7 +2141,11 @@ const classTemplates = {
       { level: 8, content: '主属性增强：智力+14。' },
       { level: 9, content: '战术优化：选择任意一项额外效果。\n1.先进射击阵地：现在设立射击阵地时攻击距离+1，并且额外ATK提升至两倍当前等级+10，此外建立阵地后可以获得等同于当前等级+2的额外DEF。\n2.制高点：现在进行火力戒备时可以锁定攻击距离内3名敌人，且伤害总值提升至+10。' },
       { level: 10, content: '被动III：可从被动页III中选择一项。' },
-      { level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
+      { level: 11, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 12, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 13, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 14, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+{ level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
     ],
     stances: [],
     subclasses: []
@@ -2178,7 +2196,11 @@ const classTemplates = {
       { level: 8, content: 'HP增强：HP+24。' },
       { level: 9, content: '捕杀本能：选择一种额外效果路线。\n1.卫士：每名拥有「弱点发现」的敌人死亡时，给予所有友军相应层数的特殊状态「胜算发现」，每层提供+2ATK和+2DEF。\n2.猎手：每层「弱点发现」都可以被视为任意一种属性异常，现在处刑者每次攻击将施加两层「弱点发现」。' },
       { level: 10, content: '被动III：可从被动页III中选择一项。' },
-      { level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
+      { level: 11, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 12, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 13, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+      { level: 14, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
+{ level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
     ],
     stances: [],
     subclasses: []
@@ -2893,6 +2915,16 @@ async function saveCharacter(silent = true) {
       notes: currentCharacter.value.notes,
       inventory: currentCharacter.value.inventory,
       skills: currentCharacter.value.skills,
+      gender: currentCharacter.value.gender || '',
+      age: currentCharacter.value.age || null,
+      origin: currentCharacter.value.origin || '',
+      alignment_a: currentCharacter.value.alignment_a || '',
+      alignment_b: currentCharacter.value.alignment_b || '',
+      languages: currentCharacter.value.languages || '',
+      appearance: currentCharacter.value.appearance || '',
+      personality: currentCharacter.value.personality || '',
+      specialization_cat: currentCharacter.value.specialization_cat || '',
+      specialization_sub: currentCharacter.value.specialization_sub || '',
     })
     .eq('id', currentCharacter.value.id)
   saving.value = false
@@ -3465,6 +3497,22 @@ onUnmounted(() => {
             <input type="checkbox" v-model="nodeForm.visible_to_players" />
             对玩家公开此节点（取消勾选则玩家看到「未知区域」）
           </label>
+          <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0;">
+            <input type="checkbox" :checked="nodeForm.node_type === 'shop'" @change="nodeForm.node_type = $event.target.checked ? 'shop' : 'normal'" />
+            这是商店节点
+          </label>
+          <div v-if="nodeForm.node_type === 'shop'" style="margin: 10px 0; padding: 10px; background: #fff; border-radius: 6px;">
+            <strong>商店商品</strong>
+            <div v-for="(si, idx) in nodeForm.shop_items" :key="idx" style="display: flex; gap: 6px; margin: 6px 0; align-items: center;">
+              <select v-model="si.item_id" style="flex: 2; padding: 6px;">
+                <option value="">选择物品</option>
+                <option v-for="it in itemCatalog" :key="it.id" :value="it.id">{{ it.name }}</option>
+              </select>
+              <input type="number" v-model.number="si.price" placeholder="价格" style="width: 80px; padding: 6px;" />
+              <button type="button" @click="nodeForm.shop_items.splice(idx, 1)" style="color: #c62828;">删</button>
+            </div>
+            <button type="button" @click="nodeForm.shop_items.push({ item_id: '', price: 0 })" style="margin-top: 6px; padding: 4px 10px;">+ 添加商品</button>
+          </div>
 
           <div style="display: flex; gap: 8px; margin-top: 8px;">
             <button
@@ -3790,6 +3838,13 @@ onUnmounted(() => {
       >
         <div style="font-size: 20px; font-weight: bold;">{{ displayMissionNode.name }}</div>
         <div style="margin-top: 10px; white-space: pre-wrap;">{{ displayMissionNode.description }}</div>
+        <div v-if="displayMissionNode.node_type === 'shop' && displayMissionNode.shop_items && displayMissionNode.shop_items.length" style="margin-top: 16px; background: rgba(0,0,0,0.6); padding: 12px; border-radius: 8px;">
+          <strong>商店</strong>
+          <div v-for="si in displayMissionNode.shop_items" :key="si.item_id" style="margin: 8px 0; padding: 8px; background: rgba(255,255,255,0.15); border-radius: 4px;">
+            <div><strong>{{ getItemById(si.item_id)?.name || '未知物品' }}</strong> · {{ si.price }} 金币</div>
+            <div style="font-size: 13px; margin-top: 4px;">{{ getItemById(si.item_id)?.description || '' }}</div>
+          </div>
+        </div>
       </div>
       <div
         v-else
@@ -4103,15 +4158,79 @@ onUnmounted(() => {
   </div>  
 </template>
 
-    <!-- 基础信息 -->
+    <!-- 基础信息 / 个人资料 -->
+    <h3 style="margin: 16px 0 8px;">个人资料</h3>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
       <div>
-        <label>角色名</label><br />
+        <label>角色姓名</label><br />
         <input v-model="currentCharacter.name" style="width: 100%; padding: 8px;" />
       </div>
       <div>
         <label>玩家昵称</label><br />
         <input v-model="currentCharacter.player_name" style="width: 100%; padding: 8px;" />
+      </div>
+      <div>
+        <label>性别</label><br />
+        <select v-model="currentCharacter.gender" style="width: 100%; padding: 8px;">
+          <option value="">未填写</option>
+          <option>男</option>
+          <option>女</option>
+          <option>其他</option>
+        </select>
+      </div>
+      <div>
+        <label>年龄</label><br />
+        <input type="number" v-model.number="currentCharacter.age" style="width: 100%; padding: 8px;" />
+      </div>
+      <div>
+        <label>出身</label><br />
+        <input v-model="currentCharacter.origin" placeholder="例如：解体熔炉职员、流浪者" style="width: 100%; padding: 8px;" />
+      </div>
+      <div>
+        <label>掌握的语言</label><br />
+        <input v-model="currentCharacter.languages" placeholder="例如：汉语、英语" style="width: 100%; padding: 8px;" />
+      </div>
+      <div style="grid-column: 1 / -1;">
+        <label>阵营（点击展开定义）</label>
+        <div style="display: flex; gap: 12px; margin-top: 6px; flex-wrap: wrap;">
+          <div>
+            <strong>A 类</strong>
+            <select v-model="currentCharacter.alignment_a" style="margin-left: 6px; padding: 6px;">
+              <option value="">未选</option>
+              <option value="秩序">秩序</option>
+              <option value="混沌">混沌</option>
+              <option value="中立">中立</option>
+            </select>
+          </div>
+          <div>
+            <strong>B 类</strong>
+            <select v-model="currentCharacter.alignment_b" style="margin-left: 6px; padding: 6px;">
+              <option value="">未选</option>
+              <option value="善">善</option>
+              <option value="恶">恶</option>
+              <option value="中庸">中庸</option>
+            </select>
+          </div>
+        </div>
+        <details style="margin-top: 8px; font-size: 13px; color: #555;">
+          <summary style="cursor: pointer;">查看阵营定义</summary>
+          <div style="padding: 8px; background: #f9f9f9; border-radius: 6px; margin-top: 4px;">
+            <p><strong>秩序</strong>：按照普世规则行动，尊重法律。</p>
+            <p><strong>混沌</strong>：不信任普世规则，不会在法律的界定范围内行动。</p>
+            <p><strong>中立</strong>：一定程度上遵守普世规则，根本上按照自己的心意行动。</p>
+            <p><strong>善</strong>：为他人着想，乐于助人。</p>
+            <p><strong>恶</strong>：视他人为消耗品，不择手段。</p>
+            <p><strong>中庸</strong>：自我中心，依据对自身的利益来判定对待他人的方式。</p>
+          </div>
+        </details>
+      </div>
+      <div style="grid-column: 1 / -1;">
+        <label>外貌</label><br />
+        <textarea v-model="currentCharacter.appearance" rows="2" style="width: 100%; padding: 8px; box-sizing: border-box;" placeholder="身高、发色、特征等"></textarea>
+      </div>
+      <div style="grid-column: 1 / -1;">
+        <label>具体性格描述</label><br />
+        <textarea v-model="currentCharacter.personality" rows="2" style="width: 100%; padding: 8px; box-sizing: border-box;" placeholder="说话方式、习惯、性格特点"></textarea>
       </div>
       <div>
         <label>职业</label><br />
@@ -4263,6 +4382,39 @@ onUnmounted(() => {
   </div>
   </div>
 </div>
+
+    <!-- 专精（11级及以上） -->
+    <div v-if="(currentCharacter.level || 1) >= 11" style="margin: 16px 0; padding: 14px; background: #f3e5f5; border-radius: 8px;">
+      <strong>专精选择（11–14级框架）</strong>
+      <div style="margin-top: 8px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+        <label>大类
+          <select v-model="currentCharacter.specialization_cat" style="margin-left: 6px; padding: 6px;">
+            <option value="">未选择</option>
+            <option value="攻击者">攻击者</option>
+            <option value="肉盾">肉盾</option>
+            <option value="支援者">支援者</option>
+          </select>
+        </label>
+        <label v-if="currentCharacter.specialization_cat">子类
+          <select v-model="currentCharacter.specialization_sub" style="margin-left: 6px; padding: 6px;">
+            <option value="">未选择</option>
+            <template v-if="currentCharacter.specialization_cat === '攻击者'">
+              <option value="战士">战士</option>
+              <option value="刺客">刺客</option>
+            </template>
+            <template v-if="currentCharacter.specialization_cat === '肉盾'">
+              <option value="坦克">坦克</option>
+              <option value="惩罚者">惩罚者</option>
+            </template>
+            <template v-if="currentCharacter.specialization_cat === '支援者'">
+              <option value="辅助">辅助</option>
+              <option value="治疗者">治疗者</option>
+            </template>
+          </select>
+        </label>
+      </div>
+      <p style="font-size: 12px; color: #666; margin: 8px 0 0;">具体效果后补。选择后会自动保存。</p>
+    </div>
 
     <!-- 核心属性 -->
 <h2>核心属性</h2>
