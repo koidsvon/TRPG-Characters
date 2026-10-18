@@ -75,7 +75,13 @@ const displayMissionNode = computed(() => {
       image_url: ''
     }
   }
-  return n
+  const parsed = parseShopFromDescription(n.description || '')
+  return {
+    ...n,
+    description: parsed.description,
+    node_type: n.node_type || parsed.node_type,
+    shop_items: (n.shop_items && n.shop_items.length) ? n.shop_items : parsed.shop_items
+  }
 })
 
 const nodeForm = ref({
@@ -83,7 +89,9 @@ const nodeForm = ref({
   description: '',
   image_url: '',
   visible_to_players: true,
-  parent_id: null
+  parent_id: null,
+  node_type: 'normal',
+  shop_items: []
 })
 const editingNodeId = ref(null)
 
@@ -106,19 +114,24 @@ function resetNodeForm(parentId = null) {
     image_url: '',
     visible_to_players: true,
     parent_id: parentId,
-    sort_order: 0
+    sort_order: 0,
+    node_type: 'normal',
+    shop_items: []
   }
 }
 
 function beginEditNode(n) {
   editingNodeId.value = n.id
+  const parsed = parseShopFromDescription(n.description || '')
   nodeForm.value = {
     name: n.name || '',
-    description: n.description || '',
+    description: parsed.description,
     image_url: n.image_url || '',
     visible_to_players: n.visible_to_players !== false,
     parent_id: n.parent_id || null,
-    sort_order: n.sort_order || 0
+    sort_order: n.sort_order || 0,
+    node_type: n.node_type || parsed.node_type || 'normal',
+    shop_items: Array.isArray(n.shop_items) && n.shop_items.length ? n.shop_items : (parsed.shop_items || [])
   }
 }
 
@@ -684,6 +697,22 @@ async function loadBookNodes(bookId) {
   bookNodes.value = data || []
 }
 
+function parseShopFromDescription(desc) {
+  const marker = '\n---SHOP---\n'
+  const idx = (desc || '').indexOf(marker)
+  if (idx < 0) return { description: desc || '', node_type: 'normal', shop_items: [] }
+  try {
+    const shop = JSON.parse(desc.slice(idx + marker.length))
+    return { description: desc.slice(0, idx), node_type: 'shop', shop_items: shop.items || [] }
+  } catch {
+    return { description: desc || '', node_type: 'normal', shop_items: [] }
+  }
+}
+function packShopDescription(form) {
+  const base = (form.description || '').replace(/\n---SHOP---\n[\s\S]*$/, '')
+  if (form.node_type !== 'shop') return base
+  return base + '\n---SHOP---\n' + JSON.stringify({ items: form.shop_items || [] })
+}
 async function saveBookNode(bookId) {
   if (!bookId) {
     alert('请先保存事件，再添加节点')
@@ -702,16 +731,15 @@ async function saveBookNode(bookId) {
     }
   }
 
+  const packed = packShopDescription(nodeForm.value)
   const payload = {
     book_id: bookId,
     parent_id: nodeForm.value.parent_id || null,
     name,
-    description: nodeForm.value.description || '',
+    description: packed,
     image_url: nodeForm.value.image_url || '',
     visible_to_players: nodeForm.value.visible_to_players !== false,
-    sort_order: nodeForm.value.sort_order || 0,
-    node_type: nodeForm.value.node_type || 'normal',
-    shop_items: nodeForm.value.shop_items || []
+    sort_order: nodeForm.value.sort_order || 0
   }
 
   if (editingNodeId.value) {
@@ -3460,7 +3488,7 @@ onUnmounted(() => {
               {{ n.visible_to_players ? '对玩家公开' : '仅 GM' }}
             </span>
           </div>
-          <div style="font-size: 13px; color: #555; margin: 6px 0;">{{ n.description }}</div>
+          <div style="font-size: 13px; color: #555; margin: 6px 0;">{{ parseShopFromDescription(n.description || '').description }}</div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button type="button" @click="beginEditNode(n)">编辑此节点</button>
             <button type="button" @click="beginAddChild(n)">在此节点下加子节点</button>
@@ -3498,7 +3526,7 @@ onUnmounted(() => {
             对玩家公开此节点（取消勾选则玩家看到「未知区域」）
           </label>
           <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0;">
-            <input type="checkbox" :checked="nodeForm.node_type === 'shop'" @change="nodeForm.node_type = $event.target.checked ? 'shop' : 'normal'" />
+            <input type="checkbox" v-model="nodeForm.node_type" true-value="shop" false-value="normal" />
             这是商店节点
           </label>
           <div v-if="nodeForm.node_type === 'shop'" style="margin: 10px 0; padding: 10px; background: #fff; border-radius: 6px;">
@@ -3511,7 +3539,7 @@ onUnmounted(() => {
               <input type="number" v-model.number="si.price" placeholder="价格" style="width: 80px; padding: 6px;" />
               <button type="button" @click="nodeForm.shop_items.splice(idx, 1)" style="color: #c62828;">删</button>
             </div>
-            <button type="button" @click="nodeForm.shop_items.push({ item_id: '', price: 0 })" style="margin-top: 6px; padding: 4px 10px;">+ 添加商品</button>
+            <button type="button" @click="if (!nodeForm.shop_items) nodeForm.shop_items = []; nodeForm.shop_items.push({ item_id: '', price: 0 })" style="margin-top: 6px; padding: 4px 10px;">+ 添加商品</button>
           </div>
 
           <div style="display: flex; gap: 8px; margin-top: 8px;">
@@ -3538,10 +3566,11 @@ onUnmounted(() => {
           <span style="font-size: 12px; color: #888; margin-left: 8px;">
             {{ n.visible_to_players ? '对玩家公开' : '仅 GM' }}
             {{ n.parent_id ? '（子节点）' : '（顶层）' }}
+            {{ (n.node_type === 'shop' || (n.description || '').includes('---SHOP---')) ? ' · 商店' : '' }}
           </span>
-          <div style="font-size: 13px; color: #555;">{{ n.description }}</div>
+          <div style="font-size: 13px; color: #555;">{{ parseShopFromDescription(n.description || '').description }}</div>
           <button type="button" @click="nodeForm.parent_id = n.id; editingNodeId = null">加子节点</button>
-          <button type="button" @click="editingNodeId = n.id; nodeForm = { name: n.name, description: n.description, image_url: n.image_url, visible_to_players: n.visible_to_players, parent_id: n.parent_id }">编辑</button>
+          <button type="button" @click="beginEditNode(n)">编辑</button>
           <button type="button" @click="deleteBookNode(n)">删除</button>
         </div>
         <h4>{{ editingNodeId ? '编辑节点' : '新节点' }}</h4>
@@ -3551,6 +3580,22 @@ onUnmounted(() => {
         <label>
           <input type="checkbox" v-model="nodeForm.visible_to_players" /> 对玩家公开
         </label>
+        <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0;">
+          <input type="checkbox" v-model="nodeForm.node_type" true-value="shop" false-value="normal" />
+          这是商店节点
+        </label>
+        <div v-if="nodeForm.node_type === 'shop'" style="margin: 10px 0; padding: 10px; background: #fff; border-radius: 6px;">
+          <strong>商店商品</strong>
+          <div v-for="(si, idx) in (nodeForm.shop_items || [])" :key="idx" style="display: flex; gap: 6px; margin: 6px 0; align-items: center;">
+            <select v-model="si.item_id" style="flex: 2; padding: 6px;">
+              <option value="">选择物品</option>
+              <option v-for="it in itemCatalog" :key="it.id" :value="it.id">{{ it.name }}</option>
+            </select>
+            <input type="number" v-model.number="si.price" placeholder="价格" style="width: 80px; padding: 6px;" />
+            <button type="button" @click="nodeForm.shop_items.splice(idx, 1)" style="color: #c62828;">删</button>
+          </div>
+          <button type="button" @click="if (!nodeForm.shop_items) nodeForm.shop_items = []; nodeForm.shop_items.push({ item_id: '', price: 0 })" style="margin-top: 6px; padding: 4px 10px;">+ 添加商品</button>
+        </div>
         <div style="margin-top: 8px;">
           <button type="button" @click="saveBookNode(editingBook.id)">保存节点</button>
         </div>
