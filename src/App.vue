@@ -2258,6 +2258,83 @@ const classTemplates = {
   }
 }
 
+// 专精能力库
+const specializationDatabase = {
+  '攻击者': {
+    '战士': [
+      { name: '咄咄逼人', desc: '自身在场时，全体友军ATK+4，每次发动攻击时向全体赋予一层增益状态“离子护甲”（每层提供1点DEF直到下次受到伤害）。' },
+      { name: '狂暴', desc: '自身在场时，每当其他友军触发暴击时，获得一个奖励回合。' },
+      { name: '瞄准', desc: '自身在场时，全体友军使用枪械造成的伤害总值提升当前等级值。' },
+      { name: '铁兽齿牙', desc: '自身在场时，全体友军在攻击“人型”和“类人型”敌人时ATK+8。' },
+      { name: '自由攻击', desc: '若攻击判定百分比中结果≥6，则可以让任意一名友军roll点，若结果一致则呼叫其进行支援，支援无法造成暴击（枪械为≥3）。' }
+    ],
+    '刺客': [
+      { name: '刺杀逻辑洞悉', desc: '每回合结束后，自身ATK+3，持续到本场战斗结束。最多叠加6次。' },
+      { name: '迅捷追击', desc: '每次对SPD低于自身的敌人造成伤害前获得一次优势。' },
+      { name: '寂刃誓言', desc: '可在每回合攻击前使用，使用后ATK+20，持续一回合。若本回合没有造成任意击杀，则受到15点纯粹伤害。每场战斗可使用两次。' },
+      { name: '灭', desc: '最大HP减少40，DEF+10，ATK+30，暴击倍率提升至300%。' }
+    ]
+  },
+  '肉盾': {
+    '坦克': [
+      { name: '和心一体', desc: '每回合结束后进行1d10roll点，若结果≥6则赋予自己一回合的预见（闪避下一次受到的物理伤害）。' },
+      { name: '守护者战线', desc: '最大HP+10。对最大HP最少的友军施加特殊状态“守护目标”，每次守护目标受到的税后伤害的50%将由守护者承受。' },
+      { name: '天司信仰', desc: '可在每回合攻击前使用，使用后DEF&RES+10，对场上所有敌人施加一回合精神异常“狂热化”（强制攻击施加者）。' }
+    ],
+    '惩罚者': [
+      { name: '嗤笑化身', desc: '力量+20，智力-10。每次受到伤害后DEF+6，ATK+6直到下回合结束。' },
+      { name: 'ARK实验（诅咒神经强化）', desc: '每次受到伤害后使攻击者ATK-4，持续到本场战斗结束，最多叠加2次。' },
+      { name: '荆棘部队', desc: '自身在场时，全体友军在受到伤害时将向攻击者反击，造成自己等级一半的纯粹伤害。' }
+    ]
+  },
+  '支援者': {
+    '辅助': [
+      { name: 'ARK实验（优越）', desc: '自身在场时，全体友军失去所有的DEF和RES，且无法以其他方式获得DEF和RES，增加等同于失去值的最大HP。每10点HP最大值可额外获得1点ATK。' },
+      { name: '椰子咒法', desc: '自身在场时，全体友军每次食用食物都可以回复5+当前等级值的HP。' },
+      { name: '权天使部队', desc: '每次攻击后解除目标一个强化状态，暴击时解除所有强化状态。' }
+    ],
+    '治疗者': [
+      { name: '天使部队', desc: '自身在场时，任意友军的HP低于50%时，全体友军的HP平均分，随后各自回复4点HP。' },
+      { name: '宁水之道', desc: '自身在场时，全体任意友军在连续两回合不进行移动后回复10点HP。' },
+      { name: '烈日疗法', desc: '自身在场时，全体友军每次受到伤害时回复3点HP。' }
+    ]
+  }
+}
+
+function seededShuffle(arr, seed) {
+  const a = [...arr]
+  let s = seed >>> 0
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (s * 1664525 + 1013904223) >>> 0
+    const j = s % (i + 1)
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+function getSpecializationPool(subclass) {
+  const all = []
+  for (const cat of Object.values(specializationDatabase)) {
+    if (cat[subclass]) all.push(...cat[subclass])
+  }
+  if (!all.length) return []
+  const seed = (currentMission.value?.id || currentSession.value?.id || 1) * 997 + subclass.length * 13
+  return seededShuffle(all, seed).slice(0, 3)
+}
+function ensureSpecializations() {
+  if (!currentCharacter.value.specializations) currentCharacter.value.specializations = []
+}
+function addSpecialization(item) {
+  ensureSpecializations()
+  const list = currentCharacter.value.specializations
+  if (list.length >= 2) { alert('最多选择 2 项专精'); return }
+  if (list.some(s => s.name === item.name)) { alert('已选择该项'); return }
+  list.push({ name: item.name, desc: item.desc, subclass: currentCharacter.value.specialization_sub })
+}
+function removeSpecialization(i) {
+  ensureSpecializations()
+  currentCharacter.value.specializations.splice(i, 1)
+}
+
 // 完整魔术表（按册 + 种类）
 const magicList = {
   volume1: {
@@ -2590,6 +2667,7 @@ function startRealtime() {
               hero: updated.abilitySkills.hero || []
             }
           }
+          updated.specializations = updated.abilitySkills.specializations || updated.specializations || []
 
           // ---------- learnedMagic 兼容 ----------
           if (!updated.learnedMagic && updated.learned_magic) {
@@ -2858,6 +2936,7 @@ if (!charCopy.abilitySkills) {
     hero: charCopy.abilitySkills.hero || [],
   }
 }
+charCopy.specializations = charCopy.abilitySkills.specializations || charCopy.specializations || []
   skipAutoSave = true
   currentCharacter.value = charCopy
   page.value = 'character'
@@ -2924,7 +3003,7 @@ async function saveCharacter(silent = true) {
       player_name: currentCharacter.value.player_name,
       class_name: currentCharacter.value.class_name,
       level: currentCharacter.value.level,
-      ability_skills: currentCharacter.value.abilitySkills,
+      ability_skills: { ...(currentCharacter.value.abilitySkills || {}), specializations: currentCharacter.value.specializations || [] },
       learned_magic: currentCharacter.value.learnedMagic || [],
       strength: currentCharacter.value.strength,
       intelligence: currentCharacter.value.intelligence,
@@ -4428,10 +4507,10 @@ onUnmounted(() => {
   </div>
 </div>
 
-    <!-- 专精（11级及以上） -->
-    <div v-if="(currentCharacter.level || 1) >= 11" style="margin: 16px 0; padding: 14px; background: #f3e5f5; border-radius: 8px;">
-      <strong>专精选择（11–14级框架）</strong>
-      <div style="margin-top: 8px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+    <!-- 专精 -->
+    <h2>专精</h2>
+    <div style="margin: 8px 0 20px; padding: 14px; background: #f3e5f5; border-radius: 8px;">
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 10px;">
         <label>大类
           <select v-model="currentCharacter.specialization_cat" style="margin-left: 6px; padding: 6px;">
             <option value="">未选择</option>
@@ -4457,8 +4536,36 @@ onUnmounted(() => {
             </template>
           </select>
         </label>
+        <span style="font-size: 13px; color: #666;">已选 {{ (currentCharacter.specializations || []).length }} / 2</span>
       </div>
-      <p style="font-size: 12px; color: #666; margin: 8px 0 0;">具体效果后补。选择后会自动保存。</p>
+
+      <div v-if="currentCharacter.specialization_sub && (currentCharacter.level || 1) >= 11" style="margin-bottom: 12px;">
+        <strong style="font-size: 14px;">本场可选（随机 3 项）</strong>
+        <div v-for="item in getSpecializationPool(currentCharacter.specialization_sub)" :key="item.name"
+             style="margin: 8px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #9c27b0;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <strong>{{ item.name }}</strong>
+            <button type="button" @click="addSpecialization(item)"
+                    :disabled="(currentCharacter.specializations || []).length >= 2 || (currentCharacter.specializations || []).some(s => s.name === item.name)"
+                    style="padding: 4px 10px; font-size: 12px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
+              选择
+            </button>
+          </div>
+          <div style="font-size: 13px; color: #555; margin-top: 4px;">{{ item.desc }}</div>
+        </div>
+      </div>
+      <p v-else-if="currentCharacter.specialization_sub" style="font-size: 13px; color: #888;">达到 11 级后可从本场专精池中选择。</p>
+
+      <strong style="font-size: 14px;">已选择的专精</strong>
+      <div v-if="!(currentCharacter.specializations || []).length" style="color: #999; font-size: 13px; margin-top: 6px;">尚未选择</div>
+      <div v-for="(s, i) in (currentCharacter.specializations || [])" :key="s.name"
+           style="margin: 8px 0; padding: 10px; background: white; border-radius: 6px;">
+        <div style="display: flex; justify-content: space-between;">
+          <strong>{{ s.name }}</strong>
+          <button type="button" @click="removeSpecialization(i)" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
+        </div>
+        <div style="font-size: 13px; color: #555; margin-top: 4px;">{{ s.desc }}</div>
+      </div>
     </div>
 
     <!-- 核心属性 -->
