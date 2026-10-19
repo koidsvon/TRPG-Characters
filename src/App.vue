@@ -4713,7 +4713,7 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
-
+</div>
 </div>
 <div v-show="characterTab === 4">
   <h2>被动技能 / 英雄技能</h2>
@@ -4760,7 +4760,8 @@ onUnmounted(() => {
     </div>
   </div>
 </div>
-
+</div>
+<div v-show="characterTab === 5">
   <div v-show="skillsExpanded" style="padding: 20px;">
     <!-- 力量相关 -->
     <h3 style="margin: 0 0 12px; color: #c62828; border-bottom: 1px solid #ffcdd2; padding-bottom: 6px;">与力量属性有关的能力</h3>
@@ -4947,8 +4948,6 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
-</div>
-
 </div>
 <div v-show="characterTab === 2">
   <!-- 装备栏 -->
@@ -5310,13 +5309,12 @@ onUnmounted(() => {
   </div>
 </div>
 
-</div>
 <h2>备注 / 讯息栏</h2>
 <textarea v-model="currentCharacter.notes" rows="4" style="width: 100%; padding: 8px; margin-top: 8px;" placeholder="临时状态、任务笔记等..."></textarea>
 </div>
+</div>
 
-
- <div v-else-if="page === 'magic'" style="max-width: 1000px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
+<div v-else-if="page === 'magic'" style="max-width: 1000px; margin: 30px auto; font-family: sans-serif; padding: 0 20px;">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <h1>魔术表</h1>
     <button @click="page = 'character'" style="padding: 8px 16px;">返回角色</button>
