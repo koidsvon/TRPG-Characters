@@ -4,6 +4,7 @@ import { supabase } from './supabase.js'
 
 // 页面状态：home / room / lobby / character / magic / buff
 const page = ref('home')
+const characterTab = ref(1)
 
 const slotExpanded = ref('')  // 当前展开的栏位：helmet / chest / legs / amulet / backpack
 
@@ -4256,6 +4257,19 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
+  <div style="display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 16px;">
+    <button type="button" @click="characterTab = 1" :style="characterTab === 1 ? 'padding: 6px 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;' : 'padding: 6px 12px; background: #eee; border: none; border-radius: 4px; cursor: pointer;'">资料</button>
+    <button type="button" @click="characterTab = 2" :style="characterTab === 2 ? 'padding: 6px 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;' : 'padding: 6px 12px; background: #eee; border: none; border-radius: 4px; cursor: pointer;'">装备 / 背包</button>
+    <button type="button" @click="characterTab = 3" :style="characterTab === 3 ? 'padding: 6px 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;' : 'padding: 6px 12px; background: #eee; border: none; border-radius: 4px; cursor: pointer;'">属性</button>
+    <button type="button" @click="characterTab = 4" :style="characterTab === 4 ? 'padding: 6px 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;' : 'padding: 6px 12px; background: #eee; border: none; border-radius: 4px; cursor: pointer;'">专精 / 技能</button>
+    <button type="button" @click="characterTab = 5" :style="characterTab === 5 ? 'padding: 6px 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;' : 'padding: 6px 12px; background: #eee; border: none; border-radius: 4px; cursor: pointer;'">检定</button>
+    <span style="margin-left: auto; display: flex; gap: 6px;">
+      <button type="button" @click="characterTab = Math.max(1, characterTab - 1)" style="padding: 6px 12px; cursor: pointer;">上一页</button>
+      <span style="padding: 6px 4px; color: #666;">{{ characterTab }} / 5</span>
+      <button type="button" @click="characterTab = Math.min(5, characterTab + 1)" style="padding: 6px 12px; cursor: pointer;">下一页</button>
+    </span>
+  </div>
+<div v-show="characterTab === 1">
 <template v-if="currentCharacter && ['魔术师','术士','Code Wizard'].includes(currentCharacter.class_name)">
   <h2>魔术收藏</h2>
   <div style="margin-bottom: 12px; font-size: 14px; color: #666;">
@@ -4507,6 +4521,8 @@ onUnmounted(() => {
   </div>
 </div>
 
+</div>
+<div v-show="characterTab === 4">
     <!-- 专精 -->
     <h2>专精</h2>
     <div style="margin: 8px 0 20px; padding: 14px; background: #f3e5f5; border-radius: 8px;">
@@ -4568,6 +4584,8 @@ onUnmounted(() => {
       </div>
     </div>
 
+</div>
+<div v-show="characterTab === 3">
     <!-- 核心属性 -->
 <h2>核心属性</h2>
 <div style="margin: 12px 0 20px; display: flex; flex-direction: column; gap: 10px;">
@@ -4647,6 +4665,8 @@ onUnmounted(() => {
   </div>
 </div>
 
+</div>
+<div v-show="characterTab === 5">
 <!-- 检定技能栏（可折叠） -->
 <div style="margin: 30px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
   <div @click="skillsExpanded = !skillsExpanded"
@@ -4694,6 +4714,8 @@ onUnmounted(() => {
   </div>
 </template>
 
+</div>
+<div v-show="characterTab === 4">
   <h2>被动技能 / 英雄技能</h2>
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
   <div v-for="tier in ['I','II','III']" :key="tier" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
@@ -4927,6 +4949,8 @@ onUnmounted(() => {
   </div>
 </div>
 
+</div>
+<div v-show="characterTab === 2">
   <!-- 装备栏 -->
 <h2>装备栏</h2>
 
@@ -5286,6 +5310,7 @@ onUnmounted(() => {
   </div>
 </div>
 
+</div>
 <h2>备注 / 讯息栏</h2>
 <textarea v-model="currentCharacter.notes" rows="4" style="width: 100%; padding: 8px; margin-top: 8px;" placeholder="临时状态、任务笔记等..."></textarea>
 </div>
