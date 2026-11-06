@@ -1940,366 +1940,255 @@ let realtimeChannel = null
 const classTemplates = {
   '剑士': {
     name: '剑士',
-    description: '兼具一定输出能力和防御能力的平衡型职业，面对不同的敌人时可以以不同的架势灵巧应对。',
+    description: '兼具一定输出能力和防御能力的平衡型职业。',
     mainAttribute: '力量',
     canUseBuff: true,
     status: '完',
-    initialATK: 12,
-    initialSPD: 50,
-    initialRES: 10,
-    initialDEF: 1,
-    initialHP: 0,
-    initialMove: 4,
-    initialPP: 75,
-    attributeRequirement: '初始力量≤30，次要属性的成长值≥1.6',
-    allocatablePoints: 60,
-    statRules: { strengthMax: 30, secondaryGrowthMin: 1.6, points: 60 },
-    proficiency: '运动+3；洞悉+5；察觉+5；巧手+2',
-    skillBonuses: {
-  athletics: 3,   // 运动+3
-  insight: 5,     // 洞悉+5
-  perception: 5,  // 察觉+5
-  sleight: 2      // 巧手+2
-},
-    equipment: '长剑、轻甲、锁甲、小盾、护身符。最多同时使用一把武器',
+    proficiency: '运动+察觉',
+    skillBonuses: { athletics: 2, perception: 2 },
     levelRewards: [
-      { level: 1, content: '可以使用buff。可以装备长剑、轻甲、锁甲、小盾、护身符。最多同时使用一把武器。\n准备：战斗中以特定架势招架敌人，可在长休时更换。' },
-      { level: 2, content: '被动I：可从被动页I中选择一项。' },
-      { level: 3, content: '子职I：可选择是否转职为剑士的子职，或继续本职。\n剑士α：解锁反击架势。战斗中若受到伤害，则可以进行一次1d6判定，若结果≥3，则可以进行一次伤害等同于所受税后伤害一半的反击。' },
-      { level: 4, content: '被动I：可从被动页I中选择一项。' },
-      { level: 5, content: '子职II：\n剑士β：反击架势的反击伤害判定提升至100%。' },
-      { level: 6, content: '被动II：可从被动页II中选择一项。' },
-      { level: 7, content: '被动II：可从被动页II中选择一项。' },
-      { level: 8, content: '主属性增强：力量+10。' },
-      { level: 9, content: '子职III：\n剑士γ：反击伤害变为造成敌人造成的伤害而非自身收到的伤害。同时结果大于等于2即可判定为反击成功。' },
-      { level: 10, content: '被动III：可从被动页III中选择一项。' },
-      { level: 11, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 12, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 13, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 14, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-{ level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
-    ],
-    stances: [
-      { name: '学徒的清击', desc: '在攻击时如果1d10的结果≥5，则伤害总值+6点。LVL3提升至8，LVL9提升至14，LVL15提升至25，同时结果只需≥4即可触发。' },
-      { name: '尤欧斯', desc: '倘若在自己的回合开始前有敌人以你为目标进行攻击，在其开始进行计算前你可以对该目标发动一次攻击。触发次数上限1次，自己的回合结束后刷新。LVL6时判定百分比+1=10%，LVL12时次数上限+1。' },
-      { name: '剑技铸造', desc: '在自己的回合可对自己无消耗使用buff“熔炉的加护”上限3次，短休补1长休补满。LVL6时本次攻击判定百分比+1=10%，LVL13时额外造成一次等同于本次攻击税前伤害一半的物理伤害。' }
-    ],
-    subclasses: [
-  { 
-    name: '决斗者', 
-    desc: '子职I：不再可以使用长剑，现在可以使用刺剑。若攻击造成伤害则可以在敌人身上留下5层伤口异常「断筋」持续到战斗结束，上限20层。每层「断筋」将会降低目标1点SPD。\n子职II：现在对拥有任意伤口异常的敌人造成伤害时，伤害总值+8点。此外，拥有「断筋」的敌人在它们的回合结束时会传染给5格内最近的另一名敌人5层伤口异常「断筋」。\n子职III：现在对拥有任意伤口异常的敌人造成伤害时，可选择对其发动决斗。若1d12≥8则决斗成功。目标身上每层「断筋」都会使roll点结果+1。决斗持续到一方死亡为止，玩家决斗者每回合可以发动两次攻击。' 
-  },
-  { 
-    name: '重剑士', 
-    desc: '子职I：不再可以使用长剑和小盾，现在可以使用大剑。此外，现在可以装备重甲了。ATK+6，SPD-4。\n子职II：现在可以使用大剑进行主动防御了，数值为（3+1d3）。\n子职III：现在对敌人造成伤害时，还会对其身后3*2格内的敌人造成同等伤害。ATK+10。' 
-  }
-]
-  },
-  '赏金猎人': {
-    name: '赏金猎人',
-    description: '以毒辣手段打击目标的输出型职业。完成赏金任务后可以激活报酬，为自己赚取巨大增益。无法使用buff。',
-    mainAttribute: '敏捷',
-    canUseBuff: false,
-    status: '完',
-    initialATK: 10,
-    initialSPD: 51,
-    initialRES: 10,
-    initialDEF: 2,
-    initialHP: -5,
-    initialMove: 4,
-    initialPP: 100,
-    attributeRequirement: '主属性成长值固定为2.4，次属性成长值固定为2.3',
-    allocatablePoints: 60,
-    statRules: { mainGrowth: 2.4, secondaryGrowth: 2.3, points: 60 },
-    proficiency: '隐匿+3；求生+4；驯兽+4；知识+2；说服+2；调查+5',
-    skillBonuses: {
-  stealth: 3,
-  survival: 4,
-  animal: 4,
-  knowledge: 2,
-  persuasion: 2,
-  investigation: 5
-},
-    equipment: '长剑、手斧、冲锋枪、轻甲。最多同时使用两把武器。额外获得25初始PP',
-    levelRewards: [
-      { level: 1, content: '无法使用buff。\n赏金猎人的报酬：完成赏金任务后可以激活报酬获得增益。报酬分为「永久生效」和「单场战斗生效的临时报酬」两种类型。' },
-      { level: 2, content: '被动I：可从被动页I中选择一项。' },
-      { level: 3, content: '赏金猎人的契约：选择任意一项额外效果：\n· 追猎者：对每场战斗中HP最高的随机一名敌人进行追猎。只要追猎目标存活就能获得4点SPD，并且以追猎目标为攻击对象时不会陷入劣势。\n· 赏金猎人的报酬EX1：任意友方角色（包括自己）的HP等于1时激活。随后获得+5 DEF & EVA（永久报酬）。' },
-      { level: 4, content: '被动I：可从被动页I中选择一项。' },
-      { level: 5, content: '赏金猎人的契约：选择任意一项额外效果：\n· 拷问者：当攻击目标的HP小于等于最大值的一半时，赏金猎人的每次攻击在进行计算前会向目标施加10层降防属性异常，每层降低目标1点DEF。最多叠加25层。\n· 赏金猎人的报酬EX2：若除自己以外的任意友军在战斗中的投掷判定结果小于3时激活。随后自己在本次战斗中剩余的时间每回合获得一次优势（临时报酬）。' },
-      { level: 6, content: '被动II：可从被动页II中选择一项。' },
-      { level: 7, content: '被动II：可从被动页II中选择一项。' },
-      { level: 8, content: '主属性增强：敏捷+10。' },
-      { level: 9, content: '赏金猎人的契约：选择任意一项额外效果：\n· 施暴者：暴击的判定范围提升1。每次暴击时获得20PP。\n· 赏金猎人的报酬EX3：持有100以上PP时激活。激活后每1PP都可提供0.1的次要属性（永久报酬）。' },
-      { level: 10, content: '被动III：可从被动页III中选择一项。' },
-      { level: 11, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 12, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 13, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 14, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-{ level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
-    ],
-    rewards: {
-  permanent: [
-    { name: '血的味道', desc: '永久+5 ATK。完成击杀类赏金任务后激活。' },
-    { name: '猎手的直觉', desc: '永久+3 察觉与隐匿。完成追踪类赏金任务后激活。' },
-    { name: '市场决策', desc: '获得3个稀有掉落物后，每场战斗开始时获得一次属性异常免疫。' },
-    { name: '初来驾到', desc: '完成2场战斗后，每场战斗结束后额外获得固定的15PP。' },
-    { name: '轻车熟路', desc: '完成5场战斗后提升一级等级。' },
-    { name: '霸权执行', desc: '造成4次暴击后，暴击伤害增加50%（200%→250%）。' }
-  ],
-  temporary: [
-    { name: '致命一击预备', desc: '下一次攻击必定暴击（1d10视为10）。使用后消失。' },
-    { name: '猎杀标记', desc: '指定一名敌人，每次攻击该目标时获得一次优势。持续至战斗结束或目标死亡。' },
-    { name: '冷静收割', desc: '本场战斗中每次击杀回复5点HP，最多触发3次。' },
-    { name: '太迟了~', desc: '在战斗中第一个行动时，本场战斗中移动格+1。' },
-    { name: '猎击瞄准', desc: '战斗中造成3次伤害后，使用枪械时也可以造成暴击了。' }
-  ]
-},
-    stances: [],
-    subclasses: []
-  },
-  '魔术师': {
-    name: '魔术师',
-    description: 'Caster。使用魔术行驶魔道者。使用多种魔术的全能型职业。',
-    mainAttribute: '智力',
-    canUseBuff: false,
-    status: '完',
-    initialATK: 0,
-    initialSPD: 48,
-    initialRES: 15,
-    initialDEF: 1,
-    initialHP: 0,
-    initialMove: 4,
-    initialPP: 70,
-    attributeRequirement: '初始智力=31',
-    allocatablePoints: 55,
-    statRules: { intelligenceFixed: 31, points: 55 },
-    proficiency: '洞悉+2；巫毒-2；知识+4；医疗+2；调查+3',
-    skillBonuses: {
-  insight: 2,
-  voodoo: -2,
-  knowledge: 4,
-  medicine: 2,
-  investigation: 3
-},
-    equipment: '魔导书、魔杖、轻甲。需同时装备魔导书和魔杖。',
-    levelRewards: [
-  { 
-    level: 1, 
-    content: '无法使用buff。可以装备魔导书、魔杖、轻甲。需同时装备魔导书和魔杖。\n特异点 锁明：从下列特异点中选择一项：\n· 7的战争：智力+7。任何魔力消耗中带有7的魔术将变为无消耗。\n· 龙胭：伟大之存在的庇护。获得2次特殊状态「龙胭」，每层龙胭提供DEF+5。受到一次伤害后减少一层。每次长休时恢复。\n· 厌花之蛇：能够施加任意毒的魔术的魔力消耗减半。每层毒发的伤害+1。' 
-  },
-  { level: 2, content: '被动I：可从被动页I中选择一项。' },
-  { 
-    level: 3, 
-    content: '魔道歧途：叩问汝心——\n· 于十二月之寒：每次使用造成冰属性伤害的魔术时，向目标施加1层属性异常「刺骨严寒」，每层降低目标1点DEF，最多叠加10层。\n· 于八月之炎：每次使用魔术时在本次战斗中+1 SPD，使用造成火属性伤害的魔术时变为+2 SPD。' 
-  },
-  { level: 4, content: '被动I：可从被动页I中选择一项。' },
-  { 
-    level: 5, 
-    content: '魔导迥途：进行抉择——\n· 页：只能使用活体魔导书。每场战斗中每次受到伤害时将会先由魔导书抵挡，魔导书不具备任何DEF/RES，其HP为大小。魔导书将会至少残存1点HP，超额伤害由玩家承受。\n· 册：只能使用硬册魔导书。每使用5次魔术，下一次施法前可以获得一个额外施法机会，并在本次施法中魔力消耗减少100点。全局累计。' 
-  },
-  { level: 6, content: '被动II：可从被动页II中选择一项。' },
-  { level: 7, content: '被动II：可从被动页II中选择一项。' },
-  { level: 8, content: '主属性增强：智力+10。' },
-  { 
-    level: 9, 
-    content: '于魔道之止境：踏出步伐——\n· 战胜者：（除毒属性伤害以外的）所有造成单次伤害的魔术伤害+30。\n· 求识者：可学习魔术数量+5。每回合使用魔术后获得一次额外施法机会，本回合中可以使用册数比触发魔术小2册的魔术，并且消耗减少10点。' 
-  },
-  { level: 10, content: '被动III：可从被动页III中选择一项。' },
-      { level: 11, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 12, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 13, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 14, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-{ level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
-],
-    stances: [],
-    subclasses: []
-  },
-  // ===== 待补主职（子职嵌套在内）=====
-  '长枪兵': {
-    name: '长枪兵',
-    description: '使用长枪的AoE攻击型角色。可以使用buff。以出色的速度和攻击范围见长。',
-    status: '待补',
-    canUseBuff: true,
-    subclasses: [
-      { name: '盾枪兵', desc: '使用长盾和骑枪的坦克型长枪兵子职。可以使用buff。是队友最可靠的守护者，还可通过精准防御为自己提供攻击增益。' },
-      { name: '刃枪兵', desc: '将长剑改造为长枪，大剑改造为骑枪的奇异长枪兵子职。可以使用buff。' }
+      { level: 1, content: '武艺精湛：获得等同于当前等级的ATK。精通运动+察觉' },
+      { level: 2, content: '选择Path，获得Path特殊能力I' },
+      { level: 3, content: '被动I：可从被动页I中选择一项' },
+      { level: 4, content: '免疫物理状态异常「残废」' },
+      { level: 5, content: '属性提升' },
+      { level: 6, content: 'Path特殊能力II' },
+      { level: 7, content: '被动II：可从被动页II中选择一项' },
+      { level: 8, content: '攻击等级高于自身的敌人时，获得一次优势；受到等级高于自身的敌人的攻击时，敌人获得一次劣势' },
+      { level: 9, content: '属性提升' },
+      { level: 10, content: 'Path特殊能力III' },
+      { level: 11, content: '被动III：可从被动页III中选择一项' },
+      { level: 12, content: '百分比骰结果为3和6时也能造成暴击，伤害为实际伤害×暴击倍率' },
+      { level: 13, content: '属性提升' },
+      { level: 14, content: '被动III：可从被动页III中选择一项' },
+      { level: 15, content: 'Path特殊能力IV' }
     ]
-  },
-  '格斗家': {
-    name: '格斗家',
-    description: '以拳法致胜的近身格斗型角色。可以使用buff。虽然攻击距离较近，但是凭借灵活冲刺的能力可以有效应对远距离的敌人。',
-    status: '待补',
-    canUseBuff: true,
-    subclasses: []
   },
   '射手': {
     name: '射手',
-    description: '使用手枪、冲锋枪、步枪、霰弹枪的远程输出型角色。无法使用buff。可携带三种枪械，具备全能的攻击性能。',
-    status: '施工中',
-    canUseBuff: false,
-    subclasses: []
-  },
-  '狙击手': {
-    name: '狙击手',
-    description: '只能使用狙击枪、步枪、手枪的远距离打击特化型射手。无法使用buff。可携带两种枪械，擅长在远距离精准打击。',
-    mainAttribute: '智力',
-    canUseBuff: false,
+    description: '远程输出职业，强调机动与精准。',
+    mainAttribute: '敏捷',
+    canUseBuff: true,
     status: '完',
-    initialATK: 10,
-    initialSPD: 45,
-    initialRES: 10,
-    initialDEF: 3,
-    initialHP: -12,
-    initialMove: 5,
-    initialPP: 75,
-    attributeRequirement: '初始敏捷≥20，敏捷成长值≥1.8，智力成长值≥2',
-    allocatablePoints: 60,
-    statRules: { agilityMin: 20, agilityGrowthMin: 1.8, intelligenceGrowthMin: 2, points: 60 },
-    proficiency: '运动+2；特技+2；隐匿+6；察觉+1',
-    skillBonuses: { athletics: 2, acrobatics: 2, stealth: 6, perception: 1 },
-    equipment: '狙击枪、步枪、手枪、轻甲。最多可携带两把武器。',
+    proficiency: '特技+隐匿',
+    skillBonuses: { acrobatics: 2, stealth: 2 },
     levelRewards: [
-      { level: 1, content: '射击阵地建立：（只能在每回合移动前使用）使用后在当前所处位置建立射击阵地，获得等同于当前等级+2的额外ATK，并且可以使用枪械造成暴击（1d10=10时），所有效果在进行移动时失效。使用后本回合不再可以进行移动。' },
-      { level: 2, content: '被动I：可从被动页I中选择一项。' },
-      { level: 3, content: '战术优化：选择任意一项额外效果。\n1.越野训练：移动格+1。\n2.致命瞄准：暴击范围提升至1d10=9或10。' },
-      { level: 4, content: '被动I：可从被动页I中选择一项。' },
-      { level: 5, content: '火力戒备：（只能在攻击前使用）锁定某一攻击距离内的敌人，然后结束回合。被锁定的敌人在进行移动时会受到狙击手的攻击，此次攻击的伤害总值+5并且若判定百分比≥4，则此次攻击会打断该敌人的行动。' },
-      { level: 6, content: '被动II：可从被动页II中选择一项。' },
-      { level: 7, content: '被动II：可从被动页II中选择一项。' },
-      { level: 8, content: '主属性增强：智力+14。' },
-      { level: 9, content: '战术优化：选择任意一项额外效果。\n1.先进射击阵地：现在设立射击阵地时攻击距离+1，并且额外ATK提升至两倍当前等级+10，此外建立阵地后可以获得等同于当前等级+2的额外DEF。\n2.制高点：现在进行火力戒备时可以锁定攻击距离内3名敌人，且伤害总值提升至+10。' },
-      { level: 10, content: '被动III：可从被动页III中选择一项。' },
-      { level: 11, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 12, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 13, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 14, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-{ level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
-    ],
-    stances: [],
-    subclasses: []
-  },
-  '指挥官': {
-    name: '指挥官',
-    description: '只能使用手枪和霰弹枪和刺剑的近距离作战特化型射手。无法使用buff。可携带两种枪械，能为周围的友军提供团队增益。',
-    status: '待补',
-    canUseBuff: false,
-    subclasses: []
-  },
-  '斥候': {
-    name: '斥候',
-    description: '使用手枪和匕首的独行角色。无法使用buff。面对敌人时可以游刃有余的多次倾泻可怖的火力。',
-    status: '待补',
-    canUseBuff: false,
-    subclasses: [
-      { name: '忍者', desc: '使用匕首和手里剑的隐秘型斥候子职。可以使用特殊的能力忍术。在面对海量的敌人时依然能从容应对。' }
+      { level: 1, content: '每一件轻甲装备使SPD+2，每一件锁甲装备使SPD+1；每两件轻甲装备使移动格+2，每两件锁甲装备使移动格+1。精通特技+隐匿' },
+      { level: 2, content: '选择Path，获得Path特殊能力I' },
+      { level: 3, content: '被动I：可从被动页I中选择一项' },
+      { level: 4, content: '可以将用完的弹夹以十分之一的价格售出' },
+      { level: 5, content: '属性提升' },
+      { level: 6, content: 'Path特殊能力II' },
+      { level: 7, content: '被动II：可从被动页II中选择一项' },
+      { level: 8, content: '百分比骰的结果不会小于2' },
+      { level: 9, content: '属性提升' },
+      { level: 10, content: 'Path特殊能力III' },
+      { level: 11, content: '被动III：可从被动页III中选择一项' },
+      { level: 12, content: '每一件轻甲装备使SPD+6，每一件锁甲装备使SPD+3；每两件轻甲装备使移动格+4，每两件锁甲装备使移动格+2。若攻击目标的SPD与自身SPD差值大于等于30则可以额外发动一次攻击' },
+      { level: 13, content: '属性提升' },
+      { level: 14, content: '被动III：可从被动页III中选择一项' },
+      { level: 15, content: 'Path特殊能力IV' }
     ]
   },
-  '处刑者': {
-    name: '处刑者',
-    description: '使用巨斧的弱点特化型职业，可以使用buff。通过攻击造成伤口，进而通过伤口将敌人处决。',
+  '斧兵': {
+    name: '斧兵',
+    description: '高生存、高爆发的近战职业。',
     mainAttribute: '力量',
     canUseBuff: true,
     status: '完',
-    initialATK: 1,
-    initialSPD: 51,
-    initialRES: 12,
-    initialDEF: 2,
-    initialHP: 10,
-    initialMove: 4,
-    initialPP: 75,
-    attributeRequirement: '力量成长值固定为4',
-    allocatablePoints: 60,
-    statRules: { mainGrowth: 4, points: 60 },
-    proficiency: '坚韧+4；驯兽+1；求生+2',
-    skillBonuses: { toughness: 4, animal: 1, survival: 2 },
-    equipment: '巨斧、锁甲、重甲、护身符。',
+    proficiency: '坚韧+威吓',
+    skillBonuses: { toughness: 2, intimidate: 2 },
     levelRewards: [
-      { level: 1, content: '死期将至：每次攻击都将对目标施加一层特殊状态「弱点发现」，每一层减少目标1点DEF和1点最大生命值（不致死）。若目标拥有8层「弱点发现」则他将无法驱散自身所有的状态异常。' },
-      { level: 2, content: '被动I：可从被动页I中选择一项。' },
-      { level: 3, content: '捕杀本能：选择一种额外效果路线。\n1.惩戒：每层「弱点发现」使处刑者DEF+1，并且拥有4层时便无法驱散状态异常。现在每层「弱点发现」还会减少目标1点ATK。\n2.伤痕：每层「弱点发现」使处刑者SPD+1，并且拥有4层时便无法驱散状态异常。现在每层「弱点发现」还会减少目标1点SPD。' },
-      { level: 4, content: '被动I：可从被动页I中选择一项。' },
-      { level: 5, content: '捕杀本能：选择一种额外效果路线。\n1.高级惩戒：若目标拥有8层「弱点发现」则他将陷入状态异常「失能」一回合，然后减少4层「弱点发现」。\n2.高级伤痕：目标每拥有8层「弱点发现」则使目标拥有的所有状态异常额外延续两回合，属性异常额外追加4层。' },
-      { level: 6, content: '被动II：可从被动页II中选择一项。' },
-      { level: 7, content: '被动II：可从被动页II中选择一项。' },
-      { level: 8, content: 'HP增强：HP+24。' },
-      { level: 9, content: '捕杀本能：选择一种额外效果路线。\n1.卫士：每名拥有「弱点发现」的敌人死亡时，给予所有友军相应层数的特殊状态「胜算发现」，每层提供+2ATK和+2DEF。\n2.猎手：每层「弱点发现」都可以被视为任意一种属性异常，现在处刑者每次攻击将施加两层「弱点发现」。' },
-      { level: 10, content: '被动III：可从被动页III中选择一项。' },
-      { level: 11, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 12, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 13, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-      { level: 14, content: '专精：可选择攻击者、肉盾或支援者之一。具体效果后补。' },
-{ level: 15, content: '英名铭刻：可从英雄技能页中选择一项。' }
-    ],
-    stances: [],
-    subclasses: []
-  },
-  '术士': {
-    name: '术士',
-    description: 'Warlock。召唤者。使用魔导书和法杖施法，术士本人无需成为最强，只要使役最强的存在即可。',
-    status: '待补',
-    canUseBuff: false,
-    subclasses: []
-  },
-  '萨满': {
-    name: '萨满',
-    description: '使用巫毒术之人。虽然不能使用魔术，但是只要满足条件即可使用特殊的巫毒术，使用不同的物品施法。',
-    status: '待补',
-    canUseBuff: false,
-    subclasses: [
-      { name: '堕落旅人', desc: '使用亡灵巫毒术的尸骸。独特的巫毒术给予其极强的生存能力和干扰能力。使用特殊的物品施法。不能直接出现在大多数大型人类活动区。' }
+      { level: 1, content: '在不装备胸甲时可以进入特殊状态「斧兵狂暴」一回合，增加等同于2+等级的DEF，获得状态异常免疫。可使用3次，长休补满。精通坚韧+威吓' },
+      { level: 2, content: '选择Path，获得Path特殊能力I' },
+      { level: 3, content: '被动I：可从被动页I中选择一项' },
+      { level: 4, content: '从防具中获得的力量加成翻倍' },
+      { level: 5, content: '属性提升' },
+      { level: 6, content: 'Path特殊能力II' },
+      { level: 7, content: '被动II：可从被动页II中选择一项' },
+      { level: 8, content: '若百分比骰的结果大于等于8，则本次攻击将会造成等同于主属性加值的总值伤害，并向目标施加一回合精神异常「眩惑」' },
+      { level: 9, content: '属性提升' },
+      { level: 10, content: 'Path特殊能力III' },
+      { level: 11, content: '被动III：可从被动页III中选择一项' },
+      { level: 12, content: '「斧兵狂暴」的使用上限增加到5次。并且在持续时间内不会死亡' },
+      { level: 13, content: '属性提升' },
+      { level: 14, content: '被动III：可从被动页III中选择一项' },
+      { level: 15, content: 'Path特殊能力IV' }
     ]
   },
-  'Code Wizard': {
-    name: 'Code Wizard',
-    description: '虽然是魔术使，却使用buff之人。使用魔导键施法。根据掌握的buff不同定位而异的灵活职业。',
-    status: '待补',
+  '枪兵': {
+    name: '枪兵',
+    description: '兼顾控制与支援的长柄武器职业。',
+    mainAttribute: '力量',
     canUseBuff: true,
-    subclasses: []
+    status: '完',
+    proficiency: '洞悉+调查',
+    skillBonuses: { insight: 2, investigation: 2 },
+    levelRewards: [
+      { level: 1, content: '可以在不消耗施法机会的情况下使用二册魔术「追迹」最多可使用两次，长休补满，短休补1次。精通洞悉，调查' },
+      { level: 2, content: '选择Path，获得Path特殊能力I' },
+      { level: 3, content: '被动I：可从被动页I中选择一项' },
+      { level: 4, content: '攻击被追迹的目标时，可以无视行经路线上大多数障碍' },
+      { level: 5, content: '属性提升' },
+      { level: 6, content: 'Path特殊能力II' },
+      { level: 7, content: '被动II：可从被动页II中选择一项' },
+      { level: 8, content: '攻击将会对1×3范围内的所有敌人造成伤害' },
+      { level: 9, content: '属性提升' },
+      { level: 10, content: 'Path特殊能力III' },
+      { level: 11, content: '被动III：可从被动页III中选择一项' },
+      { level: 12, content: '可以在不消耗魔术使用次数的情况下使用四册魔术「永恒追迹」最多可使用三次，长休补满，短休补1次' },
+      { level: 13, content: '属性提升' },
+      { level: 14, content: '被动III：可从被动页III中选择一项' },
+      { level: 15, content: 'Path特殊能力IV' }
+    ]
+  },
+  '魔术使': {
+    name: '魔术使',
+    description: '使用魔术的全能型职业。',
+    mainAttribute: '智力',
+    canUseBuff: false,
+    status: '完',
+    proficiency: '知识+说服+医疗+驯兽',
+    skillBonuses: { knowledge: 2, persuasion: 2, medicine: 2, animal: 2 },
+    levelRewards: [
+      { level: 1, content: '获得3+两倍当前等级的魔术位，获得两次施法机会。精通知识+说服+医疗+驯兽' },
+      { level: 2, content: '选择Path，获得Path特殊能力I' },
+      { level: 3, content: '被动I：可从被动页I中选择一项' },
+      { level: 4, content: '短休时可以回复等同于智力值20%的魔力' },
+      { level: 5, content: '属性提升' },
+      { level: 6, content: 'Path特殊能力II' },
+      { level: 7, content: '被动II：可从被动页II中选择一项' },
+      { level: 8, content: '获得三次施法机会' },
+      { level: 9, content: '属性提升' },
+      { level: 10, content: 'Path特殊能力III' },
+      { level: 11, content: '被动III：可从被动页III中选择一项' },
+      { level: 12, content: '获得15+两倍当前等级的魔术位' },
+      { level: 13, content: '属性提升' },
+      { level: 14, content: '被动III：可从被动页III中选择一项' },
+      { level: 15, content: 'Path特殊能力IV' }
+    ]
   }
 }
 
-// 专精能力库
-const specializationDatabase = {
-  '攻击者': {
-    '战士': [
-      { name: '咄咄逼人', desc: '自身在场时，全体友军ATK+4，每次发动攻击时向全体赋予一层增益状态“离子护甲”（每层提供1点DEF直到下次受到伤害）。' },
-      { name: '狂暴', desc: '自身在场时，每当其他友军触发暴击时，获得一个奖励回合。' },
-      { name: '瞄准', desc: '自身在场时，全体友军使用枪械造成的伤害总值提升当前等级值。' },
-      { name: '铁兽齿牙', desc: '自身在场时，全体友军在攻击“人型”和“类人型”敌人时ATK+8。' },
-      { name: '自由攻击', desc: '若攻击判定百分比中结果≥6，则可以让任意一名友军roll点，若结果一致则呼叫其进行支援，支援无法造成暴击（枪械为≥3）。' }
+// Path 能力库（按职业差异化）
+const pathDatabase = {
+  '剑士': {
+    '刺客-武士': [
+      { level: 2, name: '缩地', desc: '每场战斗可使用3次，长休补满，短休补1。使用后可额外进行一次行动。额外精通巧手+特技。' },
+      { level: 6, name: '刃心', desc: '回合开始时选择架势：大上段——百分比骰≥7时，对目标额外造成一次等同于自身敏捷50%的物理伤害；新阴流——受到攻击时若敌人百分比骰≥7，对目标造成一次等同于自身敏捷50%的物理伤害反击。' },
+      { level: 10, name: '剑心', desc: '以「单体爆发」重释：每一点敏捷提供1.5 ATK（替换原Path效果）。' },
+      { level: 15, name: '无穹缩地', desc: '缩地强化：使用后可向最远5格的敌人突进，并降低目标10点DEF。' }
     ],
-    '刺客': [
-      { name: '刺杀逻辑洞悉', desc: '每回合结束后，自身ATK+3，持续到本场战斗结束。最多叠加6次。' },
-      { name: '迅捷追击', desc: '每次对SPD低于自身的敌人造成伤害前获得一次优势。' },
-      { name: '寂刃誓言', desc: '可在每回合攻击前使用，使用后ATK+20，持续一回合。若本回合没有造成任意击杀，则受到15点纯粹伤害。每场战斗可使用两次。' },
-      { name: '灭', desc: '最大HP减少40，DEF+10，ATK+30，暴击倍率提升至300%。' }
+    '战士-骑士': [
+      { level: 2, name: '骑士之誓', desc: '自身在场时，全体友军攻击「人型/类人型」时ATK+4。自身每次攻击后，可让一名友军下一次攻击获得一次优势。' },
+      { level: 6, name: '盾击', desc: '主手持盾时，攻击命中后可选择将目标击退1格，并使其下一次攻击获得劣势。每回合最多1次。' },
+      { level: 10, name: '战线', desc: '以「团队增伤」重释：自身在场时，全体友军的暴击判定范围+1；自身暴击时，全体友军获得一层「离子护甲」。' },
+      { level: 15, name: '骑士之誓·EX', desc: '友军攻击人型时ATK+8；自身攻击后，可让两名友军的下一次攻击获得优势。' }
+    ],
+    '惩戒者-无赖': [
+      { level: 2, name: '嘲弄', desc: '每回合开始时，可对最远4格内的一名敌人施加「嘲弄」。被嘲弄的敌人攻击除你以外的目标时，受到一次劣势。持续一回合。' },
+      { level: 6, name: '脏招', desc: '攻击命中后，可对目标施加一层「断筋」（每层-1 SPD，最多10层）。每回合最多触发1次。' },
+      { level: 10, name: '以牙还牙', desc: '以「侧翼保护」重释：友军受到伤害后，可立即对攻击者进行一次反击（伤害=主属性加值×2纯粹伤害）。每回合最多1次。' },
+      { level: 15, name: '嘲弄·EX', desc: '嘲弄强化：可同时嘲弄两名敌人；被嘲弄的敌人攻击友军时，该友军获得一层「离子护甲」（+1 DEF，直到受到伤害）。' }
+    ],
+    '刺客-赏金猎人': [
+      { level: 2, name: '赏金标记', desc: '每回合开始时，可标记一名敌人。对标记目标造成的伤害总值+（主属性加值×2）。标记持续到目标死亡或重新标记。' },
+      { level: 6, name: '猎杀', desc: '对当前HP≤50%的敌人造成伤害前，获得一次优势。若本次为暴击，额外造成等同于主属性加值的纯粹伤害。' },
+      { level: 10, name: '致命一击', desc: '以「单体爆发」重释：对标记目标的暴击倍率提升至250%；若目标SPD低于自身，提升至300%。' },
+      { level: 15, name: '赏金标记·EX', desc: '伤害加成变为主属性加值×3；标记目标死亡时，可立即免费重新标记，并在本回合内对其造成的伤害再+10。' }
     ]
   },
-  '肉盾': {
-    '坦克': [
-      { name: '和心一体', desc: '每回合结束后进行1d10roll点，若结果≥6则赋予自己一回合的预见（闪避下一次受到的物理伤害）。' },
-      { name: '守护者战线', desc: '最大HP+10。对最大HP最少的友军施加特殊状态“守护目标”，每次守护目标受到的税后伤害的50%将由守护者承受。' },
-      { name: '天司信仰', desc: '可在每回合攻击前使用，使用后DEF&RES+10，对场上所有敌人施加一回合精神异常“狂热化”（强制攻击施加者）。' }
+  '射手': {
+    '治疗师-医疗兵': [
+      { level: 2, name: '急救包', desc: '可在每回合结束时，为一名友军回复6+主属性加值的HP。每场战斗可使用4次，长休补满，短休补2次。' },
+      { level: 6, name: '战地医疗', desc: '自身在场时，全体友军在回合开始时若带有属性异常或精神异常，有50%概率清除一层。使用急救包时额外清除一层。' },
+      { level: 10, name: '生命链接', desc: '以「持续治疗」重释：自身在场时，任意友军HP≤50%时，全体友军在回合结束时回复4点HP；使用急救包时回复量翻倍。' },
+      { level: 15, name: '急救包·EX', desc: '回复量变为10+主属性加值×2；使用次数增加到6次；使用时可为3格内的另一名友军回复一半数值。' }
     ],
-    '惩罚者': [
-      { name: '嗤笑化身', desc: '力量+20，智力-10。每次受到伤害后DEF+6，ATK+6直到下回合结束。' },
-      { name: 'ARK实验（诅咒神经强化）', desc: '每次受到伤害后使攻击者ATK-4，持续到本场战斗结束，最多叠加2次。' },
-      { name: '荆棘部队', desc: '自身在场时，全体友军在受到伤害时将向攻击者反击，造成自己等级一半的纯粹伤害。' }
+    '刺客-狙击手': [
+      { level: 2, name: '瞄准', desc: '每回合开始时，可对最远8格内的一名敌人进行瞄准。本回合内对该目标的第一次攻击获得一次优势，且暴击判定范围+1。' },
+      { level: 6, name: '眩惑射击', desc: '对当前HP≤50%的敌人造成伤害时，可施加一次状态异常「眩惑」（无法发动攻击）。每名敌人仅一次。' },
+      { level: 10, name: '一击必杀', desc: '以「单体爆发」重释：对瞄准目标的暴击倍率提升至250%；若目标处于「暴露」状态（被友军攻击过），提升至300%。' },
+      { level: 15, name: '瞄准·EX', desc: '瞄准强化：优势变为两次；暴击判定范围+2；瞄准目标死亡时，可立即对另一名敌人进行瞄准。' }
+    ],
+    '战士-指挥官': [
+      { level: 2, name: '火力指示', desc: '每回合开始时，可标记一名敌人。全体友军攻击该目标时获得一次优势。标记持续到目标死亡或重新标记。' },
+      { level: 6, name: '战术调整', desc: '每回合开始时，可选择一名友军，使其本回合移动格+2，或使其下一次攻击的暴击判定范围+1。' },
+      { level: 10, name: '战线', desc: '以「团队增伤」重释：自身在场时，全体友军的暴击判定范围+1；自身暴击时，全体友军获得一层「离子护甲」。' },
+      { level: 15, name: '火力指示·EX', desc: '火力指示强化：可同时标记两名敌人；标记目标死亡时，自动转移到最远6格内的另一名敌人。' }
+    ],
+    '辅助-盗贼': [
+      { level: 2, name: '标记干扰', desc: '每回合开始时，可对最远6格内的一名敌人进行标记。全体友军攻击该目标时，目标的下一次攻击获得一次劣势。标记持续到目标死亡或重新标记。' },
+      { level: 6, name: '破甲', desc: '自身攻击命中后，可对目标施加一层「破甲」（每层-2 DEF，最多5层，持续到战斗结束）。' },
+      { level: 10, name: '精准协同', desc: '以「团队增益」重释：自身在场时，全体友军的主属性加值在计算检定时额外+1；使用标记干扰后，该目标受到的下一次伤害额外+（自身主属性加值）。' },
+      { level: 15, name: '标记干扰·EX', desc: '标记干扰强化：可同时标记两名敌人；标记目标受到暴击时，全体友军获得一层「离子护甲」。' }
     ]
   },
-  '支援者': {
-    '辅助': [
-      { name: 'ARK实验（优越）', desc: '自身在场时，全体友军失去所有的DEF和RES，且无法以其他方式获得DEF和RES，增加等同于失去值的最大HP。每10点HP最大值可额外获得1点ATK。' },
-      { name: '椰子咒法', desc: '自身在场时，全体友军每次食用食物都可以回复5+当前等级值的HP。' },
-      { name: '权天使部队', desc: '每次攻击后解除目标一个强化状态，暴击时解除所有强化状态。' }
+  '斧兵': {
+    '坦克-狂战士': [
+      { level: 2, name: '狂怒', desc: '自身HP每降低10%，获得+2 ATK（最大+10）。HP恢复后加成相应减少。' },
+      { level: 6, name: '挑衅', desc: '可在每回合攻击前使用。对最远4格内的所有敌人施加一回合「嘲讽」。使用后自身DEF+6，持续一回合。每场战斗可使用3次。' },
+      { level: 10, name: '不屈战线', desc: '以「嘲讽+承伤」重释：被嘲讽的敌人攻击自身时，自身获得一次优势进行格挡（成功则伤害减半）；自身HP≤30%时，挑衅范围扩大到6格，且不再消耗次数。' },
+      { level: 15, name: '狂怒·EX', desc: '狂怒强化：HP每降低10%获得+3 ATK（最大+15）；自身HP≤30%时，额外获得+6 DEF，且每场战斗可免死一次（HP降至0时保留1点）。' }
     ],
-    '治疗者': [
-      { name: '天使部队', desc: '自身在场时，任意友军的HP低于50%时，全体友军的HP平均分，随后各自回复4点HP。' },
-      { name: '宁水之道', desc: '自身在场时，全体任意友军在连续两回合不进行移动后回复10点HP。' },
-      { name: '烈日疗法', desc: '自身在场时，全体友军每次受到伤害时回复3点HP。' }
+    '惩戒者-处刑者': [
+      { level: 2, name: '处刑', desc: '每当一名友军受到伤害后，可立即对攻击者进行一次反击（不消耗行动）。反击伤害=主属性加值×2的纯粹伤害。每回合最多触发1次。' },
+      { level: 6, name: '压制', desc: '自身攻击命中后，可对目标施加一层「压制」（每层使目标对友军造成的伤害-4，最多3层）。' },
+      { level: 10, name: '以牙还牙', desc: '以「侧翼保护」重释：友军受到暴击时，处刑的反击伤害翻倍，且可额外对攻击者施加一回合「畏惧」。' },
+      { level: 15, name: '处刑·EX', desc: '反击伤害变为主属性加值×3；每回合可触发2次；反击命中时额外给该友军一层「离子护甲」。' }
+    ],
+    '辅助-刃': [
+      { level: 2, name: '诅咒印记', desc: '每回合开始时，可对最远3格内的一名敌人施加「诅咒印记」。被印记的敌人在回合结束时受到等同于自身主属性加值的纯粹伤害，且下一次攻击获得一次劣势。印记持续到目标死亡或重新施加。' },
+      { level: 6, name: '致盲刃', desc: '自身攻击命中后，可对目标施加一层「失明」。每层「失明」使目标的下一次攻击获得一次劣势。叠满3层时，转化为「致盲」（持续到战斗结束，期间无法发动攻击，且移动格-2）。' },
+      { level: 10, name: '巫毒中枢', desc: '以「团队增益」重释：自身在场时，全体友军的主属性加值在计算检定时额外+1；对敌人施加诅咒印记后，全体友军对该敌人的下一次攻击额外造成等同于自身主属性加值的伤害。' },
+      { level: 15, name: '诅咒印记·EX', desc: '诅咒印记强化：可同时印记两名敌人；印记目标死亡时，可立即对最远3格内的另一名敌人施加印记，并为其恢复一层「离子护甲」。' }
+    ]
+  },
+  '枪兵': {
+    '坦克-骑兵': [
+      { level: 2, name: '骑枪突进', desc: '可在每回合攻击前使用。向最远3格内的敌人突进，并对路径上的所有敌人造成等同于主属性加值的物理伤害。使用后自身DEF+4，持续一回合。每场战斗可使用3次。' },
+      { level: 6, name: '挑衅', desc: '可在每回合攻击前使用。对最远4格内的所有敌人施加一回合「嘲讽」。使用后自身DEF+6，持续一回合。每场战斗可使用3次。' },
+      { level: 10, name: '不屈战线', desc: '以「嘲讽+承伤」重释：被嘲讽的敌人攻击自身时，自身获得一次优势进行格挡（成功则伤害减半）；自身HP≤30%时，挑衅范围扩大到6格，且不再消耗次数。' },
+      { level: 15, name: '骑枪突进·EX', desc: '突进范围扩大到5格；路径上的敌人额外受到一层「断筋」；使用次数增加到5次。' }
+    ],
+    '治疗师-瓦尔基里': [
+      { level: 2, name: '附魔', desc: '可在每回合攻击前，为自身武器施加「治疗附魔」。本回合内每次攻击命中时，为最远4格内的一名友军回复4+主属性加值的HP。每场战斗可使用4次。' },
+      { level: 6, name: '净化', desc: '自身在场时，全体友军在回合开始时若带有属性异常或精神异常，有50%概率清除一层。使用附魔时额外清除一层。' },
+      { level: 10, name: '生命链接', desc: '以「持续治疗」重释：自身在场时，任意友军HP≤50%时，全体友军在回合结束时回复4点HP；使用附魔时回复量翻倍。' },
+      { level: 15, name: '附魔·EX', desc: '回复量变为6+主属性加值×2；使用次数增加到6次；使用时可为3格内的另一名友军回复一半数值。' }
+    ],
+    '刺客-斥候': [
+      { level: 2, name: '追迹', desc: '可在不消耗施法机会的情况下使用二册魔术「追迹」，最多可使用两次，长休补满，短休补1次。额外精通洞悉、调查。' },
+      { level: 6, name: '弱点', desc: '对当前HP≤50%的敌人造成伤害时，额外造成等同于主属性加值的纯粹伤害。' },
+      { level: 10, name: '致命一击', desc: '以「单体爆发」重释：对追迹目标的暴击倍率提升至250%；若目标SPD低于自身，提升至300%。' },
+      { level: 15, name: '永恒追迹', desc: '可在不消耗魔术使用次数的情况下使用四册魔术「永恒追迹」，最多可使用三次，长休补满，短休补1次。' }
+    ]
+  },
+  '魔术使': {
+    '刺客-咒': [
+      { level: 2, name: '咒杀', desc: '每回合开始时，可对最远6格内的一名敌人施加「咒杀」。本回合内对该目标使用魔术时，伤害总值+（主属性加值×2）。' },
+      { level: 6, name: '毒发', desc: '对当前HP≤50%的敌人使用魔术时，额外施加一层「毒发」（每层在回合结束时造成2点腐蚀伤害，最多5层）。' },
+      { level: 10, name: '致命咒文', desc: '以「单体爆发」重释：对咒杀目标的魔术暴击倍率提升至250%；若目标带有任意异常，提升至300%。' },
+      { level: 15, name: '咒杀·EX', desc: '伤害加成变为主属性加值×3；咒杀目标死亡时，可立即对另一名敌人施加咒杀，并在本回合内对其造成的伤害再+10。' }
+    ],
+    '辅助-Warlock': [
+      { level: 2, name: '召唤', desc: '自身在场时，全体友军的检定技能获得+2。自身每回合可召唤一个「使魔」（HP=主属性加值×3，不具备防御力）。使魔可移动并攻击，伤害=主属性加值。每场战斗可召唤2次。' },
+      { level: 6, name: '削弱', desc: '自身或使魔攻击命中后，可解除目标一个强化状态；若为暴击，解除所有强化状态，并向目标施加一回合「易伤」。' },
+      { level: 10, name: '契约中枢', desc: '以「团队增益」重释：自身在场时，全体友军的主属性加值在计算检定时额外+1；使魔在场时，全体友军对使魔攻击过的敌人额外造成等同于自身主属性加值的伤害。' },
+      { level: 15, name: '召唤·EX', desc: '友军检定+4；使魔HP变为主属性加值×5；每场战斗可召唤3次；使魔死亡时，可立即为一名友军回复等同于主属性加值的HP。' }
+    ],
+    '刺客-Caster': [
+      { level: 2, name: '法术强化', desc: '每回合开始时，可选择一个魔术。本回合内使用该魔术时，伤害总值+（主属性加值×2），且暴击判定范围+1。' },
+      { level: 6, name: '弱点', desc: '对当前HP≤50%的敌人使用魔术时，额外造成等同于主属性加值的纯粹伤害。' },
+      { level: 10, name: '致命施法', desc: '以「单体爆发」重释：对法术强化目标的魔术暴击倍率提升至250%；若目标SPD低于自身，提升至300%。' },
+      { level: 15, name: '法术强化·EX', desc: '伤害加成变为主属性加值×3；暴击判定范围+2；法术强化的魔术使用后，可立即对另一名敌人使用一次同名魔术（不消耗魔力）。' }
     ]
   }
+}
+
+function getPathAbilities(className, pathName) {
+  if (!pathDatabase[className] || !pathDatabase[className][pathName]) return []
+  return pathDatabase[className][pathName]
 }
 
 function seededShuffle(arr, seed) {
@@ -2423,6 +2312,12 @@ const buffList = {
     { name: '大腹便便', desc: '远东异兽的加护。使用后将饱食度归零（cost10）' }
   ]
 }
+
+const availablePaths = computed(() => {
+  if (!currentCharacter.value || !currentCharacter.value.class_name) return []
+  const paths = pathDatabase[currentCharacter.value.class_name]
+  return paths ? Object.keys(paths) : []
+})
 
 const currentClassInfo = computed(() => {
   if (!currentCharacter.value || !currentCharacter.value.class_name) return null
@@ -2727,6 +2622,7 @@ async function createCharacter() {
       name: name,
       player_name: newPlayerName.value || '未命名玩家',
       class_name: '未选择',
+      path: '',
       level: 1,
       is_locked: false,
       locked_name: null,
@@ -2927,6 +2823,7 @@ if (!charCopy.learnedMagic) {
     }
   }
 
+if (!charCopy.path) charCopy.path = ''
 if (!charCopy.abilitySkills) {
   charCopy.abilitySkills = { I: [], II: [], III: [], hero: [] }
 } else {
@@ -3003,6 +2900,7 @@ async function saveCharacter(silent = true) {
       name: currentCharacter.value.name,
       player_name: currentCharacter.value.player_name,
       class_name: currentCharacter.value.class_name,
+      path: currentCharacter.value.path || '',
       level: currentCharacter.value.level,
       ability_skills: { ...(currentCharacter.value.abilitySkills || {}), specializations: currentCharacter.value.specializations || [] },
       learned_magic: currentCharacter.value.learnedMagic || [],
@@ -4374,29 +4272,18 @@ onUnmounted(() => {
         <label>职业</label><br />
         <select v-model="currentCharacter.class_name" style="width: 100%; padding: 8px;">
           <option value="未选择">未选择</option>
-          <optgroup label="已完成">
-            <option value="剑士">剑士</option>
-            <option value="赏金猎人">赏金猎人</option>
-            <option value="魔术师">魔术师</option>
-            <option value="狙击手">狙击手</option>
-            <option value="处刑者">处刑者</option>
-          </optgroup>
-          <optgroup label="近战（待补）">
-            <option value="长枪兵">长枪兵</option>
-            <option value="格斗家">格斗家</option>
-          </optgroup>
-          <optgroup label="射手（待补）">
-            <option value="射手">射手</option>
-            <option value="指挥官">指挥官</option>
-          </optgroup>
-          <optgroup label="特化（待补）">
-            <option value="斥候">斥候</option>
-          </optgroup>
-          <optgroup label="魔术使（待补）">
-            <option value="术士">术士</option>
-            <option value="萨满">萨满</option>
-            <option value="Code Wizard">Code Wizard</option>
-          </optgroup>
+          <option value="剑士">剑士</option>
+          <option value="射手">射手</option>
+          <option value="斧兵">斧兵</option>
+          <option value="枪兵">枪兵</option>
+          <option value="魔术使">魔术使</option>
+        </select>
+      </div>
+      <div>
+        <label>Path</label><br />
+        <select v-model="currentCharacter.path" style="width: 100%; padding: 8px;">
+          <option value="">未选择</option>
+          <option v-for="p in availablePaths" :key="p" :value="p">{{ p }}</option>
         </select>
       </div>
       <div>
@@ -4464,6 +4351,16 @@ onUnmounted(() => {
           <button v-if="isHeroReward(r)" type="button" @click="openHeroPage()"
                   style="padding: 4px 10px; font-size: 12px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">选择英雄技能</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Path 能力 -->
+    <div v-if="currentCharacter.path && pathDatabase[currentCharacter.class_name] && pathDatabase[currentCharacter.class_name][currentCharacter.path]" style="margin-top: 20px;">
+      <strong>Path：{{ currentCharacter.path }}</strong>
+      <div v-for="a in pathDatabase[currentCharacter.class_name][currentCharacter.path]" :key="a.level"
+           style="margin: 10px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #9c27b0;">
+        <strong>LVL {{ a.level }} · {{ a.name }}</strong>
+        <div style="font-size: 14px; margin-top: 4px; white-space: pre-line;">{{ a.desc }}</div>
       </div>
     </div>
 
