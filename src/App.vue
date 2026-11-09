@@ -26,19 +26,20 @@ const bookForm = ref({
   summary: ''
 })
 
-const MAP_W = 50
-const MAP_H = 50
-const VIEW = 28
+const MAP_W = 8
+const MAP_H = 8
+const VIEW = 8
 
 const viewX = ref(0)
 const viewY = ref(0)
 const battleMap = ref(null)
+const editorMode = ref('')  // 'obstacle' | 'playerSpawn' | 'enemySpawn' | ''
 const battleTokens = ref([])
 const selectedTokenId = ref('')
 const pendingMoveTokenId = ref('')
 const addEnemyId = ref('')
 const tokenStatIndex = ref({})
-const STAT_CYCLE = ['hp', 'atk', 'def', 'res']
+const STAT_CYCLE = ['hp', 'atk', 'def', 'shd']
 const diceLogs = ref([])
 const customDice = ref('1d6')
 
@@ -372,7 +373,7 @@ function tokenStatValue(t) {
   }
   if (key === 'atk') return src.atk ?? 0
   if (key === 'def') return src.def ?? 0
-  if (key === 'res') return src.res ?? 0
+  if (key === 'shd') return src.shd ?? 0
   return 0
 }
 
@@ -588,6 +589,10 @@ async function exitBattle() {
 }
 
 function onCellClick(x, y) {
+  if (editorMode.value && isGM.value && battleMap.value?.id) {
+    placeEditorItem(x, y)
+    return
+  }
   if (pendingMoveTokenId.value) {
     const t = battleTokens.value.find(i => i.id === pendingMoveTokenId.value)
     if (t) moveTokenTo(t, x, y)
@@ -596,6 +601,30 @@ function onCellClick(x, y) {
   }
   const t = tokenAt(x, y)
   selectedTokenId.value = t ? t.id : ''
+}
+
+async function placeEditorItem(x, y) {
+  if (!battleMap.value?.id) return
+  const mode = editorMode.value
+  let kind = ''
+  let label = ''
+  if (mode === 'obstacle') { kind = 'obstacle'; label = '障' }
+  else if (mode === 'playerSpawn') { kind = 'playerSpawn'; label = 'P' }
+  else if (mode === 'enemySpawn') { kind = 'enemySpawn'; label = 'E' }
+  else return
+  const existing = tokenAt(x, y)
+  if (existing) {
+    await supabase.from('battle_tokens').delete().eq('id', existing.id)
+  } else {
+    await supabase.from('battle_tokens').insert({
+      map_id: battleMap.value.id,
+      kind,
+      ref_id: null,
+      label,
+      x, y
+    })
+  }
+  await loadBattleMap()
 }
 
 function beginMove(t) {
@@ -1431,7 +1460,7 @@ function openHeroPage() {
 function addAbilitySkill(tier, skill) {
   if (!currentCharacter.value) return
   if (!currentCharacter.value.abilitySkills) {
-    currentCharacter.value.abilitySkills = { I: [], II: [], III: [], hero: [] }
+    currentCharacter.value.abilitySkills = { I: null, II: null, III: null }
   }
 
   const level = currentCharacter.value.level || 1
@@ -1938,258 +1967,106 @@ let realtimeChannel = null
 
 // ==================== 职业模板数据 ====================
 const classTemplates = {
-  '剑士': {
-    name: '剑士',
-    description: '兼具一定输出能力和防御能力的平衡型职业。',
-    mainAttribute: '力量',
-    canUseBuff: true,
-    status: '完',
-    proficiency: '运动+察觉',
-    skillBonuses: { athletics: 2, perception: 2 },
-    levelRewards: [
-      { level: 1, content: '武艺精湛：获得等同于当前等级的ATK。精通运动+察觉' },
-      { level: 2, content: '选择Path，获得Path特殊能力I' },
-      { level: 3, content: '被动I：可从被动页I中选择一项' },
-      { level: 4, content: '免疫物理状态异常「残废」' },
-      { level: 5, content: '属性提升' },
-      { level: 6, content: 'Path特殊能力II' },
-      { level: 7, content: '被动II：可从被动页II中选择一项' },
-      { level: 8, content: '攻击等级高于自身的敌人时，获得一次优势；受到等级高于自身的敌人的攻击时，敌人获得一次劣势' },
-      { level: 9, content: '属性提升' },
-      { level: 10, content: 'Path特殊能力III' },
-      { level: 11, content: '被动III：可从被动页III中选择一项' },
-      { level: 12, content: '百分比骰结果为3和6时也能造成暴击，伤害为实际伤害×暴击倍率' },
-      { level: 13, content: '属性提升' },
-      { level: 14, content: '被动III：可从被动页III中选择一项' },
-      { level: 15, content: 'Path特殊能力IV' }
-    ]
-  },
-  '射手': {
-    name: '射手',
-    description: '远程输出职业，强调机动与精准。',
-    mainAttribute: '敏捷',
-    canUseBuff: true,
-    status: '完',
-    proficiency: '特技+隐匿',
-    skillBonuses: { acrobatics: 2, stealth: 2 },
-    levelRewards: [
-      { level: 1, content: '每一件轻甲装备使SPD+2，每一件锁甲装备使SPD+1；每两件轻甲装备使移动格+2，每两件锁甲装备使移动格+1。精通特技+隐匿' },
-      { level: 2, content: '选择Path，获得Path特殊能力I' },
-      { level: 3, content: '被动I：可从被动页I中选择一项' },
-      { level: 4, content: '可以将用完的弹夹以十分之一的价格售出' },
-      { level: 5, content: '属性提升' },
-      { level: 6, content: 'Path特殊能力II' },
-      { level: 7, content: '被动II：可从被动页II中选择一项' },
-      { level: 8, content: '百分比骰的结果不会小于2' },
-      { level: 9, content: '属性提升' },
-      { level: 10, content: 'Path特殊能力III' },
-      { level: 11, content: '被动III：可从被动页III中选择一项' },
-      { level: 12, content: '每一件轻甲装备使SPD+6，每一件锁甲装备使SPD+3；每两件轻甲装备使移动格+4，每两件锁甲装备使移动格+2。若攻击目标的SPD与自身SPD差值大于等于30则可以额外发动一次攻击' },
-      { level: 13, content: '属性提升' },
-      { level: 14, content: '被动III：可从被动页III中选择一项' },
-      { level: 15, content: 'Path特殊能力IV' }
-    ]
-  },
-  '斧兵': {
-    name: '斧兵',
-    description: '高生存、高爆发的近战职业。',
-    mainAttribute: '力量',
-    canUseBuff: true,
-    status: '完',
-    proficiency: '坚韧+威吓',
-    skillBonuses: { toughness: 2, intimidate: 2 },
-    levelRewards: [
-      { level: 1, content: '在不装备胸甲时可以进入特殊状态「斧兵狂暴」一回合，增加等同于2+等级的DEF，获得状态异常免疫。可使用3次，长休补满。精通坚韧+威吓' },
-      { level: 2, content: '选择Path，获得Path特殊能力I' },
-      { level: 3, content: '被动I：可从被动页I中选择一项' },
-      { level: 4, content: '从防具中获得的力量加成翻倍' },
-      { level: 5, content: '属性提升' },
-      { level: 6, content: 'Path特殊能力II' },
-      { level: 7, content: '被动II：可从被动页II中选择一项' },
-      { level: 8, content: '若百分比骰的结果大于等于8，则本次攻击将会造成等同于主属性加值的总值伤害，并向目标施加一回合精神异常「眩惑」' },
-      { level: 9, content: '属性提升' },
-      { level: 10, content: 'Path特殊能力III' },
-      { level: 11, content: '被动III：可从被动页III中选择一项' },
-      { level: 12, content: '「斧兵狂暴」的使用上限增加到5次。并且在持续时间内不会死亡' },
-      { level: 13, content: '属性提升' },
-      { level: 14, content: '被动III：可从被动页III中选择一项' },
-      { level: 15, content: 'Path特殊能力IV' }
-    ]
-  },
-  '枪兵': {
-    name: '枪兵',
-    description: '兼顾控制与支援的长柄武器职业。',
-    mainAttribute: '力量',
-    canUseBuff: true,
-    status: '完',
-    proficiency: '洞悉+调查',
-    skillBonuses: { insight: 2, investigation: 2 },
-    levelRewards: [
-      { level: 1, content: '可以在不消耗施法机会的情况下使用二册魔术「追迹」最多可使用两次，长休补满，短休补1次。精通洞悉，调查' },
-      { level: 2, content: '选择Path，获得Path特殊能力I' },
-      { level: 3, content: '被动I：可从被动页I中选择一项' },
-      { level: 4, content: '攻击被追迹的目标时，可以无视行经路线上大多数障碍' },
-      { level: 5, content: '属性提升' },
-      { level: 6, content: 'Path特殊能力II' },
-      { level: 7, content: '被动II：可从被动页II中选择一项' },
-      { level: 8, content: '攻击将会对1×3范围内的所有敌人造成伤害' },
-      { level: 9, content: '属性提升' },
-      { level: 10, content: 'Path特殊能力III' },
-      { level: 11, content: '被动III：可从被动页III中选择一项' },
-      { level: 12, content: '可以在不消耗魔术使用次数的情况下使用四册魔术「永恒追迹」最多可使用三次，长休补满，短休补1次' },
-      { level: 13, content: '属性提升' },
-      { level: 14, content: '被动III：可从被动页III中选择一项' },
-      { level: 15, content: 'Path特殊能力IV' }
-    ]
-  },
-  '魔术使': {
-    name: '魔术使',
-    description: '使用魔术的全能型职业。',
-    mainAttribute: '智力',
-    canUseBuff: false,
-    status: '完',
-    proficiency: '知识+说服+医疗+驯兽',
-    skillBonuses: { knowledge: 2, persuasion: 2, medicine: 2, animal: 2 },
-    levelRewards: [
-      { level: 1, content: '获得3+两倍当前等级的魔术位，获得两次施法机会。精通知识+说服+医疗+驯兽' },
-      { level: 2, content: '选择Path，获得Path特殊能力I' },
-      { level: 3, content: '被动I：可从被动页I中选择一项' },
-      { level: 4, content: '短休时可以回复等同于智力值20%的魔力' },
-      { level: 5, content: '属性提升' },
-      { level: 6, content: 'Path特殊能力II' },
-      { level: 7, content: '被动II：可从被动页II中选择一项' },
-      { level: 8, content: '获得三次施法机会' },
-      { level: 9, content: '属性提升' },
-      { level: 10, content: 'Path特殊能力III' },
-      { level: 11, content: '被动III：可从被动页III中选择一项' },
-      { level: 12, content: '获得15+两倍当前等级的魔术位' },
-      { level: 13, content: '属性提升' },
-      { level: 14, content: '被动III：可从被动页III中选择一项' },
-      { level: 15, content: 'Path特殊能力IV' }
-    ]
-  }
+  '未选择': { name: '未选择', description: '', mainAttribute: '', status: '待补' }
+}
+// 技能池（待补充具体内容）
+const passiveSkillPools = {
+  I: [
+    { name: '被动I-1', desc: '待补充' },
+    { name: '被动I-2', desc: '待补充' },
+    { name: '被动I-3', desc: '待补充' }
+  ],
+  II: [
+    { name: '被动II-1', desc: '待补充' },
+    { name: '被动II-2', desc: '待补充' },
+    { name: '被动II-3', desc: '待补充' }
+  ],
+  III: [
+    { name: '被动III-1', desc: '待补充' },
+    { name: '被动III-2', desc: '待补充' },
+    { name: '被动III-3', desc: '待补充' }
+  ]
 }
 
-// Path 能力库（按职业差异化）
-const pathDatabase = {
-  '剑士': {
-    '刺客-武士': [
-      { level: 2, name: '缩地', desc: '每场战斗可使用3次，长休补满，短休补1。使用后可额外进行一次行动。额外精通巧手+特技。' },
-      { level: 6, name: '刃心', desc: '回合开始时选择架势：大上段——百分比骰≥7时，对目标额外造成一次等同于自身敏捷50%的物理伤害；新阴流——受到攻击时若敌人百分比骰≥7，对目标造成一次等同于自身敏捷50%的物理伤害反击。' },
-      { level: 10, name: '剑心', desc: '以「单体爆发」重释：每一点敏捷提供1.5 ATK（替换原Path效果）。' },
-      { level: 15, name: '无穹缩地', desc: '缩地强化：使用后可向最远5格的敌人突进，并降低目标10点DEF。' }
-    ],
-    '战士-骑士': [
-      { level: 2, name: '骑士之誓', desc: '自身在场时，全体友军攻击「人型/类人型」时ATK+4。自身每次攻击后，可让一名友军下一次攻击获得一次优势。' },
-      { level: 6, name: '盾击', desc: '主手持盾时，攻击命中后可选择将目标击退1格，并使其下一次攻击获得劣势。每回合最多1次。' },
-      { level: 10, name: '战线', desc: '以「团队增伤」重释：自身在场时，全体友军的暴击判定范围+1；自身暴击时，全体友军获得一层「离子护甲」。' },
-      { level: 15, name: '骑士之誓·EX', desc: '友军攻击人型时ATK+8；自身攻击后，可让两名友军的下一次攻击获得优势。' }
-    ],
-    '惩戒者-无赖': [
-      { level: 2, name: '嘲弄', desc: '每回合开始时，可对最远4格内的一名敌人施加「嘲弄」。被嘲弄的敌人攻击除你以外的目标时，受到一次劣势。持续一回合。' },
-      { level: 6, name: '脏招', desc: '攻击命中后，可对目标施加一层「断筋」（每层-1 SPD，最多10层）。每回合最多触发1次。' },
-      { level: 10, name: '以牙还牙', desc: '以「侧翼保护」重释：友军受到伤害后，可立即对攻击者进行一次反击（伤害=主属性加值×2纯粹伤害）。每回合最多1次。' },
-      { level: 15, name: '嘲弄·EX', desc: '嘲弄强化：可同时嘲弄两名敌人；被嘲弄的敌人攻击友军时，该友军获得一层「离子护甲」（+1 DEF，直到受到伤害）。' }
-    ],
-    '刺客-赏金猎人': [
-      { level: 2, name: '赏金标记', desc: '每回合开始时，可标记一名敌人。对标记目标造成的伤害总值+（主属性加值×2）。标记持续到目标死亡或重新标记。' },
-      { level: 6, name: '猎杀', desc: '对当前HP≤50%的敌人造成伤害前，获得一次优势。若本次为暴击，额外造成等同于主属性加值的纯粹伤害。' },
-      { level: 10, name: '致命一击', desc: '以「单体爆发」重释：对标记目标的暴击倍率提升至250%；若目标SPD低于自身，提升至300%。' },
-      { level: 15, name: '赏金标记·EX', desc: '伤害加成变为主属性加值×3；标记目标死亡时，可立即免费重新标记，并在本回合内对其造成的伤害再+10。' }
-    ]
-  },
-  '射手': {
-    '治疗师-医疗兵': [
-      { level: 2, name: '急救包', desc: '可在每回合结束时，为一名友军回复6+主属性加值的HP。每场战斗可使用4次，长休补满，短休补2次。' },
-      { level: 6, name: '战地医疗', desc: '自身在场时，全体友军在回合开始时若带有属性异常或精神异常，有50%概率清除一层。使用急救包时额外清除一层。' },
-      { level: 10, name: '生命链接', desc: '以「持续治疗」重释：自身在场时，任意友军HP≤50%时，全体友军在回合结束时回复4点HP；使用急救包时回复量翻倍。' },
-      { level: 15, name: '急救包·EX', desc: '回复量变为10+主属性加值×2；使用次数增加到6次；使用时可为3格内的另一名友军回复一半数值。' }
-    ],
-    '刺客-狙击手': [
-      { level: 2, name: '瞄准', desc: '每回合开始时，可对最远8格内的一名敌人进行瞄准。本回合内对该目标的第一次攻击获得一次优势，且暴击判定范围+1。' },
-      { level: 6, name: '眩惑射击', desc: '对当前HP≤50%的敌人造成伤害时，可施加一次状态异常「眩惑」（无法发动攻击）。每名敌人仅一次。' },
-      { level: 10, name: '一击必杀', desc: '以「单体爆发」重释：对瞄准目标的暴击倍率提升至250%；若目标处于「暴露」状态（被友军攻击过），提升至300%。' },
-      { level: 15, name: '瞄准·EX', desc: '瞄准强化：优势变为两次；暴击判定范围+2；瞄准目标死亡时，可立即对另一名敌人进行瞄准。' }
-    ],
-    '战士-指挥官': [
-      { level: 2, name: '火力指示', desc: '每回合开始时，可标记一名敌人。全体友军攻击该目标时获得一次优势。标记持续到目标死亡或重新标记。' },
-      { level: 6, name: '战术调整', desc: '每回合开始时，可选择一名友军，使其本回合移动格+2，或使其下一次攻击的暴击判定范围+1。' },
-      { level: 10, name: '战线', desc: '以「团队增伤」重释：自身在场时，全体友军的暴击判定范围+1；自身暴击时，全体友军获得一层「离子护甲」。' },
-      { level: 15, name: '火力指示·EX', desc: '火力指示强化：可同时标记两名敌人；标记目标死亡时，自动转移到最远6格内的另一名敌人。' }
-    ],
-    '辅助-盗贼': [
-      { level: 2, name: '标记干扰', desc: '每回合开始时，可对最远6格内的一名敌人进行标记。全体友军攻击该目标时，目标的下一次攻击获得一次劣势。标记持续到目标死亡或重新标记。' },
-      { level: 6, name: '破甲', desc: '自身攻击命中后，可对目标施加一层「破甲」（每层-2 DEF，最多5层，持续到战斗结束）。' },
-      { level: 10, name: '精准协同', desc: '以「团队增益」重释：自身在场时，全体友军的主属性加值在计算检定时额外+1；使用标记干扰后，该目标受到的下一次伤害额外+（自身主属性加值）。' },
-      { level: 15, name: '标记干扰·EX', desc: '标记干扰强化：可同时标记两名敌人；标记目标受到暴击时，全体友军获得一层「离子护甲」。' }
-    ]
-  },
-  '斧兵': {
-    '坦克-狂战士': [
-      { level: 2, name: '狂怒', desc: '自身HP每降低10%，获得+2 ATK（最大+10）。HP恢复后加成相应减少。' },
-      { level: 6, name: '挑衅', desc: '可在每回合攻击前使用。对最远4格内的所有敌人施加一回合「嘲讽」。使用后自身DEF+6，持续一回合。每场战斗可使用3次。' },
-      { level: 10, name: '不屈战线', desc: '以「嘲讽+承伤」重释：被嘲讽的敌人攻击自身时，自身获得一次优势进行格挡（成功则伤害减半）；自身HP≤30%时，挑衅范围扩大到6格，且不再消耗次数。' },
-      { level: 15, name: '狂怒·EX', desc: '狂怒强化：HP每降低10%获得+3 ATK（最大+15）；自身HP≤30%时，额外获得+6 DEF，且每场战斗可免死一次（HP降至0时保留1点）。' }
-    ],
-    '惩戒者-处刑者': [
-      { level: 2, name: '处刑', desc: '每当一名友军受到伤害后，可立即对攻击者进行一次反击（不消耗行动）。反击伤害=主属性加值×2的纯粹伤害。每回合最多触发1次。' },
-      { level: 6, name: '压制', desc: '自身攻击命中后，可对目标施加一层「压制」（每层使目标对友军造成的伤害-4，最多3层）。' },
-      { level: 10, name: '以牙还牙', desc: '以「侧翼保护」重释：友军受到暴击时，处刑的反击伤害翻倍，且可额外对攻击者施加一回合「畏惧」。' },
-      { level: 15, name: '处刑·EX', desc: '反击伤害变为主属性加值×3；每回合可触发2次；反击命中时额外给该友军一层「离子护甲」。' }
-    ],
-    '辅助-刃': [
-      { level: 2, name: '诅咒印记', desc: '每回合开始时，可对最远3格内的一名敌人施加「诅咒印记」。被印记的敌人在回合结束时受到等同于自身主属性加值的纯粹伤害，且下一次攻击获得一次劣势。印记持续到目标死亡或重新施加。' },
-      { level: 6, name: '致盲刃', desc: '自身攻击命中后，可对目标施加一层「失明」。每层「失明」使目标的下一次攻击获得一次劣势。叠满3层时，转化为「致盲」（持续到战斗结束，期间无法发动攻击，且移动格-2）。' },
-      { level: 10, name: '巫毒中枢', desc: '以「团队增益」重释：自身在场时，全体友军的主属性加值在计算检定时额外+1；对敌人施加诅咒印记后，全体友军对该敌人的下一次攻击额外造成等同于自身主属性加值的伤害。' },
-      { level: 15, name: '诅咒印记·EX', desc: '诅咒印记强化：可同时印记两名敌人；印记目标死亡时，可立即对最远3格内的另一名敌人施加印记，并为其恢复一层「离子护甲」。' }
-    ]
-  },
-  '枪兵': {
-    '坦克-骑兵': [
-      { level: 2, name: '骑枪突进', desc: '可在每回合攻击前使用。向最远3格内的敌人突进，并对路径上的所有敌人造成等同于主属性加值的物理伤害。使用后自身DEF+4，持续一回合。每场战斗可使用3次。' },
-      { level: 6, name: '挑衅', desc: '可在每回合攻击前使用。对最远4格内的所有敌人施加一回合「嘲讽」。使用后自身DEF+6，持续一回合。每场战斗可使用3次。' },
-      { level: 10, name: '不屈战线', desc: '以「嘲讽+承伤」重释：被嘲讽的敌人攻击自身时，自身获得一次优势进行格挡（成功则伤害减半）；自身HP≤30%时，挑衅范围扩大到6格，且不再消耗次数。' },
-      { level: 15, name: '骑枪突进·EX', desc: '突进范围扩大到5格；路径上的敌人额外受到一层「断筋」；使用次数增加到5次。' }
-    ],
-    '治疗师-瓦尔基里': [
-      { level: 2, name: '附魔', desc: '可在每回合攻击前，为自身武器施加「治疗附魔」。本回合内每次攻击命中时，为最远4格内的一名友军回复4+主属性加值的HP。每场战斗可使用4次。' },
-      { level: 6, name: '净化', desc: '自身在场时，全体友军在回合开始时若带有属性异常或精神异常，有50%概率清除一层。使用附魔时额外清除一层。' },
-      { level: 10, name: '生命链接', desc: '以「持续治疗」重释：自身在场时，任意友军HP≤50%时，全体友军在回合结束时回复4点HP；使用附魔时回复量翻倍。' },
-      { level: 15, name: '附魔·EX', desc: '回复量变为6+主属性加值×2；使用次数增加到6次；使用时可为3格内的另一名友军回复一半数值。' }
-    ],
-    '刺客-斥候': [
-      { level: 2, name: '追迹', desc: '可在不消耗施法机会的情况下使用二册魔术「追迹」，最多可使用两次，长休补满，短休补1次。额外精通洞悉、调查。' },
-      { level: 6, name: '弱点', desc: '对当前HP≤50%的敌人造成伤害时，额外造成等同于主属性加值的纯粹伤害。' },
-      { level: 10, name: '致命一击', desc: '以「单体爆发」重释：对追迹目标的暴击倍率提升至250%；若目标SPD低于自身，提升至300%。' },
-      { level: 15, name: '永恒追迹', desc: '可在不消耗魔术使用次数的情况下使用四册魔术「永恒追迹」，最多可使用三次，长休补满，短休补1次。' }
-    ]
-  },
-  '魔术使': {
-    '刺客-咒': [
-      { level: 2, name: '咒杀', desc: '每回合开始时，可对最远6格内的一名敌人施加「咒杀」。本回合内对该目标使用魔术时，伤害总值+（主属性加值×2）。' },
-      { level: 6, name: '毒发', desc: '对当前HP≤50%的敌人使用魔术时，额外施加一层「毒发」（每层在回合结束时造成2点腐蚀伤害，最多5层）。' },
-      { level: 10, name: '致命咒文', desc: '以「单体爆发」重释：对咒杀目标的魔术暴击倍率提升至250%；若目标带有任意异常，提升至300%。' },
-      { level: 15, name: '咒杀·EX', desc: '伤害加成变为主属性加值×3；咒杀目标死亡时，可立即对另一名敌人施加咒杀，并在本回合内对其造成的伤害再+10。' }
-    ],
-    '辅助-Warlock': [
-      { level: 2, name: '召唤', desc: '自身在场时，全体友军的检定技能获得+2。自身每回合可召唤一个「使魔」（HP=主属性加值×3，不具备防御力）。使魔可移动并攻击，伤害=主属性加值。每场战斗可召唤2次。' },
-      { level: 6, name: '削弱', desc: '自身或使魔攻击命中后，可解除目标一个强化状态；若为暴击，解除所有强化状态，并向目标施加一回合「易伤」。' },
-      { level: 10, name: '契约中枢', desc: '以「团队增益」重释：自身在场时，全体友军的主属性加值在计算检定时额外+1；使魔在场时，全体友军对使魔攻击过的敌人额外造成等同于自身主属性加值的伤害。' },
-      { level: 15, name: '召唤·EX', desc: '友军检定+4；使魔HP变为主属性加值×5；每场战斗可召唤3次；使魔死亡时，可立即为一名友军回复等同于主属性加值的HP。' }
-    ],
-    '刺客-Caster': [
-      { level: 2, name: '法术强化', desc: '每回合开始时，可选择一个魔术。本回合内使用该魔术时，伤害总值+（主属性加值×2），且暴击判定范围+1。' },
-      { level: 6, name: '弱点', desc: '对当前HP≤50%的敌人使用魔术时，额外造成等同于主属性加值的纯粹伤害。' },
-      { level: 10, name: '致命施法', desc: '以「单体爆发」重释：对法术强化目标的魔术暴击倍率提升至250%；若目标SPD低于自身，提升至300%。' },
-      { level: 15, name: '法术强化·EX', desc: '伤害加成变为主属性加值×3；暴击判定范围+2；法术强化的魔术使用后，可立即对另一名敌人使用一次同名魔术（不消耗魔力）。' }
-    ]
-  }
+const activeSkillPool = [
+  { name: '主动技能1', desc: '待补充' },
+  { name: '主动技能2', desc: '待补充' },
+  { name: '主动技能3', desc: '待补充' },
+  { name: '主动技能4', desc: '待补充' },
+  { name: '主动技能5', desc: '待补充' }
+]
+
+const attributeSkillPools = {
+  '力量': [
+    { threshold: 10, name: '力量技能10', desc: '待补充' },
+    { threshold: 20, name: '力量技能20', desc: '待补充' },
+    { threshold: 30, name: '力量技能30', desc: '待补充' }
+  ],
+  '智力': [
+    { threshold: 10, name: '智力技能10', desc: '待补充' },
+    { threshold: 20, name: '智力技能20', desc: '待补充' },
+    { threshold: 30, name: '智力技能30', desc: '待补充' }
+  ],
+  '敏捷': [
+    { threshold: 10, name: '敏捷技能10', desc: '待补充' },
+    { threshold: 20, name: '敏捷技能20', desc: '待补充' },
+    { threshold: 30, name: '敏捷技能30', desc: '待补充' }
+  ]
 }
 
-function getPathAbilities(className, pathName) {
-  if (!pathDatabase[className] || !pathDatabase[className][pathName]) return []
-  return pathDatabase[className][pathName]
+function randomChoices(pool, count = 3) {
+  const arr = [...pool]
+  const result = []
+  while (result.length < count && arr.length) {
+    const i = Math.floor(Math.random() * arr.length)
+    result.push(arr.splice(i, 1)[0])
+  }
+  return result
 }
+const passiveChoices = ref({ I: null, II: null, III: null })
+const activeChoices = ref([null, null, null])
+
+function rollPassiveChoices(tier) {
+  const pool = passiveSkillPools[tier] || []
+  passiveChoices.value[tier] = randomChoices(pool, 3)
+}
+
+function selectPassive(tier, skill) {
+  if (!currentCharacter.value.abilitySkills) {
+    currentCharacter.value.abilitySkills = { I: null, II: null, III: null }
+  }
+  currentCharacter.value.abilitySkills[tier] = { name: skill.name, desc: skill.desc }
+  passiveChoices.value[tier] = null
+}
+
+function rollActiveChoices(index) {
+  activeChoices.value[index] = randomChoices(activeSkillPool, 3)
+}
+
+function selectActive(index, skill) {
+  if (!currentCharacter.value.activeSkills) {
+    currentCharacter.value.activeSkills = [null, null, null]
+  }
+  currentCharacter.value.activeSkills[index] = { name: skill.name, desc: skill.desc }
+  activeChoices.value[index] = null
+}
+
+const unlockedAttributeSkills = computed(() => {
+  if (!currentCharacter.value || !currentClassInfo.value) return []
+  const main = currentClassInfo.value.mainAttribute
+  if (!main || !attributeSkillPools[main]) return []
+  let val = 0
+  if (main === '力量') val = currentCharacter.value.strength || 0
+  else if (main === '智力') val = currentCharacter.value.intelligence || 0
+  else if (main === '敏捷') val = currentCharacter.value.agility || 0
+  return attributeSkillPools[main].filter(s => val >= s.threshold)
+})
+
+
+
+
+
+
 
 function seededShuffle(arr, seed) {
   const a = [...arr]
@@ -2312,12 +2189,6 @@ const buffList = {
     { name: '大腹便便', desc: '远东异兽的加护。使用后将饱食度归零（cost10）' }
   ]
 }
-
-const availablePaths = computed(() => {
-  if (!currentCharacter.value || !currentCharacter.value.class_name) return []
-  const paths = pathDatabase[currentCharacter.value.class_name]
-  return paths ? Object.keys(paths) : []
-})
 
 const currentClassInfo = computed(() => {
   if (!currentCharacter.value || !currentCharacter.value.class_name) return null
@@ -2554,7 +2425,7 @@ function startRealtime() {
             updated.abilitySkills = updated.ability_skills
           }
           if (!updated.abilitySkills) {
-            updated.abilitySkills = { I: [], II: [], III: [], hero: [] }
+            updated.abilitySkills = { I: null, II: null, III: null }
           } else {
             updated.abilitySkills = {
               I: updated.abilitySkills.I || [],
@@ -2825,7 +2696,7 @@ if (!charCopy.learnedMagic) {
 
 if (!charCopy.path) charCopy.path = ''
 if (!charCopy.abilitySkills) {
-  charCopy.abilitySkills = { I: [], II: [], III: [], hero: [] }
+  charCopy.abilitySkills = { I: null, II: null, III: null }
 } else {
   charCopy.abilitySkills = {
     I: charCopy.abilitySkills.I || [],
@@ -2916,6 +2787,9 @@ async function saveCharacter(silent = true) {
       def: currentCharacter.value.def,
       res: currentCharacter.value.res,
       spd: currentCharacter.value.spd,
+      shd: currentCharacter.value.shd || 0,
+      active_skills: currentCharacter.value.activeSkills,
+      attribute_skills: currentCharacter.value.attributeSkills,
       move_range: currentCharacter.value.move_range,
       pp: currentCharacter.value.pp,
       notes: currentCharacter.value.notes,
@@ -2944,38 +2818,6 @@ function scheduleAutoSave() {
 }
 
 watch(currentCharacter, () => scheduleAutoSave(), { deep: true })
-
-function applyLevelGrowth() {
-  if (!currentCharacter.value) return
-
-  const s = Number(currentCharacter.value.strength_growth) || 0
-  const i = Number(currentCharacter.value.intelligence_growth) || 0
-  const a = Number(currentCharacter.value.agility_growth) || 0
-
-  // 基础属性（保留小数）
-  currentCharacter.value.strength = (Number(currentCharacter.value.strength) || 0) + s
-  currentCharacter.value.intelligence = (Number(currentCharacter.value.intelligence) || 0) + i
-  currentCharacter.value.agility = (Number(currentCharacter.value.agility) || 0) + a
-
-  // 派生属性：用完整小数累计（不在这里取整，让小数能累积）
-  currentCharacter.value.hp_max = (Number(currentCharacter.value.hp_max) || 0) + s * 2
-  currentCharacter.value.res = (Number(currentCharacter.value.res) || 0) + i * 0.5
-  currentCharacter.value.spd = (Number(currentCharacter.value.spd) || 0) + a * 0.1
-
-  // ATK：增加升级后主属性的 1/4（完整小数累计）
-  if (currentClassInfo.value) {
-    const main = currentClassInfo.value.mainAttribute
-    let newMain = 0
-    if (main === '力量') newMain = currentCharacter.value.strength
-    else if (main === '智力') newMain = currentCharacter.value.intelligence
-    else if (main === '敏捷') newMain = currentCharacter.value.agility
-
-    const atkAdd = newMain / 4
-    currentCharacter.value.atk = (Number(currentCharacter.value.atk) || 0) + atkAdd
-  }
-
-  alert('已应用本级成长值（小数会累计，显示时再向下取整）')
-}
 
 function randInt(min, max) {
   return min + Math.floor(Math.random() * (max - min + 1))
@@ -3984,7 +3826,7 @@ onUnmounted(() => {
     <p style="color:#666; font-size:13px;">
       视野 {{ VIEW }}×{{ VIEW }} ／ 全图 {{ MAP_W }}×{{ MAP_H }}
       ｜ 先点 token 再点「移动」，然后点空格
-      ｜ 三角切换 HP / ATK / DEF / RES
+      ｜ 三角切换 HP / ATK / DEF / SHD
     </p>
 
     <div style="margin-bottom: 8px;">
@@ -3996,6 +3838,13 @@ onUnmounted(() => {
     </div>
 
     <div v-if="isGM" style="margin: 10px 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+      <button type="button" @click="editorMode = editorMode === 'obstacle' ? '' : 'obstacle'"
+              :style="{ background: editorMode === 'obstacle' ? '#ff9800' : '#eee', padding: '6px 10px' }">障碍</button>
+      <button type="button" @click="editorMode = editorMode === 'playerSpawn' ? '' : 'playerSpawn'"
+              :style="{ background: editorMode === 'playerSpawn' ? '#4CAF50' : '#eee', padding: '6px 10px' }">玩家出生点</button>
+      <button type="button" @click="editorMode = editorMode === 'enemySpawn' ? '' : 'enemySpawn'"
+              :style="{ background: editorMode === 'enemySpawn' ? '#f44336' : '#eee', padding: '6px 10px' }">敌人出生点</button>
+      <span style="font-size: 12px; color: #666;">{{ editorMode ? '点击格子放置' : '' }}</span>
       <label>添加敌人</label>
       <select v-model="addEnemyId">
         <option value="">选择本局空想种</option>
@@ -4272,18 +4121,7 @@ onUnmounted(() => {
         <label>职业</label><br />
         <select v-model="currentCharacter.class_name" style="width: 100%; padding: 8px;">
           <option value="未选择">未选择</option>
-          <option value="剑士">剑士</option>
-          <option value="射手">射手</option>
-          <option value="斧兵">斧兵</option>
-          <option value="枪兵">枪兵</option>
-          <option value="魔术使">魔术使</option>
-        </select>
-      </div>
-      <div>
-        <label>Path</label><br />
-        <select v-model="currentCharacter.path" style="width: 100%; padding: 8px;">
-          <option value="">未选择</option>
-          <option v-for="p in availablePaths" :key="p" :value="p">{{ p }}</option>
+          <option value="待补充">待补充</option>
         </select>
       </div>
       <div>
@@ -4500,20 +4338,7 @@ onUnmounted(() => {
       <input type="number" step="0.1" v-model.number="currentCharacter.agility" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
     </div>
   </div>
-  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-    <div style="border: 2px solid #e53935; border-radius: 8px; padding: 8px 10px; background: #fff5f5;">
-      <label style="color: #c62828; font-weight: 600;">力量成长</label>
-      <input type="number" step="0.1" v-model.number="currentCharacter.strength_growth" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-    <div style="border: 2px solid #1e88e5; border-radius: 8px; padding: 8px 10px; background: #f3f8ff;">
-      <label style="color: #1565c0; font-weight: 600;">智力成长</label>
-      <input type="number" step="0.1" v-model.number="currentCharacter.intelligence_growth" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-    <div style="border: 2px solid #43a047; border-radius: 8px; padding: 8px 10px; background: #f3fbf4;">
-      <label style="color: #2e7d32; font-weight: 600;">敏捷成长</label>
-      <input type="number" step="0.1" v-model.number="currentCharacter.agility_growth" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-  </div>
+
   <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
     <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
       <label>当前 HP</label>
@@ -4548,6 +4373,10 @@ onUnmounted(() => {
     <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
       <label>SPD</label>
       <input type="number" :value="Math.floor(currentCharacter.spd || 0)" @input="currentCharacter.spd = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>SHD</label>
+      <input type="number" v-model.number="currentCharacter.shd" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
     </div>
   </div>
   <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
@@ -4613,49 +4442,62 @@ onUnmounted(() => {
 </div>
 </div>
 <div v-show="characterTab === 4">
-  <h2>被动技能 / 英雄技能</h2>
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+  <h2>被动技能</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px;">
   <div v-for="tier in ['I','II','III']" :key="tier" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-      <span>
-  <strong>被动 {{ tier }}</strong>
-  <span style="font-size: 12px; color: #888;">
-    （{{ currentCharacter.abilitySkills?.[tier]?.length || 0 }} / {{ tier === 'III' ? 1 : 2 }}）
-  </span>
-</span>
-      <button type="button" @click="openPassivePage(tier)" style="font-size: 12px; padding: 4px 8px; cursor: pointer;">去选择</button>
+      <strong>被动 {{ tier }}</strong>
+      <button type="button" @click="rollPassiveChoices(tier)" style="font-size: 12px; padding: 4px 8px; cursor: pointer;">三选一</button>
     </div>
-    <div v-if="!(currentCharacter.abilitySkills?.[tier]?.length)" style="color: #999; font-size: 13px;">未选择</div>
-    <div v-for="(s, i) in (currentCharacter.abilitySkills?.[tier] || [])" :key="s.name"
-         style="margin: 6px 0; padding: 8px; background: #fafafa; border-radius: 4px; font-size: 13px;">
+    <div v-if="!currentCharacter.abilitySkills?.[tier]" style="color: #999; font-size: 13px;">未选择</div>
+    <div v-else style="margin: 6px 0; padding: 8px; background: #fafafa; border-radius: 4px; font-size: 13px;">
       <div style="display: flex; justify-content: space-between;">
-        <strong>{{ s.name }}</strong>
-        <button type="button" @click="removeAbilitySkill(tier, i)" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
+        <strong>{{ currentCharacter.abilitySkills[tier].name }}</strong>
+        <button type="button" @click="currentCharacter.abilitySkills[tier] = null" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
       </div>
-      <div style="color: #666; margin-top: 4px;">{{ s.desc }}</div>
+      <div style="color: #666; margin-top: 4px;">{{ currentCharacter.abilitySkills[tier].desc }}</div>
+    </div>
+    <div v-if="passiveChoices[tier]" style="margin-top: 8px;">
+      <div v-for="s in passiveChoices[tier]" :key="s.name" @click="selectPassive(tier, s)"
+           style="padding: 6px; margin: 4px 0; background: #e3f2fd; border-radius: 4px; cursor: pointer; font-size: 13px;">
+        {{ s.name }}
+      </div>
     </div>
   </div>
+</div>
 
-  <div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+<h2>主动技能</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+  <div v-for="(slot, i) in 3" :key="i" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-      <span>
-  <strong>英雄技能</strong>
-  <span style="font-size: 12px; color: #888;">
-    （{{ currentCharacter.abilitySkills?.hero?.length || 0 }} / 1）
-  </span>
-</span>
-      <button type="button" @click="openHeroPage()" style="font-size: 12px; padding: 4px 8px; cursor: pointer;">去选择</button>
+      <strong>主动 {{ i + 1 }}</strong>
+      <button type="button" @click="rollActiveChoices(i)" style="font-size: 12px; padding: 4px 8px; cursor: pointer;">三选一</button>
     </div>
-    <div v-if="!(currentCharacter.abilitySkills?.hero?.length)" style="color: #999; font-size: 13px;">未选择</div>
-    <div v-for="(s, i) in (currentCharacter.abilitySkills?.hero || [])" :key="s.name"
-         style="margin: 6px 0; padding: 8px; background: #fff8e1; border-radius: 4px; font-size: 13px;">
+    <div v-if="!currentCharacter.activeSkills?.[i]" style="color: #999; font-size: 13px;">未选择</div>
+    <div v-else style="margin: 6px 0; padding: 8px; background: #fff8e1; border-radius: 4px; font-size: 13px;">
       <div style="display: flex; justify-content: space-between;">
-        <strong>{{ s.name }}</strong>
-        <button type="button" @click="removeAbilitySkill('hero', i)" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
+        <strong>{{ currentCharacter.activeSkills[i].name }}</strong>
+        <button type="button" @click="currentCharacter.activeSkills[i] = null" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
       </div>
-      <div style="color: #666; margin-top: 4px;">{{ s.desc }}</div>
+      <div style="color: #666; margin-top: 4px;">{{ currentCharacter.activeSkills[i].desc }}</div>
+    </div>
+    <div v-if="activeChoices[i]" style="margin-top: 8px;">
+      <div v-for="s in activeChoices[i]" :key="s.name" @click="selectActive(i, s)"
+           style="padding: 6px; margin: 4px 0; background: #fff3e0; border-radius: 4px; cursor: pointer; font-size: 13px;">
+        {{ s.name }}
+      </div>
     </div>
   </div>
+</div>
+
+<h2>属性技能</h2>
+<div style="margin-bottom: 20px;">
+  <div v-for="skill in unlockedAttributeSkills" :key="skill.name"
+       style="margin: 6px 0; padding: 8px; background: #f3e5f5; border-radius: 4px; font-size: 13px;">
+    <strong>{{ skill.name }}</strong>（{{ skill.threshold }}点）
+    <div style="color: #666; margin-top: 4px;">{{ skill.desc }}</div>
+  </div>
+  <div v-if="!unlockedAttributeSkills.length" style="color: #999; font-size: 13px;">主属性未达到解锁阈值</div>
 </div>
 </div>
 <div v-show="characterTab === 5">
