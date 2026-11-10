@@ -3950,17 +3950,17 @@ onUnmounted(() => {
         <div
           v-for="row in VIEW"
           :key="'r'+row"
-          :style="{ display: 'flex', marginLeft: (viewY + row - 1) % 2 ? '24px' : '0' }"
+          :style="{ display: 'flex', marginLeft: (viewY + row - 1) % 2 ? '34px' : '0', marginTop: row > 1 ? '-18px' : '0' }"
         >
           <div
             v-for="col in VIEW"
             :key="'c'+col"
             @click="onCellClick(viewX + col - 1, viewY + row - 1)"
             :style="{
-              width: '56px',
-              height: '64px',
+              width: '64px',
+              height: '72px',
               clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
-              margin: '0 -8px',
+              margin: '0 2px',
               position: 'relative',
               background: tokenAt(viewX + col - 1, viewY + row - 1)
                 ? (tokenAt(viewX + col - 1, viewY + row - 1).kind === 'player' ? '#bbdefb' : '#ffcdd2')
