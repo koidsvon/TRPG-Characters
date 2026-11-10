@@ -29,6 +29,29 @@ const bookForm = ref({
 const MAP_W = 8
 const MAP_H = 8
 const VIEW = 8
+// 六边形（odd-r 水平布局）
+function hexNeighbors(x, y) {
+  // 奇行 / 偶行邻居偏移不同
+  const odd = y % 2 !== 0
+  const dirs = odd
+    ? [[+1,0],[0,-1],[-1,-1],[-1,0],[-1,+1],[0,+1]]
+    : [[+1,0],[+1,-1],[0,-1],[-1,0],[0,+1],[+1,+1]]
+  return dirs.map(([dx, dy]) => ({ x: x + dx, y: y + dy }))
+}
+
+function hexDistance(a, b) {
+  // 转换为立方坐标再算距离
+  function toCube(x, y) {
+    const q = x - Math.floor((y - (y & 1)) / 2)
+    const r = y
+    const s = -q - r
+    return { q, r, s }
+  }
+  const A = toCube(a.x, a.y)
+  const B = toCube(b.x, b.y)
+  return Math.max(Math.abs(A.q - B.q), Math.abs(A.r - B.r), Math.abs(A.s - B.s))
+}
+
 
 const viewX = ref(0)
 const viewY = ref(0)
@@ -373,6 +396,8 @@ function tokenStatValue(t, key) {
   if (key === 'atk') return src.atk ?? 0
   if (key === 'def') return src.def ?? 0
   if (key === 'shd') return src.shd ?? 0
+  if (key === 'res') return src.res ?? 0
+  if (key === 'eva') return src.eva ?? 0
   return 0
 }
 
@@ -640,6 +665,12 @@ async function moveTokenTo(t, x, y) {
   if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) return
   if (tokenAt(x, y) && tokenAt(x, y).id !== t.id) {
     alert('该格已有单位')
+    return
+  }
+  // 六边形距离检查（默认移动距离 4）
+  const dist = hexDistance({ x: t.x, y: t.y }, { x, y })
+  if (dist > 4) {
+    alert('超出移动距离（最大 4 格）')
     return
   }
   const { error } = await supabase.from('battle_tokens').update({ x, y }).eq('id', t.id)
@@ -2022,11 +2053,37 @@ const passiveSkillPools = {
 }
 
 const activeSkillPool = [
-  { name: '主动技能1', desc: '待补充' },
-  { name: '主动技能2', desc: '待补充' },
-  { name: '主动技能3', desc: '待补充' },
-  { name: '主动技能4', desc: '待补充' },
-  { name: '主动技能5', desc: '待补充' }
+  { name: '大腹便便', cost: 1, desc: '将饱食度归零，并赋予自身10点SHD。' },
+  { name: '圣光术', cost: 2, desc: '恢复自身15点HP' },
+  { name: '祝福之盾', cost: 2, desc: '赋予自身6点DEF' },
+  { name: '重整旗鼓', cost: 3, desc: '解除自身所有的伤口异常，每一个被解除的伤口异常都可以为施法者恢复5HP' },
+  { name: '熔炉的加护', cost: 3, desc: '赋予自身两次伤害类型变换（-火属性魔法伤害）' },
+  { name: '圣怀斯之歌', cost: 3, desc: '赋予自身暴击率提升（2），持续到战斗结束' },
+  { name: '王道宣言', cost: 3, desc: '赋予自身精神异常“堕落”无效状态，持续到战斗结束' },
+  { name: '透化', cost: 3, desc: '解除自身所有的异常状态' },
+  { name: '伏特压流', cost: 3, desc: '对最远5格外的单一敌人造成10点雷属性魔法伤害。每次使用后在本次战斗中可额外造成10点伤害，并+1行动力消耗' },
+  { name: '点火术', cost: 3, desc: '对最远1格外的单一敌人造成10点火属性魔法伤害' },
+  { name: '降灵术（风）', cost: 4, desc: '赋予自身三次闪避提升（6）' },
+  { name: '免转心境', cost: 4, desc: '赋予自己一回合闪避提升（17）' },
+  { name: '暖光的果实', cost: 3, desc: '赋予自身两回合持续恢复状态（10），当造成伤害时提前失效' },
+  { name: '宁愈术', cost: 5, desc: '持续施法1~2回合。持续施法期间每回合回复自身以及周边2格内的所有友军11点HP' },
+  { name: '钻地术', cost: 4, desc: '赋予自身一回合特殊状态“钻地”，使施法者DEF翻倍并获得一次状态异常免疫效果，状态消失时回复4点HP' },
+  { name: '灾厄化', cost: 4, desc: '赋予3格内任意单一友军五回合特殊状态“灾厄化”，使目标+10ATK +2EVA -10RES -10DEF。' },
+  { name: '领袖气质', cost: 4, desc: '赋予全体友军两次+8ATK' },
+  { name: '狂暴', cost: 4, desc: '赋予自身两回合+12ATK' },
+  { name: '卷土重来', cost: 5, desc: '向后移动3格，并在地上留下移动的痕迹。处于移动痕迹上的单位将会减少12点ATK' },
+  { name: '假死术', cost: 5, desc: '对自己造成3点纯粹伤害。然后赋予自身一回合特殊状态“假死”，假死期间无法进行任何行动。所有以你为目标的敌人将改变目标' },
+  { name: '合轴斩击', cost: 6, desc: '向任意方向移动3格，若路径上有任何【障碍物】则可以额外沿同一方向移动2格。并对单一敌人造成10+ATK加值的物理伤害' },
+  { name: '火焰箭', cost: 6, desc: '对最远3格外的单一敌人造成28点火属性魔法伤害' },
+  { name: '抽丝剥茧', cost: 5, desc: '召唤一个具备50点HP，没有任何防御力的石墙（1格大小）。石墙会被视为2级障碍。若有单位处于石墙之中，则将被束缚（无法移动，施法）直到石墙消失。' },
+  { name: '道化机巧，其一', cost: 5, desc: '召唤一个具备30点HP，没有任何防御力，无法移动的持续三回合的人型告示牌（1格大小）。告示牌将会嘲讽所有野兽目标，其他类型的单位也可能会视其为敌人。攻击告示牌的敌人将会掉落10PP。若三回合后告示牌任然存活，它将会爆炸并对周边2格内所有单位造成等同于剩余HP的爆炸物理伤害' },
+  { name: '金流', cost: 5, desc: '召唤一缕锐利的金粉攻击面前3×2范围的敌人，造成40点物理伤害' },
+  { name: '降咒', cost: 6, desc: '持续施法1回合，随后赋予全场任意一名友方单位精神异常“降咒”。使其+15ATK，+5 SPD，+8 SHD，并清除目标的所有精神异常' },
+  { name: '隼击刺击', cost: 6, desc: '以最远5格外任意【障碍物】【召唤物】为目标，使用钩爪将自己牵引到目标旁，并对路径上的所有敌人造成8点物理伤害' },
+  { name: '热熔术', cost: 6, desc: '持续施法1回合后，召唤一颗熔岩球。随后可将熔岩球中的熔岩射出对最远7格的单一目标造成30点火属性魔法伤害，最多3次。或将完整的熔岩球射出对最远5格外的2×2范围造成10次6点火属性伤害' },
+  { name: '胧影之潭', cost: 6, desc: '将最远5格外的2×2区域变为胧影之潭持续三回合。处于胧影之潭的敌人将会减少10点SPD，并且在进入时受到6点毒素魔法伤害' },
+  { name: '抽丝剥茧-锐', cost: 8, desc: '对最远2格外的单一敌人造成80点魔法伤害。若命中投掷结果为1d20=18~20，则秒杀人类、野兽等活体目标' },
+  { name: '战吼术', cost: 5, desc: '以自身为中心，在周边3格内发出战吼。赋予范围内所有友军20 SHD。每15点力量可以增加1格作用范围' }
 ]
 
 const attributeSkillPools = {
@@ -3859,7 +3916,7 @@ onUnmounted(() => {
     <p style="color:#666; font-size:13px;">
       视野 {{ VIEW }}×{{ VIEW }} ／ 全图 {{ MAP_W }}×{{ MAP_H }}
       ｜ 先点 token 再点「移动」，然后点空格
-      ｜ 四角：红HP / 紫ATK / 黄SHD / 灰DEF
+      ｜ 六角：红HP / 紫ATK / 黄SHD / 灰DEF / 蓝RES / 绿EVA
     </p>
 
     <div style="margin-bottom: 8px;">
@@ -3893,40 +3950,49 @@ onUnmounted(() => {
         <div
           v-for="row in VIEW"
           :key="'r'+row"
-          style="display: flex;"
+          :style="{ display: 'flex', marginLeft: (viewY + row - 1) % 2 ? '32px' : '0' }"
         >
           <div
             v-for="col in VIEW"
             :key="'c'+col"
             @click="onCellClick(viewX + col - 1, viewY + row - 1)"
             :style="{
-              width: '56px',
-              height: '56px',
-              border: '1px solid #ddd',
-              boxSizing: 'border-box',
+              width: '64px',
+              height: '72px',
+              clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
+              margin: '0 2px',
               position: 'relative',
               background: tokenAt(viewX + col - 1, viewY + row - 1)
                 ? (tokenAt(viewX + col - 1, viewY + row - 1).kind === 'player' ? '#e3f2fd' : '#ffebee')
                 : ((viewX + col - 1 + viewY + row - 1) % 2 ? '#fafafa' : '#fff'),
               outline: selectedTokenId && tokenAt(viewX + col - 1, viewY + row - 1)?.id === selectedTokenId ? '2px solid #1565c0' : 'none',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }"
           >
             <template v-if="tokenAt(viewX + col - 1, viewY + row - 1)">
-              <!-- 四角数值圆 -->
-              <div style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #e53935; color: white; font-size: 9px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="HP">
+              <!-- 六角数值圆 -->
+              <div style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: 14px; height: 14px; border-radius: 50%; background: #e53935; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="HP">
                 {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'hp') }}
               </div>
-              <div style="position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #9c27b0; color: white; font-size: 9px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="ATK">
+              <div style="position: absolute; top: 18px; right: 6px; width: 14px; height: 14px; border-radius: 50%; background: #9c27b0; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="ATK">
                 {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'atk') }}
               </div>
-              <div style="position: absolute; bottom: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fbc02d; color: #333; font-size: 9px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="SHD">
+              <div style="position: absolute; bottom: 18px; right: 6px; width: 14px; height: 14px; border-radius: 50%; background: #fbc02d; color: #333; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="SHD">
                 {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'shd') }}
               </div>
-              <div style="position: absolute; bottom: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #757575; color: white; font-size: 9px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="DEF">
+              <div style="position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 14px; height: 14px; border-radius: 50%; background: #757575; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="DEF">
                 {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'def') }}
               </div>
-              <div style="font-size: 11px; font-weight: bold; text-align: center; line-height: 56px;">
+              <div style="position: absolute; bottom: 18px; left: 6px; width: 14px; height: 14px; border-radius: 50%; background: #1976d2; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="RES">
+                {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'res') }}
+              </div>
+              <div style="position: absolute; top: 18px; left: 6px; width: 14px; height: 14px; border-radius: 50%; background: #43a047; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="EVA">
+                {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'eva') }}
+              </div>
+              <div style="font-size: 10px; font-weight: bold; text-align: center; z-index: 1;">
                 {{ tokenAt(viewX + col - 1, viewY + row - 1).label }}
               </div>
             </template>
@@ -3943,6 +4009,8 @@ onUnmounted(() => {
             ATK {{ getTokenSource(selectedToken)?.atk ?? '—' }}
             ｜ DEF {{ getTokenSource(selectedToken)?.def ?? '—' }}
             ｜ SHD {{ getTokenSource(selectedToken)?.shd ?? '—' }}
+            ｜ RES {{ getTokenSource(selectedToken)?.res ?? '—' }}
+            ｜ EVA {{ getTokenSource(selectedToken)?.eva ?? '—' }}
           </div>
           <div v-if="canEditHp(selectedToken)" style="margin-top: 10px;">
             <label>HP</label>
@@ -4261,7 +4329,7 @@ onUnmounted(() => {
       <strong>架势：</strong>
       <ul style="margin: 8px 0; padding-left: 20px; font-size: 14px;">
         <li v-for="(s, i) in currentClassInfo.stances" :key="i" style="margin-bottom: 8px;">
-          <strong>{{ s.name }}</strong>：{{ s.desc }}
+          <strong>{{ s.name }}（{{ s.cost || '?' }} AP）</strong>：{{ s.desc }}
         </li>
       </ul>
     </div>
@@ -4438,7 +4506,7 @@ onUnmounted(() => {
     <div v-if="passiveChoices[tier]" style="margin-top: 8px;">
       <div v-for="s in passiveChoices[tier]" :key="s.name" @click="selectPassive(tier, s)"
            style="padding: 6px; margin: 4px 0; background: #e3f2fd; border-radius: 4px; cursor: pointer; font-size: 13px;">
-        {{ s.name }}
+        {{ s.name }}（{{ s.cost || '?' }} AP）
       </div>
     </div>
   </div>
@@ -4458,11 +4526,12 @@ onUnmounted(() => {
         <button type="button" @click="currentCharacter.activeSkills[i] = null" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
       </div>
       <div style="color: #666; margin-top: 4px;">{{ currentCharacter.activeSkills[i].desc }}</div>
+        <div style="font-size: 12px; color: #888; margin-top: 2px;">消耗 {{ currentCharacter.activeSkills[i].cost || '?' }} AP</div>
     </div>
     <div v-if="activeChoices[i]" style="margin-top: 8px;">
       <div v-for="s in activeChoices[i]" :key="s.name" @click="selectActive(i, s)"
            style="padding: 6px; margin: 4px 0; background: #fff3e0; border-radius: 4px; cursor: pointer; font-size: 13px;">
-        {{ s.name }}
+        {{ s.name }}（{{ s.cost || '?' }} AP）
       </div>
     </div>
   </div>
