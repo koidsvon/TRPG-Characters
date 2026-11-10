@@ -539,6 +539,14 @@ async function toggleSkillVisible(t) {
   else await loadBattleMap()
 }
 
+async function renameToken(t) {
+  const name = prompt('新名称', t.label || '')
+  if (name === null) return
+  const { error } = await supabase.from('battle_tokens').update({ label: name || '未命名' }).eq('id', t.id)
+  if (error) alert('改名失败：' + error.message)
+  else await loadBattleMap()
+}
+
 async function removeToken(t) {
   if (!isGM.value) return
   if (!confirm('从地图上移除 ' + t.label + '？')) return
@@ -2150,7 +2158,7 @@ function selectActive(index, skill) {
   if (!currentCharacter.value.activeSkills) {
     currentCharacter.value.activeSkills = [null, null, null]
   }
-  currentCharacter.value.activeSkills[index] = { name: skill.name, desc: skill.desc }
+  currentCharacter.value.activeSkills[index] = { name: skill.name, desc: skill.desc, cost: skill.cost }
   activeChoices.value[index] = null
 }
 
@@ -4061,6 +4069,12 @@ onUnmounted(() => {
             {{ pendingMoveTokenId === selectedToken.id ? '点空格完成移动' : '移动' }}
           </button>
           <button
+            v-if="isGM && ['obstacle','summon'].includes(selectedToken.kind)"
+            type="button"
+            @click="renameToken(selectedToken)"
+            style="margin-top: 8px; padding: 4px 10px;"
+          >改名</button>
+          <button
             v-if="isGM"
             type="button"
             @click="removeToken(selectedToken)"
@@ -4093,9 +4107,7 @@ onUnmounted(() => {
                   </div>
                 </div>
                 <div v-if="!(getTokenSource(selectedToken)?.abilitySkills?.hero?.length)" style="color:#999; font-size:12px;">无英雄技能</div>
-                <div v-for="s in (getTokenSource(selectedToken)?.abilitySkills?.hero || [])" :key="s.name" style="font-size:12px; padding: 2px 0; background:#fff8e1;">
-                  {{ s.name }}
-                </div>
+                
               </div>
               <div v-else>
                 <div style="font-size:12px; color:#666;">装备信息待补充</div>
@@ -4582,6 +4594,30 @@ onUnmounted(() => {
   </div>
 </div>
 
+<h2>被动技能 / 英雄技能</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+  <div v-for="tier in ['I','II','III']" :key="tier" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <span>
+        <strong>被动 {{ tier }}</strong>
+        <span style="font-size: 12px; color: #888;">
+          （{{ currentCharacter.abilitySkills?.[tier]?.length || 0 }} / {{ tier === 'III' ? 1 : 2 }}）
+        </span>
+      </span>
+      <button type="button" @click="openPassivePage(tier)" style="font-size: 12px; padding: 4px 8px; cursor: pointer;">去选择</button>
+    </div>
+    <div v-if="!(currentCharacter.abilitySkills?.[tier]?.length)" style="color: #999; font-size: 13px;">未选择</div>
+    <div v-for="(s, i) in (currentCharacter.abilitySkills?.[tier] || [])" :key="s.name"
+         style="margin: 6px 0; padding: 8px; background: #fafafa; border-radius: 4px; font-size: 13px;">
+      <div style="display: flex; justify-content: space-between;">
+        <strong>{{ s.name }}</strong>
+        <button type="button" @click="removeAbilitySkill(tier, i)" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
+      </div>
+      <div style="color: #666; margin-top: 4px;">{{ s.desc }}</div>
+    </div>
+  </div>
+</div>
+
 <h2>主动技能</h2>
 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px;">
   <div v-for="(slot, i) in 3" :key="i" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
@@ -4600,8 +4636,9 @@ onUnmounted(() => {
     </div>
     <div v-if="activeChoices[i]" style="margin-top: 8px;">
       <div v-for="s in activeChoices[i]" :key="s.name" @click="selectActive(i, s)"
-           style="padding: 6px; margin: 4px 0; background: #fff3e0; border-radius: 4px; cursor: pointer; font-size: 13px;">
-        {{ s.name }}（{{ s.cost || '?' }} AP）
+           style="padding: 8px; margin: 4px 0; background: #fff3e0; border-radius: 4px; cursor: pointer; font-size: 13px;">
+        <div style="font-weight: bold;">{{ s.name }}（{{ s.cost || '?' }} AP）</div>
+        <div style="color: #666; font-size: 12px; margin-top: 2px;">{{ s.desc }}</div>
       </div>
     </div>
   </div>
