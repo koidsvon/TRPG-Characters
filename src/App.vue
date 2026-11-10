@@ -1286,6 +1286,40 @@ async function completeMission() {
 }
 
 // 检定相关
+
+const skillPointsTotal = ref(15)
+const skillPointsUsed = computed(() => {
+  if (!currentCharacter.value?.skills) return 0
+  let used = 0
+  for (const key in currentCharacter.value.skills) {
+    if (key.startsWith('_')) continue
+    const val = currentCharacter.value.skills[key] || 1
+    used += Math.max(0, val - 1)
+  }
+  return used
+})
+const skillPointsLeft = computed(() => skillPointsTotal.value - skillPointsUsed.value)
+
+function canIncreaseSkill(key) {
+  if (!currentCharacter.value?.skills) return false
+  const val = currentCharacter.value.skills[key] || 1
+  if (val >= 5) return false  // creation cap
+  if (val >= 13) return false  // absolute cap
+  return skillPointsLeft.value > 0
+}
+
+function increaseSkill(key) {
+  if (!canIncreaseSkill(key)) return
+  currentCharacter.value.skills[key] = (currentCharacter.value.skills[key] || 1) + 1
+}
+
+function decreaseSkill(key) {
+  if (!currentCharacter.value?.skills) return
+  const val = currentCharacter.value.skills[key] || 1
+  if (val <= 1) return
+  currentCharacter.value.skills[key] = val - 1
+}
+
 const skillsExpanded = ref(false)
 
 const passiveSkillList = {
@@ -2408,7 +2442,7 @@ function startRealtime() {
             athletics: 4, toughness: 4, voodoo: 4, intimidate: 4,
             acrobatics: 4, sleight: 4, stealth: 4, survival: 4, animal: 4,
             insight: 4, medicine: 4, perception: 4, deception: 4,
-            performance: 4, persuasion: 4, investigation: 4, knowledge: 4
+            persuasion: 1, knowledge: 1
           }
           if (!updated.skills) {
             updated.skills = { ...defaultSkills }
@@ -2508,7 +2542,7 @@ async function createCharacter() {
         athletics: 4, toughness: 4, voodoo: 4, intimidate: 4,
         acrobatics: 4, sleight: 4, stealth: 4, survival: 4, animal: 4,
         insight: 4, medicine: 4, perception: 4, deception: 4,
-        performance: 4, persuasion: 4, investigation: 4, knowledge: 4
+        persuasion: 1, knowledge: 1
       }
     })
 
@@ -2679,10 +2713,10 @@ if (!charCopy.learnedMagic) {
 
   // ---------- skills 兼容处理（保持原来的）----------
   const defaultSkills = {
-    athletics: 4, toughness: 4, voodoo: 4, intimidate: 4,
-    acrobatics: 4, sleight: 4, stealth: 4, survival: 4, animal: 4,
-    insight: 4, medicine: 4, perception: 4, deception: 4,
-    performance: 4, persuasion: 4, investigation: 4, knowledge: 4
+    athletics: 1, toughness: 1, voodoo: 1, intimidate: 1,
+    acrobatics: 1, sleight: 1, stealth: 1, survival: 1, animal: 1,
+    insight: 1, medicine: 1, perception: 1, deception: 1,
+    persuasion: 1, knowledge: 1
   }
   if (!charCopy.skills) {
     charCopy.skills = { ...defaultSkills }
@@ -4502,47 +4536,55 @@ onUnmounted(() => {
 </div>
 <div v-show="characterTab === 5">
   <div v-show="skillsExpanded" style="padding: 20px;">
+    <div style="margin-bottom: 16px; padding: 10px; background: #e3f2fd; border-radius: 6px;">
+      可分配点数：<strong>{{ skillPointsLeft }}</strong> / {{ skillPointsTotal }}
+      <span style="color: #666; margin-left: 8px; font-size: 13px;">（创建时单技能最高 5，最终上限 13）</span>
+    </div>
     <!-- 力量相关 -->
     <h3 style="margin: 0 0 12px; color: #c62828; border-bottom: 1px solid #ffcdd2; padding-bottom: 6px;">与力量属性有关的能力</h3>
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 24px;">
-      <div :style="{ background: isProficientSkill('athletics') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+      <div style="padding: 6px;">
         <label>运动</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.athletics" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('athletics')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.athletics || 1 }}</span>
+          <button type="button" @click="increaseSkill('athletics')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           攀爬、游泳、跳跃、破门、摔跤等
-          <span v-if="isMainAttrSkill('athletics')" style="color: #c62828;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.athletics || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
-      <div :style="{ background: isProficientSkill('toughness') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+      <div style="padding: 6px;">
         <label>坚韧</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.toughness" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('toughness')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.toughness || 1 }}</span>
+          <button type="button" @click="increaseSkill('toughness')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           身体强韧程度，面对伤害的承受能力
-          <span v-if="isMainAttrSkill('toughness')" style="color: #c62828;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.toughness || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
-      <div :style="{ background: isProficientSkill('voodoo') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+      <div style="padding: 6px;">
         <label>巫毒</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.voodoo" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('voodoo')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.voodoo || 1 }}</span>
+          <button type="button" @click="increaseSkill('voodoo')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           对巫毒仪式和造物的知识
-          <span v-if="isMainAttrSkill('voodoo')" style="color: #c62828;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.voodoo || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
-      <div :style="{ background: isProficientSkill('intimidate') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+      <div style="padding: 6px;">
         <label>威吓</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.intimidate" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('intimidate')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.intimidate || 1 }}</span>
+          <button type="button" @click="increaseSkill('intimidate')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           威胁、逼问、震慑
-          <span v-if="isMainAttrSkill('intimidate')" style="color: #c62828;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.intimidate || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
     </div>
@@ -4550,54 +4592,59 @@ onUnmounted(() => {
     <!-- 敏捷相关（绿色） -->
     <h3 style="margin: 0 0 12px; color: #2e7d32; border-bottom: 1px solid #c8e6c9; padding-bottom: 6px;">与敏捷属性有关的能力</h3>
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 24px;">
-      <div :style="{ background: isProficientSkill('acrobatics') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+      <div style="padding: 6px;">
         <label>特技</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.acrobatics" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('acrobatics')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.acrobatics || 1 }}</span>
+          <button type="button" @click="increaseSkill('acrobatics')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           平衡、翻滚、穿越困难地形
-          <span v-if="isMainAttrSkill('acrobatics')" style="color: #2e7d32;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.acrobatics || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
-      <div :style="{ background: isProficientSkill('sleight') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+      <div style="padding: 6px;">
         <label>巧手</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.sleight" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('sleight')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.sleight || 1 }}</span>
+          <button type="button" @click="increaseSkill('sleight')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           开锁、偷窃、解除陷阱、掉包
-          <span v-if="isMainAttrSkill('sleight')" style="color: #2e7d32;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.sleight || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
-      <div :style="{ background: isProficientSkill('stealth') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+      <div style="padding: 6px;">
         <label>隐匿</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.stealth" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('stealth')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.stealth || 1 }}</span>
+          <button type="button" @click="increaseSkill('stealth')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           潜行、躲藏
-          <span v-if="isMainAttrSkill('stealth')" style="color: #2e7d32;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.stealth || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
-      <div :style="{ background: isProficientSkill('survival') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+      <div style="padding: 6px;">
         <label>求生</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.survival" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('survival')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.survival || 1 }}</span>
+          <button type="button" @click="increaseSkill('survival')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           追踪、野外生存、找路、预测天气
-          <span v-if="isMainAttrSkill('survival')" style="color: #2e7d32;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.survival || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
-      <div :style="{ background: isProficientSkill('animal') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+      <div style="padding: 6px;">
         <label>驯兽</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.animal" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('animal')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.animal || 1 }}</span>
+          <button type="button" @click="increaseSkill('animal')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           与动物互动、安抚、骑乘判断
-          <span v-if="isMainAttrSkill('animal')" style="color: #2e7d32;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.animal || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
     </div>
@@ -4605,84 +4652,72 @@ onUnmounted(() => {
     <!-- 智力相关（蓝色） -->
     <h3 style="margin: 0 0 12px; color: #1565c0; border-bottom: 1px solid #bbdefb; padding-bottom: 6px;">与智力属性有关的能力</h3>
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px;">
-      <div :style="{ background: isProficientSkill('insight') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+      <div style="padding: 6px;">
         <label>洞悉</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.insight" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('insight')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.insight || 1 }}</span>
+          <button type="button" @click="increaseSkill('insight')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           察觉谎言、情绪、意图
-          <span v-if="isMainAttrSkill('insight')" style="color: #1565c0;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.insight || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
-      <div :style="{ background: isProficientSkill('medicine') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+      <div style="padding: 6px;">
         <label>医疗</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.medicine" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('medicine')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.medicine || 1 }}</span>
+          <button type="button" @click="increaseSkill('medicine')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           诊断伤势、疾病、稳定濒死
-          <span v-if="isMainAttrSkill('medicine')" style="color: #1565c0;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.medicine || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
-      <div :style="{ background: isProficientSkill('perception') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+      <div style="padding: 6px;">
         <label>察觉</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.perception" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('perception')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.perception || 1 }}</span>
+          <button type="button" @click="increaseSkill('perception')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           发现隐藏事物、听到动静、观察细节
-          <span v-if="isMainAttrSkill('perception')" style="color: #1565c0;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.perception || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
-      <div :style="{ background: isProficientSkill('deception') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+      <div style="padding: 6px;">
         <label>欺瞒</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.deception" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('deception')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.deception || 1 }}</span>
+          <button type="button" @click="increaseSkill('deception')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           说谎、伪装、欺骗
-          <span v-if="isMainAttrSkill('deception')" style="color: #1565c0;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.deception || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
-      <div :style="{ background: isProficientSkill('performance') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
-        <label>表演</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.performance" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">
-          演出、吸引注意、伪装成艺人
-          <span v-if="isMainAttrSkill('performance')" style="color: #1565c0;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.performance || 0) + mainAttrBonus }}）
-          </span>
-        </div>
-      </div>
-      <div :style="{ background: isProficientSkill('persuasion') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+
+      <div style="padding: 6px;">
         <label>说服</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.persuasion" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('persuasion')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.persuasion || 1 }}</span>
+          <button type="button" @click="increaseSkill('persuasion')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           谈判、劝说、外交
-          <span v-if="isMainAttrSkill('persuasion')" style="color: #1565c0;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.persuasion || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
-      <div :style="{ background: isProficientSkill('investigation') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
-        <label>调查</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.investigation" style="width: 100%; padding: 6px;" />
-        <div style="font-size: 12px; color: #888; margin-top: 2px;">
-          推理
-          <span v-if="isMainAttrSkill('investigation')" style="color: #1565c0;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.investigation || 0) + mainAttrBonus }}）
-          </span>
-        </div>
-      </div>
-      <div :style="{ background: isProficientSkill('knowledge') ? '#f5f5f5' : 'transparent', padding: '6px', borderRadius: '4px' }">
+
+      <div style="padding: 6px;">
         <label>知识</label><br />
-        <input type="number" v-model.number="currentCharacter.skills.knowledge" style="width: 100%; padding: 6px;" />
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <button type="button" @click="decreaseSkill('knowledge')" style="padding: 4px 10px; cursor: pointer;">-</button>
+          <span style="min-width: 24px; text-align: center; font-weight: bold;">{{ currentCharacter.skills.knowledge || 1 }}</span>
+          <button type="button" @click="increaseSkill('knowledge')" style="padding: 4px 10px; cursor: pointer;">+</button>
+        </div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">
           历史、神秘学、仪式、图书馆、科技
-          <span v-if="isMainAttrSkill('knowledge')" style="color: #1565c0;">
-            （+主属性加值 {{ mainAttrBonus }} → 实际 {{ (currentCharacter.skills.knowledge || 0) + mainAttrBonus }}）
-          </span>
         </div>
       </div>
     </div>
@@ -5261,7 +5296,7 @@ onUnmounted(() => {
     <h3>属性与检定（摘要）</h3>
     <p>力量 1点 = 2 HP　｜　智力 1点 = 1 魔力 + 0.5 RES　｜　敏捷 1点 = 0.1 SPD</p>
     <p>ATK = 默认ATK + 主属性/4（向下取整）+ 武器加值</p>
-    <p>检定技能默认 4；主属性相关技能可加 主属性÷10。使用 1d20 判定。</p>
+    <p>检定：1d20 + 技能值 ≥ 难度则成功。技能默认 1，创建时有 15 点可分配（单技能最高 5），最终上限 13。</p>
 
     <h3>装备</h3>
     <p>头盔 / 胸甲 / 护腿 · 主手 / 副手 · 背包 · 护身符（可使用 buff 的职业）</p>
