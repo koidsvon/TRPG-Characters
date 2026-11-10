@@ -26,9 +26,9 @@ const bookForm = ref({
   summary: ''
 })
 
-const MAP_W = 8
-const MAP_H = 8
-const VIEW = 8
+const MAP_W = 10
+const MAP_H = 10
+const VIEW = 10
 // 六边形（odd-r 水平布局）
 function hexNeighbors(x, y) {
   // 奇行 / 偶行邻居偏移不同
@@ -3914,7 +3914,7 @@ onUnmounted(() => {
       </div>
     </div>
     <p style="color:#666; font-size:13px;">
-      视野 {{ VIEW }}×{{ VIEW }} ／ 全图 {{ MAP_W }}×{{ MAP_H }}
+      视野 {{ VIEW }}×{{ VIEW }} ／ 全图 {{ MAP_W }}×{{ MAP_H }}（六边形）
       ｜ 先点 token 再点「移动」，然后点空格
       ｜ 六角：红HP / 紫ATK / 黄SHD / 灰DEF / 蓝RES / 绿EVA
     </p>
@@ -3963,8 +3963,8 @@ onUnmounted(() => {
               margin: '0 2px',
               position: 'relative',
               background: tokenAt(viewX + col - 1, viewY + row - 1)
-                ? (tokenAt(viewX + col - 1, viewY + row - 1).kind === 'player' ? '#e3f2fd' : '#ffebee')
-                : ((viewX + col - 1 + viewY + row - 1) % 2 ? '#fafafa' : '#fff'),
+                ? (tokenAt(viewX + col - 1, viewY + row - 1).kind === 'player' ? '#bbdefb' : '#ffcdd2')
+                : ((viewX + col - 1 + viewY + row - 1) % 2 ? '#e8e8e8' : '#d0d0d0'),
               outline: selectedTokenId && tokenAt(viewX + col - 1, viewY + row - 1)?.id === selectedTokenId ? '2px solid #1565c0' : 'none',
               cursor: 'pointer',
               display: 'flex',
