@@ -59,6 +59,7 @@ const battleMap = ref(null)
 const editorMode = ref('')  // 'obstacle' | 'playerSpawn' | 'enemySpawn' | ''
 const battleTokens = ref([])
 const selectedTokenId = ref('')
+const skillPanelPage = ref(0) // 0=主动 1=被动 2=装备
 const pendingMoveTokenId = ref('')
 const addEnemyId = ref('')
 const tokenStatIndex = ref({})
@@ -531,6 +532,13 @@ async function addEnemyToMap() {
   }
 }
 
+async function toggleSkillVisible(t) {
+  const next = !t.skills_visible
+  const { error } = await supabase.from('battle_tokens').update({ skills_visible: next }).eq('id', t.id)
+  if (error) alert('设置失败：' + error.message)
+  else await loadBattleMap()
+}
+
 async function removeToken(t) {
   if (!isGM.value) return
   if (!confirm('从地图上移除 ' + t.label + '？')) return
@@ -632,8 +640,13 @@ async function placeEditorItem(x, y) {
   const mode = editorMode.value
   let kind = ''
   let label = ''
-  if (mode === 'obstacle') { kind = 'obstacle'; label = '障' }
-  else if (mode === 'playerSpawn') { kind = 'playerSpawn'; label = 'P' }
+  if (mode === 'obstacle') {
+    kind = 'obstacle'
+    label = prompt('障碍物名称（可留空）') || '障'
+  } else if (mode === 'summon') {
+    kind = 'summon'
+    label = prompt('召唤物名称（可留空）') || '召唤'
+  } else if (mode === 'playerSpawn') { kind = 'playerSpawn'; label = 'P' }
   else if (mode === 'enemySpawn') { kind = 'enemySpawn'; label = 'E' }
   else return
   const existing = tokenAt(x, y)
@@ -3930,6 +3943,8 @@ onUnmounted(() => {
     <div v-if="isGM" style="margin: 10px 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
       <button type="button" @click="editorMode = editorMode === 'obstacle' ? '' : 'obstacle'"
               :style="{ background: editorMode === 'obstacle' ? '#ff9800' : '#eee', padding: '6px 10px' }">障碍</button>
+      <button type="button" @click="editorMode = editorMode === 'summon' ? '' : 'summon'"
+              :style="{ background: editorMode === 'summon' ? '#7b1fa2' : '#eee', padding: '6px 10px', color: editorMode === 'summon' ? 'white' : 'black' }">召唤物</button>
       <button type="button" @click="editorMode = editorMode === 'playerSpawn' ? '' : 'playerSpawn'"
               :style="{ background: editorMode === 'playerSpawn' ? '#4CAF50' : '#eee', padding: '6px 10px' }">玩家出生点</button>
       <button type="button" @click="editorMode = editorMode === 'enemySpawn' ? '' : 'enemySpawn'"
@@ -3963,7 +3978,11 @@ onUnmounted(() => {
               margin: '0 2px',
               position: 'relative',
               background: tokenAt(viewX + col - 1, viewY + row - 1)
-                ? (tokenAt(viewX + col - 1, viewY + row - 1).kind === 'player' ? '#bbdefb' : '#ffcdd2')
+                ? (tokenAt(viewX + col - 1, viewY + row - 1).kind === 'player' ? '#bbdefb'
+                   : tokenAt(viewX + col - 1, viewY + row - 1).kind === 'enemy' ? '#ffcdd2'
+                   : tokenAt(viewX + col - 1, viewY + row - 1).kind === 'obstacle' ? '#212121'
+                   : tokenAt(viewX + col - 1, viewY + row - 1).kind === 'summon' ? '#7b1fa2'
+                   : '#fff59d')
                 : ((viewX + col - 1 + viewY + row - 1) % 2 ? '#e8e8e8' : '#d0d0d0'),
               outline: selectedTokenId && tokenAt(viewX + col - 1, viewY + row - 1)?.id === selectedTokenId ? '2px solid #1565c0' : 'none',
               cursor: 'pointer',
@@ -3973,26 +3992,35 @@ onUnmounted(() => {
             }"
           >
             <template v-if="tokenAt(viewX + col - 1, viewY + row - 1)">
-              <!-- 六角数值圆 -->
-              <div style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: 14px; height: 14px; border-radius: 50%; background: #e53935; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="HP">
-                {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'hp') }}
-              </div>
-              <div style="position: absolute; top: 18px; right: 6px; width: 14px; height: 14px; border-radius: 50%; background: #9c27b0; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="ATK">
-                {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'atk') }}
-              </div>
-              <div style="position: absolute; bottom: 18px; right: 6px; width: 14px; height: 14px; border-radius: 50%; background: #fbc02d; color: #333; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="SHD">
-                {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'shd') }}
-              </div>
-              <div style="position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 14px; height: 14px; border-radius: 50%; background: #757575; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="DEF">
-                {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'def') }}
-              </div>
-              <div style="position: absolute; bottom: 18px; left: 6px; width: 14px; height: 14px; border-radius: 50%; background: #1976d2; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="RES">
-                {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'res') }}
-              </div>
-              <div style="position: absolute; top: 18px; left: 6px; width: 14px; height: 14px; border-radius: 50%; background: #43a047; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="EVA">
-                {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'eva') }}
-              </div>
-              <div style="font-size: 10px; font-weight: bold; text-align: center; z-index: 1;">
+              <template v-if="['player','enemy'].includes(tokenAt(viewX + col - 1, viewY + row - 1).kind)">
+                <!-- 六角数值圆（仅玩家/敌人） -->
+                <div style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: 14px; height: 14px; border-radius: 50%; background: #e53935; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="HP">
+                  {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'hp') }}
+                </div>
+                <div style="position: absolute; top: 18px; right: 6px; width: 14px; height: 14px; border-radius: 50%; background: #9c27b0; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="ATK">
+                  {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'atk') }}
+                </div>
+                <div style="position: absolute; bottom: 18px; right: 6px; width: 14px; height: 14px; border-radius: 50%; background: #fbc02d; color: #333; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="SHD">
+                  {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'shd') }}
+                </div>
+                <div style="position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 14px; height: 14px; border-radius: 50%; background: #757575; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="DEF">
+                  {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'def') }}
+                </div>
+                <div style="position: absolute; bottom: 18px; left: 6px; width: 14px; height: 14px; border-radius: 50%; background: #1976d2; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="RES">
+                  {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'res') }}
+                </div>
+                <div style="position: absolute; top: 18px; left: 6px; width: 14px; height: 14px; border-radius: 50%; background: #43a047; color: white; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="EVA">
+                  {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'eva') }}
+                </div>
+              </template>
+              <div :style="{
+                fontSize: '10px',
+                fontWeight: 'bold',
+                textAlign: 'center',
+                zIndex: 1,
+                color: ['obstacle','summon'].includes(tokenAt(viewX + col - 1, viewY + row - 1).kind) ? 'white' : '#333',
+                padding: '0 4px'
+              }">
                 {{ tokenAt(viewX + col - 1, viewY + row - 1).label }}
               </div>
             </template>
@@ -4038,6 +4066,48 @@ onUnmounted(() => {
             @click="removeToken(selectedToken)"
             style="margin-top: 8px; color: #c62828;"
           >从地图移除</button>
+
+          <!-- 技能/装备面板 -->
+          <div v-if="['player','enemy'].includes(selectedToken.kind)" style="margin-top: 16px; border-top: 1px solid #eee; padding-top: 12px;">
+            <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+              <button type="button" @click="skillPanelPage = 0" :style="{ padding: '4px 8px', background: skillPanelPage === 0 ? '#5c6bc0' : '#eee', color: skillPanelPage === 0 ? 'white' : 'black', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }">主动</button>
+              <button type="button" @click="skillPanelPage = 1" :style="{ padding: '4px 8px', background: skillPanelPage === 1 ? '#5c6bc0' : '#eee', color: skillPanelPage === 1 ? 'white' : 'black', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }">被动</button>
+              <button type="button" @click="skillPanelPage = 2" :style="{ padding: '4px 8px', background: skillPanelPage === 2 ? '#5c6bc0' : '#eee', color: skillPanelPage === 2 ? 'white' : 'black', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }">装备</button>
+            </div>
+            <div v-if="selectedToken.kind === 'enemy' && !isGM && !selectedToken.skills_visible" style="color:#999; font-size:13px;">
+              GM 未公开此单位技能
+            </div>
+            <template v-else>
+              <div v-if="skillPanelPage === 0">
+                <div v-for="(s, i) in (getTokenSource(selectedToken)?.activeSkills || [])" :key="i" style="margin: 4px 0; padding: 6px; background: #fff3e0; border-radius: 4px; font-size: 12px;">
+                  <strong>{{ s?.name || '空' }}</strong>
+                  <span v-if="s?.cost" style="color:#888;">（{{ s.cost }} AP）</span>
+                </div>
+                <div v-if="!(getTokenSource(selectedToken)?.activeSkills?.length)" style="color:#999; font-size:12px;">无主动技能</div>
+              </div>
+              <div v-else-if="skillPanelPage === 1">
+                <div v-for="tier in ['I','II','III']" :key="tier" style="margin-bottom: 6px;">
+                  <div style="font-size:11px; color:#666;">被动 {{ tier }}</div>
+                  <div v-for="s in (getTokenSource(selectedToken)?.abilitySkills?.[tier] || [])" :key="s.name" style="font-size:12px; padding: 2px 0;">
+                    {{ s.name }}
+                  </div>
+                </div>
+                <div v-if="!(getTokenSource(selectedToken)?.abilitySkills?.hero?.length)" style="color:#999; font-size:12px;">无英雄技能</div>
+                <div v-for="s in (getTokenSource(selectedToken)?.abilitySkills?.hero || [])" :key="s.name" style="font-size:12px; padding: 2px 0; background:#fff8e1;">
+                  {{ s.name }}
+                </div>
+              </div>
+              <div v-else>
+                <div style="font-size:12px; color:#666;">装备信息待补充</div>
+              </div>
+            </template>
+            <div v-if="isGM && selectedToken.kind === 'enemy'" style="margin-top: 8px;">
+              <label style="font-size:12px;">
+                <input type="checkbox" :checked="selectedToken.skills_visible" @change="toggleSkillVisible(selectedToken)" />
+                对玩家可见
+              </label>
+            </div>
+          </div>
         </div>
       </div>
     </div>
