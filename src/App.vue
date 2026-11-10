@@ -363,9 +363,8 @@ function cycleTokenStat(t, dir) {
   tokenStatIndex.value = { ...tokenStatIndex.value, [t.id]: (cur + dir + 4) % 4 }
 }
 
-function tokenStatValue(t) {
+function tokenStatValue(t, key) {
   const src = getTokenSource(t)
-  const key = tokenStatKey(t)
   if (!src) return 0
   if (key === 'hp') {
     if (t.kind === 'player') return src.hp_current ?? src.hp_max ?? 0
@@ -3860,7 +3859,7 @@ onUnmounted(() => {
     <p style="color:#666; font-size:13px;">
       视野 {{ VIEW }}×{{ VIEW }} ／ 全图 {{ MAP_W }}×{{ MAP_H }}
       ｜ 先点 token 再点「移动」，然后点空格
-      ｜ 三角切换 HP / ATK / DEF / SHD
+      ｜ 四角：红HP / 紫ATK / 黄SHD / 灰DEF
     </p>
 
     <div style="margin-bottom: 8px;">
@@ -3901,8 +3900,8 @@ onUnmounted(() => {
             :key="'c'+col"
             @click="onCellClick(viewX + col - 1, viewY + row - 1)"
             :style="{
-              width: '36px',
-              height: '36px',
+              width: '56px',
+              height: '56px',
               border: '1px solid #ddd',
               boxSizing: 'border-box',
               position: 'relative',
@@ -3914,16 +3913,20 @@ onUnmounted(() => {
             }"
           >
             <template v-if="tokenAt(viewX + col - 1, viewY + row - 1)">
-              <div
-                style="position: absolute; top: -18px; left: -8px; right: -8px; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; z-index: 2;"
-                @click.stop
-              >
-                <button type="button" style="padding:0 2px; font-size:10px;" @click="cycleTokenStat(tokenAt(viewX + col - 1, viewY + row - 1), -1)">◀</button>
-                {{ tokenStatKey(tokenAt(viewX + col - 1, viewY + row - 1)).toUpperCase() }}
-                {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1)) }}
-                <button type="button" style="padding:0 2px; font-size:10px;" @click="cycleTokenStat(tokenAt(viewX + col - 1, viewY + row - 1), 1)">▶</button>
+              <!-- 四角数值圆 -->
+              <div style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #e53935; color: white; font-size: 9px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="HP">
+                {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'hp') }}
               </div>
-              <div style="font-size: 11px; font-weight: bold; text-align: center; line-height: 36px;">
+              <div style="position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #9c27b0; color: white; font-size: 9px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="ATK">
+                {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'atk') }}
+              </div>
+              <div style="position: absolute; bottom: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fbc02d; color: #333; font-size: 9px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="SHD">
+                {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'shd') }}
+              </div>
+              <div style="position: absolute; bottom: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #757575; color: white; font-size: 9px; display: flex; align-items: center; justify-content: center; font-weight: bold;" title="DEF">
+                {{ tokenStatValue(tokenAt(viewX + col - 1, viewY + row - 1), 'def') }}
+              </div>
+              <div style="font-size: 11px; font-weight: bold; text-align: center; line-height: 56px;">
                 {{ tokenAt(viewX + col - 1, viewY + row - 1).label }}
               </div>
             </template>
@@ -3939,7 +3942,7 @@ onUnmounted(() => {
           <div style="font-size: 13px; color:#555;">
             ATK {{ getTokenSource(selectedToken)?.atk ?? '—' }}
             ｜ DEF {{ getTokenSource(selectedToken)?.def ?? '—' }}
-            ｜ RES {{ getTokenSource(selectedToken)?.res ?? '—' }}
+            ｜ SHD {{ getTokenSource(selectedToken)?.shd ?? '—' }}
           </div>
           <div v-if="canEditHp(selectedToken)" style="margin-top: 10px;">
             <label>HP</label>
@@ -4042,7 +4045,7 @@ onUnmounted(() => {
     <button type="button" @click="characterTab = 1" :style="characterTab === 1 ? 'padding: 6px 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;' : 'padding: 6px 12px; background: #eee; border: none; border-radius: 4px; cursor: pointer;'">资料</button>
     <button type="button" @click="characterTab = 2" :style="characterTab === 2 ? 'padding: 6px 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;' : 'padding: 6px 12px; background: #eee; border: none; border-radius: 4px; cursor: pointer;'">装备 / 背包</button>
     <button type="button" @click="characterTab = 3" :style="characterTab === 3 ? 'padding: 6px 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;' : 'padding: 6px 12px; background: #eee; border: none; border-radius: 4px; cursor: pointer;'">属性</button>
-    <button type="button" @click="characterTab = 4" :style="characterTab === 4 ? 'padding: 6px 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;' : 'padding: 6px 12px; background: #eee; border: none; border-radius: 4px; cursor: pointer;'">专精 / 技能</button>
+    <button type="button" @click="characterTab = 4" :style="characterTab === 4 ? 'padding: 6px 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;' : 'padding: 6px 12px; background: #eee; border: none; border-radius: 4px; cursor: pointer;'">技能</button>
     <button type="button" @click="characterTab = 5" :style="characterTab === 5 ? 'padding: 6px 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;' : 'padding: 6px 12px; background: #eee; border: none; border-radius: 4px; cursor: pointer;'">检定</button>
     <span style="margin-left: auto; display: flex; gap: 6px;">
       <button type="button" @click="characterTab = Math.max(1, characterTab - 1)" style="padding: 6px 12px; cursor: pointer;">上一页</button>
@@ -4292,66 +4295,7 @@ onUnmounted(() => {
 
 </div>
 <div v-show="characterTab === 4">
-    <!-- 专精 -->
-    <h2>专精</h2>
-    <div style="margin: 8px 0 20px; padding: 14px; background: #f3e5f5; border-radius: 8px;">
-      <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 10px;">
-        <label>大类
-          <select v-model="currentCharacter.specialization_cat" style="margin-left: 6px; padding: 6px;">
-            <option value="">未选择</option>
-            <option value="攻击者">攻击者</option>
-            <option value="肉盾">肉盾</option>
-            <option value="支援者">支援者</option>
-          </select>
-        </label>
-        <label v-if="currentCharacter.specialization_cat">子类
-          <select v-model="currentCharacter.specialization_sub" style="margin-left: 6px; padding: 6px;">
-            <option value="">未选择</option>
-            <template v-if="currentCharacter.specialization_cat === '攻击者'">
-              <option value="战士">战士</option>
-              <option value="刺客">刺客</option>
-            </template>
-            <template v-if="currentCharacter.specialization_cat === '肉盾'">
-              <option value="坦克">坦克</option>
-              <option value="惩罚者">惩罚者</option>
-            </template>
-            <template v-if="currentCharacter.specialization_cat === '支援者'">
-              <option value="辅助">辅助</option>
-              <option value="治疗者">治疗者</option>
-            </template>
-          </select>
-        </label>
-        <span style="font-size: 13px; color: #666;">已选 {{ (currentCharacter.specializations || []).length }} / 2</span>
-      </div>
 
-      <div v-if="currentCharacter.specialization_sub && (currentCharacter.level || 1) >= 11" style="margin-bottom: 12px;">
-        <strong style="font-size: 14px;">本场可选（随机 3 项）</strong>
-        <div v-for="item in getSpecializationPool(currentCharacter.specialization_sub)" :key="item.name"
-             style="margin: 8px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #9c27b0;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <strong>{{ item.name }}</strong>
-            <button type="button" @click="addSpecialization(item)"
-                    :disabled="(currentCharacter.specializations || []).length >= 2 || (currentCharacter.specializations || []).some(s => s.name === item.name)"
-                    style="padding: 4px 10px; font-size: 12px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
-              选择
-            </button>
-          </div>
-          <div style="font-size: 13px; color: #555; margin-top: 4px;">{{ item.desc }}</div>
-        </div>
-      </div>
-      <p v-else-if="currentCharacter.specialization_sub" style="font-size: 13px; color: #888;">达到 11 级后可从本场专精池中选择。</p>
-
-      <strong style="font-size: 14px;">已选择的专精</strong>
-      <div v-if="!(currentCharacter.specializations || []).length" style="color: #999; font-size: 13px; margin-top: 6px;">尚未选择</div>
-      <div v-for="(s, i) in (currentCharacter.specializations || [])" :key="s.name"
-           style="margin: 8px 0; padding: 10px; background: white; border-radius: 6px;">
-        <div style="display: flex; justify-content: space-between;">
-          <strong>{{ s.name }}</strong>
-          <button type="button" @click="removeSpecialization(i)" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
-        </div>
-        <div style="font-size: 13px; color: #555; margin-top: 4px;">{{ s.desc }}</div>
-      </div>
-    </div>
 
 </div>
 <div v-show="characterTab === 3">
