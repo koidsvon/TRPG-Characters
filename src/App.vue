@@ -2148,6 +2148,7 @@ function selectPassive(tier, skill) {
   }
   currentCharacter.value.abilitySkills[tier] = { name: skill.name, desc: skill.desc }
   passiveChoices.value[tier] = null
+  saveCharacter(true)
 }
 
 function rollActiveChoices(index) {
@@ -2160,6 +2161,7 @@ function selectActive(index, skill) {
   }
   currentCharacter.value.activeSkills[index] = { name: skill.name, desc: skill.desc, cost: skill.cost }
   activeChoices.value[index] = null
+  saveCharacter(true)
 }
 
 const unlockedAttributeSkills = computed(() => {
@@ -4581,7 +4583,7 @@ onUnmounted(() => {
     <div v-else style="margin: 6px 0; padding: 8px; background: #fafafa; border-radius: 4px; font-size: 13px;">
       <div style="display: flex; justify-content: space-between;">
         <strong>{{ currentCharacter.abilitySkills[tier].name }}</strong>
-        <button type="button" @click="currentCharacter.abilitySkills[tier] = null" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
+        <button type="button" @click="currentCharacter.abilitySkills[tier] = null; saveCharacter(true)" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
       </div>
       <div style="color: #666; margin-top: 4px;">{{ currentCharacter.abilitySkills[tier].desc }}</div>
     </div>
@@ -4606,7 +4608,7 @@ onUnmounted(() => {
     <div v-else style="margin: 6px 0; padding: 8px; background: #fff8e1; border-radius: 4px; font-size: 13px;">
       <div style="display: flex; justify-content: space-between;">
         <strong>{{ currentCharacter.activeSkills[i].name }}</strong>
-        <button type="button" @click="currentCharacter.activeSkills[i] = null" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
+        <button type="button" @click="currentCharacter.activeSkills[i] = null; saveCharacter(true)" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
       </div>
       <div style="color: #666; margin-top: 4px;">{{ currentCharacter.activeSkills[i].desc }}</div>
         <div style="font-size: 12px; color: #888; margin-top: 2px;">消耗 {{ currentCharacter.activeSkills[i].cost || '?' }} AP</div>
