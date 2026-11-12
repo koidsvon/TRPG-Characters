@@ -2138,7 +2138,7 @@ const passiveChoices = ref({ I: null, II: null, III: null })
 const activeChoices = ref([null, null, null])
 
 function rollPassiveChoices(tier) {
-  const pool = passiveSkillPools[tier] || []
+  const pool = passiveSkillList[tier] || []
   passiveChoices.value[tier] = randomChoices(pool, 3)
 }
 
@@ -4587,33 +4587,10 @@ onUnmounted(() => {
     </div>
     <div v-if="passiveChoices[tier]" style="margin-top: 8px;">
       <div v-for="s in passiveChoices[tier]" :key="s.name" @click="selectPassive(tier, s)"
-           style="padding: 6px; margin: 4px 0; background: #e3f2fd; border-radius: 4px; cursor: pointer; font-size: 13px;">
-        {{ s.name }}（{{ s.cost || '?' }} AP）
+           style="padding: 8px; margin: 4px 0; background: #e3f2fd; border-radius: 4px; cursor: pointer; font-size: 13px;">
+        <div style="font-weight: bold;">{{ s.name }}</div>
+        <div style="color: #666; font-size: 12px; margin-top: 2px;">{{ s.desc }}</div>
       </div>
-    </div>
-  </div>
-</div>
-
-<h2>被动技能 / 英雄技能</h2>
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
-  <div v-for="tier in ['I','II','III']" :key="tier" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-      <span>
-        <strong>被动 {{ tier }}</strong>
-        <span style="font-size: 12px; color: #888;">
-          （{{ currentCharacter.abilitySkills?.[tier]?.length || 0 }} / {{ tier === 'III' ? 1 : 2 }}）
-        </span>
-      </span>
-      <button type="button" @click="openPassivePage(tier)" style="font-size: 12px; padding: 4px 8px; cursor: pointer;">去选择</button>
-    </div>
-    <div v-if="!(currentCharacter.abilitySkills?.[tier]?.length)" style="color: #999; font-size: 13px;">未选择</div>
-    <div v-for="(s, i) in (currentCharacter.abilitySkills?.[tier] || [])" :key="s.name"
-         style="margin: 6px 0; padding: 8px; background: #fafafa; border-radius: 4px; font-size: 13px;">
-      <div style="display: flex; justify-content: space-between;">
-        <strong>{{ s.name }}</strong>
-        <button type="button" @click="removeAbilitySkill(tier, i)" style="font-size: 11px; color: #c62828; background: none; border: none; cursor: pointer;">移除</button>
-      </div>
-      <div style="color: #666; margin-top: 4px;">{{ s.desc }}</div>
     </div>
   </div>
 </div>
