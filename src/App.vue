@@ -2602,19 +2602,12 @@ function startRealtime() {
           }
 
           // ---------- abilitySkills 兼容 ----------
-          if (!updated.abilitySkills && updated.ability_skills) {
-            updated.abilitySkills = updated.ability_skills
-          }
-          if (!updated.abilitySkills) {
+          updated.abilitySkills = updated.ability_skills || updated.abilitySkills || { I: null, II: null, III: null }
+          if (typeof updated.abilitySkills !== 'object' || Array.isArray(updated.abilitySkills)) {
             updated.abilitySkills = { I: null, II: null, III: null }
-          } else {
-            updated.abilitySkills = {
-              I: updated.abilitySkills.I || [],
-              II: updated.abilitySkills.II || [],
-              III: updated.abilitySkills.III || [],
-              hero: updated.abilitySkills.hero || []
-            }
           }
+          updated.activeSkills = updated.active_skills || updated.activeSkills || [null, null, null]
+          if (!Array.isArray(updated.activeSkills)) updated.activeSkills = [null, null, null]
           updated.specializations = updated.abilitySkills.specializations || updated.specializations || []
 
           // ---------- learnedMagic 兼容 ----------
@@ -2876,18 +2869,15 @@ if (!charCopy.learnedMagic) {
   }
 
 if (!charCopy.path) charCopy.path = ''
-if (!charCopy.abilitySkills && charCopy.ability_skills) {
-  charCopy.abilitySkills = charCopy.ability_skills
-}
-if (!charCopy.abilitySkills) {
+charCopy.abilitySkills = charCopy.ability_skills || charCopy.abilitySkills || { I: null, II: null, III: null }
+if (typeof charCopy.abilitySkills !== 'object' || Array.isArray(charCopy.abilitySkills)) {
   charCopy.abilitySkills = { I: null, II: null, III: null }
 }
-if (!charCopy.activeSkills && charCopy.active_skills) {
-  charCopy.activeSkills = charCopy.active_skills
-}
-if (!charCopy.activeSkills) {
+charCopy.activeSkills = charCopy.active_skills || charCopy.activeSkills || [null, null, null]
+if (!Array.isArray(charCopy.activeSkills)) {
   charCopy.activeSkills = [null, null, null]
 }
+while (charCopy.activeSkills.length < 3) charCopy.activeSkills.push(null)
 charCopy.specializations = charCopy.abilitySkills.specializations || charCopy.specializations || []
   skipAutoSave = true
   currentCharacter.value = charCopy
@@ -4292,6 +4282,30 @@ onUnmounted(() => {
       <button type="button" @click="characterTab = Math.min(5, characterTab + 1)" style="padding: 6px 12px; cursor: pointer;">下一页</button>
     </span>
   </div>
+<div v-show="characterTab === 3">
+  <h2>核心属性</h2>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px;">
+    <label>力量<br /><input type="number" v-model.number="currentCharacter.strength" style="width: 100%; padding: 6px;" /></label>
+    <label>力量成长<br /><input type="number" step="0.1" v-model.number="currentCharacter.strength_growth" style="width: 100%; padding: 6px;" /></label>
+    <label>智力<br /><input type="number" v-model.number="currentCharacter.intelligence" style="width: 100%; padding: 6px;" /></label>
+    <label>智力成长<br /><input type="number" step="0.1" v-model.number="currentCharacter.intelligence_growth" style="width: 100%; padding: 6px;" /></label>
+    <label>敏捷<br /><input type="number" v-model.number="currentCharacter.agility" style="width: 100%; padding: 6px;" /></label>
+    <label>敏捷成长<br /><input type="number" step="0.1" v-model.number="currentCharacter.agility_growth" style="width: 100%; padding: 6px;" /></label>
+  </div>
+  <button type="button" @click="randomizeLevel1Stats" style="padding: 6px 12px; margin-bottom: 16px; cursor: pointer;">1级随机属性</button>
+  <h3>派生属性</h3>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px;">
+    <label>HP 当前<br /><input type="number" v-model.number="currentCharacter.hp_current" style="width: 100%; padding: 6px;" /></label>
+    <label>HP 最大<br /><input type="number" v-model.number="currentCharacter.hp_max" style="width: 100%; padding: 6px;" /></label>
+    <label>ATK<br /><input type="number" v-model.number="currentCharacter.atk" style="width: 100%; padding: 6px;" /></label>
+    <label>DEF<br /><input type="number" v-model.number="currentCharacter.def" style="width: 100%; padding: 6px;" /></label>
+    <label>RES<br /><input type="number" v-model.number="currentCharacter.res" style="width: 100%; padding: 6px;" /></label>
+    <label>SPD<br /><input type="number" v-model.number="currentCharacter.spd" style="width: 100%; padding: 6px;" /></label>
+    <label>EVA<br /><input type="number" v-model.number="currentCharacter.eva" style="width: 100%; padding: 6px;" /></label>
+    <label>移动格<br /><input type="number" v-model.number="currentCharacter.move_range" style="width: 100%; padding: 6px;" /></label>
+    <label>PP<br /><input type="number" v-model.number="currentCharacter.pp" style="width: 100%; padding: 6px;" /></label>
+  </div>
+</div>
 <div v-show="characterTab === 1">
 <template v-if="currentCharacter && ['魔术师','术士','Code Wizard'].includes(currentCharacter.class_name)">
   <h2>魔术收藏</h2>
