@@ -2192,7 +2192,7 @@ const activeChoices = ref([null, null, null])
 
 function rollPassiveChoices(tier) {
   const pool = passiveSkillList[tier] || []
-  passiveChoices.value[tier] = randomChoices(pool, 3)
+  passiveChoices.value[tier] = randomChoices(pool, 5)
 }
 
 function selectPassive(tier, skill) {
@@ -2208,7 +2208,17 @@ function selectPassive(tier, skill) {
 }
 
 function rollActiveChoices(index) {
-  activeChoices.value[index] = randomChoices(activeSkillPool, 3)
+  const used = new Set()
+  for (let i = 0; i < 3; i++) {
+    if (i === index) continue
+    for (const s of (activeChoices.value[i] || [])) {
+      if (s?.name) used.add(s.name)
+    }
+    const chosen = currentCharacter.value?.activeSkills?.[i]
+    if (chosen?.name) used.add(chosen.name)
+  }
+  const pool = activeSkillPool.filter(s => !used.has(s.name))
+  activeChoices.value[index] = randomChoices(pool, 5)
 }
 
 function selectActive(index, skill) {
@@ -2866,15 +2876,17 @@ if (!charCopy.learnedMagic) {
   }
 
 if (!charCopy.path) charCopy.path = ''
+if (!charCopy.abilitySkills && charCopy.ability_skills) {
+  charCopy.abilitySkills = charCopy.ability_skills
+}
 if (!charCopy.abilitySkills) {
   charCopy.abilitySkills = { I: null, II: null, III: null }
-} else {
-  charCopy.abilitySkills = {
-    I: charCopy.abilitySkills.I || [],
-    II: charCopy.abilitySkills.II || [],
-    III: charCopy.abilitySkills.III || [],
-    hero: charCopy.abilitySkills.hero || [],
-  }
+}
+if (!charCopy.activeSkills && charCopy.active_skills) {
+  charCopy.activeSkills = charCopy.active_skills
+}
+if (!charCopy.activeSkills) {
+  charCopy.activeSkills = [null, null, null]
 }
 charCopy.specializations = charCopy.abilitySkills.specializations || charCopy.specializations || []
   skipAutoSave = true
@@ -4163,6 +4175,7 @@ onUnmounted(() => {
                 <div v-for="(s, i) in (getTokenSource(selectedToken)?.activeSkills || getTokenSource(selectedToken)?.active_skills || getTokenSource(selectedToken)?.skills || [])" :key="i" style="margin: 4px 0; padding: 6px; background: #fff3e0; border-radius: 4px; font-size: 12px;">
                   <strong>{{ s?.name || '空' }}</strong>
                   <span v-if="s?.cost" style="color:#888;">（{{ s.cost }} AP）</span>
+                  <div v-if="s?.desc" style="color:#666; margin-top:2px;">{{ s.desc }}</div>
                 </div>
                 <div v-if="!(getTokenSource(selectedToken)?.activeSkills?.length || getTokenSource(selectedToken)?.active_skills?.length || getTokenSource(selectedToken)?.skills?.length)" style="color:#999; font-size:12px;">无主动技能</div>
               </div>
@@ -4171,14 +4184,16 @@ onUnmounted(() => {
                   <div v-for="tier in ['I','II','III']" :key="tier" style="margin-bottom: 6px;">
                     <div style="font-size:11px; color:#666;">被动 {{ tier }}</div>
                     <div v-if="getTokenSource(selectedToken)?.abilitySkills?.[tier]?.name" style="font-size:12px; padding: 2px 0;">
-                      {{ getTokenSource(selectedToken).abilitySkills[tier].name }}
+                      <strong>{{ getTokenSource(selectedToken).abilitySkills[tier].name }}</strong>
+                      <div style="color:#666;">{{ getTokenSource(selectedToken).abilitySkills[tier].desc }}</div>
                     </div>
                     <div v-else style="font-size:12px; color:#999;">未选择</div>
                   </div>
                 </template>
                 <template v-else>
                   <div v-for="(s, i) in (getTokenSource(selectedToken)?.passive_skills || [])" :key="i" style="font-size:12px; padding: 2px 0;">
-                    {{ s.name }}
+                    <strong>{{ s.name }}</strong>
+                    <div style="color:#666;">{{ s.desc }}</div>
                   </div>
                   <div v-if="!(getTokenSource(selectedToken)?.passive_skills?.length)" style="color:#999; font-size:12px;">无被动技能</div>
                 </template>
@@ -4518,7 +4533,7 @@ onUnmounted(() => {
   <div v-for="tier in ['I','II','III']" :key="tier" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
       <strong>被动 {{ tier }}</strong>
-      <button type="button" @click="rollPassiveChoices(tier)" style="font-size: 12px; padding: 4px 8px; cursor: pointer;">三选一</button>
+      <button v-if="!passiveChoices[tier] && !currentCharacter.abilitySkills?.[tier]" type="button" @click="rollPassiveChoices(tier)" style="font-size: 12px; padding: 4px 8px; cursor: pointer;">五选一</button>
     </div>
     <div v-if="!currentCharacter.abilitySkills?.[tier]" style="color: #999; font-size: 13px;">未选择</div>
     <div v-else style="margin: 6px 0; padding: 8px; background: #fafafa; border-radius: 4px; font-size: 13px;">
@@ -4543,7 +4558,7 @@ onUnmounted(() => {
   <div v-for="(slot, i) in 3" :key="i" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
       <strong>主动 {{ i + 1 }}</strong>
-      <button type="button" @click="rollActiveChoices(i)" style="font-size: 12px; padding: 4px 8px; cursor: pointer;">三选一</button>
+      <button v-if="!activeChoices[i] && !currentCharacter.activeSkills?.[i]" type="button" @click="rollActiveChoices(i)" style="font-size: 12px; padding: 4px 8px; cursor: pointer;">五选一</button>
     </div>
     <div v-if="!currentCharacter.activeSkills?.[i]" style="color: #999; font-size: 13px;">未选择</div>
     <div v-else style="margin: 6px 0; padding: 8px; background: #fff8e1; border-radius: 4px; font-size: 13px;">
