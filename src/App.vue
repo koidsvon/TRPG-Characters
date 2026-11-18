@@ -700,18 +700,23 @@ async function moveTokenTo(t, x, y) {
 }
 
 async function updateTokenHp(t, value) {
+  await updateTokenStat(t, 'hp_current', value)
+}
+
+async function updateTokenStat(t, key, value) {
   if (!canEditHp(t)) {
-    alert('不能修改这个单位的 HP')
+    alert('不能修改这个单位')
     return
   }
-  const hp = Number(value)
-  if (Number.isNaN(hp)) return
+  const num = Number(value)
+  if (Number.isNaN(num)) return
+  const payload = { [key]: num }
   if (t.kind === 'player') {
-    const { error } = await supabase.from('characters').update({ hp_current: hp }).eq('id', t.ref_id)
+    const { error } = await supabase.from('characters').update(payload).eq('id', t.ref_id)
     if (error) alert(error.message)
     else await loadCharacters()
   } else {
-    const { error } = await supabase.from('mission_phantasms').update({ hp_current: hp }).eq('id', t.ref_id)
+    const { error } = await supabase.from('mission_phantasms').update(payload).eq('id', t.ref_id)
     if (error) alert(error.message)
     else await loadMissionPhantasms()
   }
@@ -2146,7 +2151,10 @@ function selectPassive(tier, skill) {
   if (!currentCharacter.value.abilitySkills) {
     currentCharacter.value.abilitySkills = { I: null, II: null, III: null }
   }
-  currentCharacter.value.abilitySkills[tier] = { name: skill.name, desc: skill.desc }
+  currentCharacter.value.abilitySkills = {
+    ...currentCharacter.value.abilitySkills,
+    [tier]: { name: skill.name, desc: skill.desc }
+  }
   passiveChoices.value[tier] = null
   saveCharacter(true)
 }
@@ -2159,7 +2167,9 @@ function selectActive(index, skill) {
   if (!currentCharacter.value.activeSkills) {
     currentCharacter.value.activeSkills = [null, null, null]
   }
-  currentCharacter.value.activeSkills[index] = { name: skill.name, desc: skill.desc, cost: skill.cost }
+  const next = [...currentCharacter.value.activeSkills]
+  next[index] = { name: skill.name, desc: skill.desc, cost: skill.cost }
+  currentCharacter.value.activeSkills = next
   activeChoices.value[index] = null
   saveCharacter(true)
 }
@@ -2901,6 +2911,7 @@ async function saveCharacter(silent = true) {
       res: currentCharacter.value.res,
       spd: currentCharacter.value.spd,
       shd: currentCharacter.value.shd || 0,
+      eva: currentCharacter.value.eva || 0,
       active_skills: currentCharacter.value.activeSkills,
       attribute_skills: currentCharacter.value.attributeSkills,
       move_range: currentCharacter.value.move_range,
@@ -4050,17 +4061,14 @@ onUnmounted(() => {
             ｜ RES {{ getTokenSource(selectedToken)?.res ?? '—' }}
             ｜ EVA {{ getTokenSource(selectedToken)?.eva ?? '—' }}
           </div>
-          <div v-if="canEditHp(selectedToken)" style="margin-top: 10px;">
-            <label>HP</label>
-          <input
-              type="number"
-              :value="selectedToken.kind === 'player'
-                ? (getTokenSource(selectedToken)?.hp_current ?? 0)
-                : (getTokenSource(selectedToken)?.hp_current ?? getTokenSource(selectedToken)?.hp ?? 0)"
-              @change="updateTokenHp(selectedToken, $event.target.value)"
-              style="width: 80px; margin-left: 6px;"
-            />
-            <div style="font-size: 12px; color:#888; margin-top: 4px;">改的是当前生命（失焦/回车后写入）</div>
+          <div v-if="canEditHp(selectedToken)" style="margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 12px;">
+            <label>HP <input type="number" :value="getTokenSource(selectedToken)?.hp_current ?? getTokenSource(selectedToken)?.hp ?? 0" @change="updateTokenStat(selectedToken, 'hp_current', $event.target.value)" style="width: 60px;" /></label>
+            <label>ATK <input type="number" :value="getTokenSource(selectedToken)?.atk ?? 0" @change="updateTokenStat(selectedToken, 'atk', $event.target.value)" style="width: 60px;" /></label>
+            <label>DEF <input type="number" :value="getTokenSource(selectedToken)?.def ?? 0" @change="updateTokenStat(selectedToken, 'def', $event.target.value)" style="width: 60px;" /></label>
+            <label>RES <input type="number" :value="getTokenSource(selectedToken)?.res ?? 0" @change="updateTokenStat(selectedToken, 'res', $event.target.value)" style="width: 60px;" /></label>
+            <label>SPD <input type="number" :value="getTokenSource(selectedToken)?.spd ?? 0" @change="updateTokenStat(selectedToken, 'spd', $event.target.value)" style="width: 60px;" /></label>
+            <label>SHD <input type="number" :value="getTokenSource(selectedToken)?.shd ?? 0" @change="updateTokenStat(selectedToken, 'shd', $event.target.value)" style="width: 60px;" /></label>
+            <label>EVA <input type="number" :value="getTokenSource(selectedToken)?.eva ?? 0" @change="updateTokenStat(selectedToken, 'eva', $event.target.value)" style="width: 60px;" /></label>
           </div>
           <button
             v-if="canMoveToken(selectedToken)"
@@ -4104,12 +4112,11 @@ onUnmounted(() => {
               <div v-else-if="skillPanelPage === 1">
                 <div v-for="tier in ['I','II','III']" :key="tier" style="margin-bottom: 6px;">
                   <div style="font-size:11px; color:#666;">被动 {{ tier }}</div>
-                  <div v-for="s in (getTokenSource(selectedToken)?.abilitySkills?.[tier] || [])" :key="s.name" style="font-size:12px; padding: 2px 0;">
-                    {{ s.name }}
+                  <div v-if="getTokenSource(selectedToken)?.abilitySkills?.[tier]?.name" style="font-size:12px; padding: 2px 0;">
+                    {{ getTokenSource(selectedToken).abilitySkills[tier].name }}
                   </div>
+                  <div v-else style="font-size:12px; color:#999;">未选择</div>
                 </div>
-                <div v-if="!(getTokenSource(selectedToken)?.abilitySkills?.hero?.length)" style="color:#999; font-size:12px;">无英雄技能</div>
-                
               </div>
               <div v-else>
                 <div style="font-size:12px; color:#666;">装备信息待补充</div>
@@ -4306,13 +4313,7 @@ onUnmounted(() => {
         <label>具体性格描述</label><br />
         <textarea v-model="currentCharacter.personality" rows="2" style="width: 100%; padding: 8px; box-sizing: border-box;" placeholder="说话方式、习惯、性格特点"></textarea>
       </div>
-      <div>
-        <label>职业</label><br />
-        <select v-model="currentCharacter.class_name" style="width: 100%; padding: 8px;">
-          <option value="未选择">未选择</option>
-          <option value="待补充">待补充</option>
-        </select>
-      </div>
+
       <div>
   <label>等级</label><br />
   <div style="display: flex; gap: 8px; align-items: center;">
@@ -4327,132 +4328,7 @@ onUnmounted(() => {
 </div>
     </div>
 
-    <!-- 职业介绍卡片 -->
-<div v-if="currentClassInfo" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 10px; padding: 20px; margin-bottom: 30px;">
-  <div @click="classIntroExpanded = !classIntroExpanded" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
-    <h2 style="margin: 0;">{{ currentClassInfo.name }}</h2>
-    <span style="color: #666;">{{ classIntroExpanded ? '收起介绍' : '展开介绍' }}</span>
-    <span v-if="currentClassInfo.status === '待补' || currentClassInfo.status === '施工中'"
-          style="background: #ff9800; color: white; padding: 4px 10px; border-radius: 4px; font-size: 13px;">
-      {{ currentClassInfo.status }}
-    </span>
-    <span v-else-if="currentClassInfo.status === '完'"
-          style="background: #4CAF50; color: white; padding: 4px 10px; border-radius: 4px; font-size: 13px;">
-      已完成
-    </span>
-  </div>
-  <div v-show="classIntroExpanded">
-  <p style="color: #555; line-height: 1.6; margin-top: 12px;">{{ currentClassInfo.description }}</p>
-
-  <template v-if="currentClassInfo.status === '完'">
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 15px 0; font-size: 14px;">
-      <div><strong>主属性：</strong>{{ currentClassInfo.mainAttribute }}</div>
-      <div><strong>可使用Buff：</strong>{{ currentClassInfo.canUseBuff ? '是' : '否' }}</div>
-      <div><strong>初始ATK：</strong>{{ currentClassInfo.initialATK }}</div>
-      <div><strong>初始SPD：</strong>{{ currentClassInfo.initialSPD }}</div>
-      <div><strong>初始RES：</strong>{{ currentClassInfo.initialRES }}</div>
-      <div><strong>初始DEF：</strong>{{ currentClassInfo.initialDEF }}</div>
-      <div><strong>初始移动格：</strong>{{ currentClassInfo.initialMove }}</div>
-      <div><strong>初始PP：</strong>{{ currentClassInfo.initialPP }}</div>
-      <div><strong>初始HP：</strong>{{ currentClassInfo.initialHP }}</div>
-    </div>
-    <p style="font-size: 14px;"><strong>属性要求：</strong>{{ currentClassInfo.attributeRequirement }}</p>
-    <p style="font-size: 14px;"><strong>可分配属性点：</strong>{{ currentClassInfo.allocatablePoints }}</p>
-    <p style="font-size: 14px;"><strong>职业精通：</strong>{{ currentClassInfo.proficiency }}</p>
-    <p style="font-size: 14px;"><strong>装备权限：</strong>{{ currentClassInfo.equipment }}</p>
-
-    <!-- 等级奖励表 -->
-    <div v-if="currentClassInfo.levelRewards && currentClassInfo.levelRewards.length" style="margin-top: 20px;">
-      <strong>等级奖励：</strong>
-      <div v-for="r in currentClassInfo.levelRewards" :key="r.level"
-           style="margin: 10px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #2196F3;">
-        <strong>LVL {{ r.level }}</strong>
-        <div style="white-space: pre-line; font-size: 14px; margin-top: 4px;">{{ r.content }}</div>
-        <div style="margin-top: 8px;">
-          <button v-if="isPassiveIReward(r)" type="button" @click="openPassivePage('I')"
-                  style="padding: 4px 10px; margin-right: 6px; font-size: 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;">选择被动 I</button>
-          <button v-if="isPassiveIIReward(r)" type="button" @click="openPassivePage('II')"
-                  style="padding: 4px 10px; margin-right: 6px; font-size: 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;">选择被动 II</button>
-          <button v-if="isPassiveIIIReward(r)" type="button" @click="openPassivePage('III')"
-                  style="padding: 4px 10px; margin-right: 6px; font-size: 12px; background: #5c6bc0; color: white; border: none; border-radius: 4px; cursor: pointer;">选择被动 III</button>
-          <button v-if="isHeroReward(r)" type="button" @click="openHeroPage()"
-                  style="padding: 4px 10px; font-size: 12px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">选择英雄技能</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Path 能力 -->
-    <div v-if="currentCharacter.path && pathDatabase[currentCharacter.class_name] && pathDatabase[currentCharacter.class_name][currentCharacter.path]" style="margin-top: 20px;">
-      <strong>Path：{{ currentCharacter.path }}</strong>
-      <div v-for="a in pathDatabase[currentCharacter.class_name][currentCharacter.path]" :key="a.level"
-           style="margin: 10px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #9c27b0;">
-        <strong>LVL {{ a.level }} · {{ a.name }}</strong>
-        <div style="font-size: 14px; margin-top: 4px; white-space: pre-line;">{{ a.desc }}</div>
-      </div>
-    </div>
-
-    <!-- 赏金猎人专属报酬 -->
-    <div v-if="currentClassInfo.rewards" style="margin-top: 20px;">
-      <strong>赏金猎人的报酬：</strong>
-      <div style="margin-top: 10px;">
-        <div style="font-weight: bold; color: #4CAF50; margin-bottom: 6px;">永久报酬</div>
-        <div v-for="(r, i) in currentClassInfo.rewards.permanent" :key="'p'+i"
-             style="margin: 6px 0; padding: 8px; background: white; border-radius: 4px; font-size: 14px;">
-          <strong>{{ r.name }}</strong>：{{ r.desc }}
-        </div>
-        <div style="font-weight: bold; color: #ff9800; margin: 12px 0 6px;">临时报酬（单场战斗）</div>
-        <div v-for="(r, i) in currentClassInfo.rewards.temporary" :key="'t'+i"
-             style="margin: 6px 0; padding: 8px; background: white; border-radius: 4px; font-size: 14px;">
-          <strong>{{ r.name }}</strong>：{{ r.desc }}
-        </div>
-      </div>
-    </div>
-
-    <!-- 架势 -->
-    <div v-if="currentClassInfo.stances && currentClassInfo.stances.length" style="margin-top: 15px;">
-      <strong>架势：</strong>
-      <ul style="margin: 8px 0; padding-left: 20px; font-size: 14px;">
-        <li v-for="(s, i) in currentClassInfo.stances" :key="i" style="margin-bottom: 8px;">
-          <strong>{{ s.name }}（{{ s.cost || '?' }} AP）</strong>：{{ s.desc }}
-        </li>
-      </ul>
-    </div>
-  </template>
-
-  <div v-else style="margin-top: 15px; padding: 15px; background: #fff3e0; border-radius: 6px; color: #e65100;">
-    该职业详细数据尚未补全，敬请期待。
-  </div>
-
-  <div v-if="currentClassInfo.subclasses && currentClassInfo.subclasses.length" style="margin-top: 20px;">
-    <strong>可转职子职：</strong>
-    <div v-for="(sub, i) in currentClassInfo.subclasses" :key="i"
-         style="margin: 8px 0; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #9c27b0;">
-      <strong>{{ sub.name }}</strong>
-      <div style="font-size: 14px; margin-top: 4px; color: #555; white-space: pre-line;">{{ sub.desc }}</div>
-    </div>
-  </div>
-
-  <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-    <button v-if="currentClassInfo.canUseBuff" @click="openBuffTable"
-            style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
-      查看 Buff 表
-    </button>
-    <button v-if="isMagicUser" @click="openMagicTable"
-        style="padding: 8px 16px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
-  查看魔术表
-</button>
-  </div>
-  </div>
-</div>
-
-</div>
-<div v-show="characterTab === 4">
-
-
-</div>
-<div v-show="characterTab === 3">
-    <!-- 核心属性 -->
-<h2>核心属性</h2>
+    <h2>核心属性</h2>
 <div style="margin: 12px 0 20px; display: flex; flex-direction: column; gap: 10px;">
   <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
     <div style="border: 2px solid #e53935; border-radius: 8px; padding: 8px 10px; background: #fff5f5;">
@@ -4505,8 +4381,8 @@ onUnmounted(() => {
       <input type="number" :value="Math.floor(currentCharacter.spd || 0)" @input="currentCharacter.spd = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
     </div>
     <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
-      <label>SHD</label>
-      <input type="number" v-model.number="currentCharacter.shd" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+      <label>EVA</label>
+      <input type="number" v-model.number="currentCharacter.eva" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
     </div>
   </div>
   <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
