@@ -62,6 +62,7 @@ const selectedTokenId = ref('')
 const skillPanelPage = ref(0) // 0=主动 1=被动 2=装备
 const pendingMoveTokenId = ref('')
 const addEnemyId = ref('')
+const addPlayerId = ref('')
 const tokenStatIndex = ref({})
 const STAT_CYCLE = ['hp', 'atk', 'def', 'shd']
 const diceLogs = ref([])
@@ -79,8 +80,8 @@ function emptyPhantasmForm() {
     category: '常规',
     hp: 0, atk: 0, spd: 0, def: 0, res: 0,
     strength: 0, intelligence: 0, agility: 0,
-    skills: [{ name: '', desc: '' }],
-    boss_skills: [{ name: '', desc: '' }, { name: '', desc: '' }],
+    active_skills: [{ name: '', desc: '', cost: 0 }],
+    passive_skills: [{ name: '', desc: '' }],
     token_url: '',
     notes: ''
   }
@@ -188,13 +189,13 @@ async function loadBookList() {
 }
 
 function ensureSkillArrays(p) {
-  const skills = Array.isArray(p.skills) && p.skills.length
-    ? p.skills
+  const active_skills = Array.isArray(p.active_skills) && p.active_skills.length
+    ? p.active_skills
+    : (Array.isArray(p.skills) && p.skills.length ? p.skills : [{ name: '', desc: '', cost: 0 }])
+  const passive_skills = Array.isArray(p.passive_skills) && p.passive_skills.length
+    ? p.passive_skills
     : [{ name: '', desc: '' }]
-  const boss_skills = Array.isArray(p.boss_skills) && p.boss_skills.length
-    ? p.boss_skills
-    : [{ name: '', desc: '' }, { name: '', desc: '' }]
-  return { ...p, skills, boss_skills }
+  return { ...p, active_skills, passive_skills }
 }
 
 async function loadPhantasmList() {
@@ -238,26 +239,28 @@ function editPhantasmItem(p) {
     strength: p.strength || 0,
     intelligence: p.intelligence || 0,
     agility: p.agility || 0,
-    skills: p.skills,
-    boss_skills: p.boss_skills,
+    active_skills: p.active_skills || p.skills,
+    passive_skills: p.passive_skills,
     token_url: p.token_url || '',
     notes: p.notes || ''
   })
 }
 
-function addInnateSkill() {
-  phantasmForm.value.skills.push({ name: '', desc: '' })
+function addActiveSkill() {
+  if (!phantasmForm.value.active_skills) phantasmForm.value.active_skills = []
+  phantasmForm.value.active_skills.push({ name: '', desc: '', cost: 0 })
 }
-function removeInnateSkill(i) {
-  if (phantasmForm.value.skills.length <= 1) return
-  phantasmForm.value.skills.splice(i, 1)
+function removeActiveSkill(i) {
+  if (!phantasmForm.value.active_skills || phantasmForm.value.active_skills.length <= 1) return
+  phantasmForm.value.active_skills.splice(i, 1)
 }
-function addBossSkill() {
-  phantasmForm.value.boss_skills.push({ name: '', desc: '' })
+function addPassiveSkill() {
+  if (!phantasmForm.value.passive_skills) phantasmForm.value.passive_skills = []
+  phantasmForm.value.passive_skills.push({ name: '', desc: '' })
 }
-function removeBossSkill(i) {
-  if (phantasmForm.value.boss_skills.length <= 1) return
-  phantasmForm.value.boss_skills.splice(i, 1)
+function removePassiveSkill(i) {
+  if (!phantasmForm.value.passive_skills || phantasmForm.value.passive_skills.length <= 1) return
+  phantasmForm.value.passive_skills.splice(i, 1)
 }
 
 async function savePhantasmItem() {
@@ -278,8 +281,9 @@ async function savePhantasmItem() {
     strength: Number(f.strength) || 0,
     intelligence: Number(f.intelligence) || 0,
     agility: Number(f.agility) || 0,
-    skills: f.skills || [],
-    boss_skills: f.category === 'Boss' ? (f.boss_skills || []) : [],
+    active_skills: f.active_skills || [],
+    passive_skills: f.passive_skills || [],
+    skills: f.active_skills || [],
     token_url: f.token_url || '',
     notes: f.notes || '',
     updated_at: new Date().toISOString()
@@ -528,6 +532,26 @@ async function addEnemyToMap() {
   if (error) alert('添加失败：' + error.message)
   else {
     addEnemyId.value = ''
+    await loadBattleMap()
+  }
+}
+
+async function addPlayerToMap() {
+  if (!addPlayerId.value || !currentSession.value?.id) return
+  const c = characters.value.find(i => i.id === addPlayerId.value)
+  if (!c) return
+  const { error } = await supabase.from('battle_tokens').insert({
+    session_id: currentSession.value.id,
+    kind: 'player',
+    ref_id: c.id,
+    label: c.name,
+    x: 30,
+    y: 30,
+    skills_visible: false
+  })
+  if (error) alert('添加失败：' + error.message)
+  else {
+    addPlayerId.value = ''
     await loadBattleMap()
   }
 }
@@ -989,7 +1013,9 @@ async function startMissionFromBook(bookId) {
       strength: p.strength || 0,
       intelligence: p.intelligence || 0,
       agility: p.agility || 0,
-      skills: p.skills || [],
+      skills: p.active_skills || p.skills || [],
+      active_skills: p.active_skills || p.skills || [],
+      passive_skills: p.passive_skills || [],
       boss_skills: p.boss_skills || [],
       token_url: p.token_url || '',
       notes: p.notes || ''
@@ -3365,22 +3391,23 @@ onUnmounted(() => {
           <input v-model="phantasmForm.token_url" placeholder="TOKEN 图片 URL（可空）" style="width: 100%; padding: 8px; margin-bottom: 6px; box-sizing: border-box;" />
           <textarea v-model="phantasmForm.notes" rows="2" placeholder="备注" style="width: 100%; padding: 8px; margin-bottom: 8px; box-sizing: border-box;"></textarea>
 
-          <strong>固有技能</strong>
-          <div v-for="(s, i) in phantasmForm.skills" :key="'s'+i" style="margin: 6px 0; padding: 8px; background: #fff; border-radius: 4px;">
+          <strong>主动技能</strong>
+          <div v-for="(s, i) in phantasmForm.active_skills" :key="'a'+i" style="margin: 6px 0; padding: 8px; background: #fff; border-radius: 4px;">
             <input v-model="s.name" placeholder="技能名" style="width: 100%; margin-bottom: 4px;" />
+            <input type="number" v-model.number="s.cost" placeholder="消耗 AP" style="width: 100px; margin-bottom: 4px;" />
             <textarea v-model="s.desc" rows="2" placeholder="效果" style="width: 100%;"></textarea>
-            <button type="button" @click="removeInnateSkill(i)">删此栏</button>
+            <button type="button" @click="removeActiveSkill(i)">删此栏</button>
           </div>
-          <button type="button" @click="addInnateSkill">+ 固有技能栏</button>
+          <button type="button" @click="addActiveSkill">+ 主动技能栏</button>
 
-          <div v-if="phantasmForm.category === 'Boss'" style="margin-top: 12px;">
-            <strong>特殊技能（Boss）</strong>
-            <div v-for="(s, i) in phantasmForm.boss_skills" :key="'b'+i" style="margin: 6px 0; padding: 8px; background: #fff8e1; border-radius: 4px;">
-              <input v-model="s.name" placeholder="特殊技名" style="width: 100%; margin-bottom: 4px;" />
+          <div style="margin-top: 12px;">
+            <strong>被动技能</strong>
+            <div v-for="(s, i) in phantasmForm.passive_skills" :key="'p'+i" style="margin: 6px 0; padding: 8px; background: #f3e5f5; border-radius: 4px;">
+              <input v-model="s.name" placeholder="技能名" style="width: 100%; margin-bottom: 4px;" />
               <textarea v-model="s.desc" rows="2" placeholder="效果" style="width: 100%;"></textarea>
-              <button type="button" @click="removeBossSkill(i)">删此栏</button>
+              <button type="button" @click="removePassiveSkill(i)">删此栏</button>
             </div>
-            <button type="button" @click="addBossSkill">+ 特殊技能栏</button>
+            <button type="button" @click="addPassiveSkill">+ 被动技能栏</button>
           </div>
 
           <div style="margin-top: 12px;">
@@ -3971,6 +3998,14 @@ onUnmounted(() => {
       <button type="button" @click="editorMode = editorMode === 'enemySpawn' ? '' : 'enemySpawn'"
               :style="{ background: editorMode === 'enemySpawn' ? '#f44336' : '#eee', padding: '6px 10px' }">敌人出生点</button>
       <span style="font-size: 12px; color: #666;">{{ editorMode ? '点击格子放置' : '' }}</span>
+      <label>添加玩家</label>
+      <select v-model="addPlayerId">
+        <option value="">选择角色</option>
+        <option v-for="c in characters" :key="c.id" :value="c.id">
+          {{ c.name }}
+        </option>
+      </select>
+      <button type="button" @click="addPlayerToMap">放到地图</button>
       <label>添加敌人</label>
       <select v-model="addEnemyId">
         <option value="">选择本局空想种</option>
@@ -4103,20 +4138,28 @@ onUnmounted(() => {
             </div>
             <template v-else>
               <div v-if="skillPanelPage === 0">
-                <div v-for="(s, i) in (getTokenSource(selectedToken)?.activeSkills || [])" :key="i" style="margin: 4px 0; padding: 6px; background: #fff3e0; border-radius: 4px; font-size: 12px;">
+                <div v-for="(s, i) in (getTokenSource(selectedToken)?.activeSkills || getTokenSource(selectedToken)?.active_skills || getTokenSource(selectedToken)?.skills || [])" :key="i" style="margin: 4px 0; padding: 6px; background: #fff3e0; border-radius: 4px; font-size: 12px;">
                   <strong>{{ s?.name || '空' }}</strong>
                   <span v-if="s?.cost" style="color:#888;">（{{ s.cost }} AP）</span>
                 </div>
-                <div v-if="!(getTokenSource(selectedToken)?.activeSkills?.length)" style="color:#999; font-size:12px;">无主动技能</div>
+                <div v-if="!(getTokenSource(selectedToken)?.activeSkills?.length || getTokenSource(selectedToken)?.active_skills?.length || getTokenSource(selectedToken)?.skills?.length)" style="color:#999; font-size:12px;">无主动技能</div>
               </div>
               <div v-else-if="skillPanelPage === 1">
-                <div v-for="tier in ['I','II','III']" :key="tier" style="margin-bottom: 6px;">
-                  <div style="font-size:11px; color:#666;">被动 {{ tier }}</div>
-                  <div v-if="getTokenSource(selectedToken)?.abilitySkills?.[tier]?.name" style="font-size:12px; padding: 2px 0;">
-                    {{ getTokenSource(selectedToken).abilitySkills[tier].name }}
+                <template v-if="selectedToken.kind === 'player'">
+                  <div v-for="tier in ['I','II','III']" :key="tier" style="margin-bottom: 6px;">
+                    <div style="font-size:11px; color:#666;">被动 {{ tier }}</div>
+                    <div v-if="getTokenSource(selectedToken)?.abilitySkills?.[tier]?.name" style="font-size:12px; padding: 2px 0;">
+                      {{ getTokenSource(selectedToken).abilitySkills[tier].name }}
+                    </div>
+                    <div v-else style="font-size:12px; color:#999;">未选择</div>
                   </div>
-                  <div v-else style="font-size:12px; color:#999;">未选择</div>
-                </div>
+                </template>
+                <template v-else>
+                  <div v-for="(s, i) in (getTokenSource(selectedToken)?.passive_skills || [])" :key="i" style="font-size:12px; padding: 2px 0;">
+                    {{ s.name }}
+                  </div>
+                  <div v-if="!(getTokenSource(selectedToken)?.passive_skills?.length)" style="color:#999; font-size:12px;">无被动技能</div>
+                </template>
               </div>
               <div v-else>
                 <div style="font-size:12px; color:#666;">装备信息待补充</div>
