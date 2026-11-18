@@ -79,7 +79,7 @@ function emptyPhantasmForm() {
     name: '',
     category: '常规',
     hp: 0, atk: 0, spd: 0, def: 0, res: 0,
-    strength: 0, intelligence: 0, agility: 0,
+    eva: 0, attack_range: 0, move_range: 0,
     active_skills: [{ name: '', desc: '', cost: 0 }],
     passive_skills: [{ name: '', desc: '' }],
     token_url: '',
@@ -195,7 +195,14 @@ function ensureSkillArrays(p) {
   const passive_skills = Array.isArray(p.passive_skills) && p.passive_skills.length
     ? p.passive_skills
     : [{ name: '', desc: '' }]
-  return { ...p, active_skills, passive_skills }
+  return {
+    ...p,
+    active_skills,
+    passive_skills,
+    eva: p.eva || 0,
+    attack_range: p.attack_range || 0,
+    move_range: p.move_range || 0
+  }
 }
 
 async function loadPhantasmList() {
@@ -236,9 +243,9 @@ function editPhantasmItem(p) {
     category: p.category || '常规',
     hp: p.hp || 0, atk: p.atk || 0, spd: p.spd || 0,
     def: p.def || 0, res: p.res || 0,
-    strength: p.strength || 0,
-    intelligence: p.intelligence || 0,
-    agility: p.agility || 0,
+    eva: p.eva || 0,
+    attack_range: p.attack_range || 0,
+    move_range: p.move_range || 0,
     active_skills: p.active_skills || p.skills,
     passive_skills: p.passive_skills,
     token_url: p.token_url || '',
@@ -278,11 +285,12 @@ async function savePhantasmItem() {
     spd: Number(f.spd) || 0,
     def: Number(f.def) || 0,
     res: Number(f.res) || 0,
-    strength: Number(f.strength) || 0,
-    intelligence: Number(f.intelligence) || 0,
-    agility: Number(f.agility) || 0,
+
     active_skills: f.active_skills || [],
     passive_skills: f.passive_skills || [],
+    eva: Number(f.eva) || 0,
+    attack_range: Number(f.attack_range) || 0,
+    move_range: Number(f.move_range) || 0,
     skills: f.active_skills || [],
     token_url: f.token_url || '',
     notes: f.notes || '',
@@ -537,17 +545,28 @@ async function addEnemyToMap() {
 }
 
 async function addPlayerToMap() {
-  if (!addPlayerId.value || !currentSession.value?.id) return
+  if (!isGM.value) return
+  if (!battleMap.value?.id) {
+    alert('地图还没建好')
+    return
+  }
   const c = characters.value.find(i => i.id === addPlayerId.value)
-  if (!c) return
+  if (!c) {
+    alert('请选择要添加的角色')
+    return
+  }
+  const pos = emptyCellNear(viewX.value + 4, viewY.value + 4)
+  if (!pos) {
+    alert('没有空位')
+    return
+  }
   const { error } = await supabase.from('battle_tokens').insert({
-    session_id: currentSession.value.id,
+    map_id: battleMap.value.id,
     kind: 'player',
     ref_id: c.id,
     label: c.name,
-    x: 30,
-    y: 30,
-    skills_visible: false
+    x: pos.x,
+    y: pos.y
   })
   if (error) alert('添加失败：' + error.message)
   else {
@@ -1010,12 +1029,15 @@ async function startMissionFromBook(bookId) {
       spd: p.spd || 0,
       def: p.def || 0,
       res: p.res || 0,
-      strength: p.strength || 0,
-      intelligence: p.intelligence || 0,
-      agility: p.agility || 0,
-      skills: p.active_skills || p.skills || [],
+      eva: p.eva || 0,
+      attack_range: p.attack_range || 0,
+      move_range: p.move_range || 0,
       active_skills: p.active_skills || p.skills || [],
       passive_skills: p.passive_skills || [],
+      eva: p.eva || 0,
+      attack_range: p.attack_range || 0,
+      move_range: p.move_range || 0,
+      skills: p.active_skills || p.skills || [],
       boss_skills: p.boss_skills || [],
       token_url: p.token_url || '',
       notes: p.notes || ''
@@ -3384,9 +3406,9 @@ onUnmounted(() => {
             <label>SPD <input type="number" v-model.number="phantasmForm.spd" style="width: 100%;" /></label>
             <label>DEF <input type="number" v-model.number="phantasmForm.def" style="width: 100%;" /></label>
             <label>RES <input type="number" v-model.number="phantasmForm.res" style="width: 100%;" /></label>
-            <label>力量 <input type="number" v-model.number="phantasmForm.strength" style="width: 100%;" /></label>
-            <label>智力 <input type="number" v-model.number="phantasmForm.intelligence" style="width: 100%;" /></label>
-            <label>敏捷 <input type="number" v-model.number="phantasmForm.agility" style="width: 100%;" /></label>
+            <label>EVA <input type="number" v-model.number="phantasmForm.eva" style="width: 100%;" /></label>
+            <label>攻击距离 <input type="number" v-model.number="phantasmForm.attack_range" style="width: 100%;" /></label>
+            <label>移动格 <input type="number" v-model.number="phantasmForm.move_range" style="width: 100%;" /></label>
           </div>
           <input v-model="phantasmForm.token_url" placeholder="TOKEN 图片 URL（可空）" style="width: 100%; padding: 8px; margin-bottom: 6px; box-sizing: border-box;" />
           <textarea v-model="phantasmForm.notes" rows="2" placeholder="备注" style="width: 100%; padding: 8px; margin-bottom: 8px; box-sizing: border-box;"></textarea>
