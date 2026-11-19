@@ -2253,7 +2253,7 @@ function selectPassive(tier, skill) {
     [tier]: { name: skill.name, desc: skill.desc }
   }
   passiveChoices.value[tier] = null
-  saveCharacter(true)
+  saveCharacter(false)
 }
 
 function rollActiveChoices(index) {
@@ -2278,7 +2278,7 @@ function selectActive(index, skill) {
   next[index] = { name: skill.name, desc: skill.desc, cost: skill.cost }
   currentCharacter.value.activeSkills = next
   activeChoices.value[index] = null
-  saveCharacter(true)
+  saveCharacter(false)
 }
 
 const unlockedAttributeSkills = computed(() => {
@@ -2783,6 +2783,11 @@ async function claimAndEnterCharacter(char) {
   const myCharacterId = ref(null)
 }
 
+async function enterLobby() {
+  page.value = 'lobby'
+  await loadCharacters()
+}
+
 async function claimByName() {
   const name = (claimNameInput.value || '').trim()
   if (!name) {
@@ -3036,7 +3041,10 @@ async function saveCharacter(silent = true) {
     })
     .eq('id', currentCharacter.value.id)
   saving.value = false
-  if (error && !silent) alert('保存失败：' + error.message)
+  if (error) {
+    console.error('保存失败', error)
+    if (!silent) alert('保存失败：' + error.message)
+  }
 }
 
 function scheduleAutoSave() {
