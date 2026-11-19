@@ -90,7 +90,7 @@ const phantasmForm = ref(emptyPhantasmForm())
 
 const bookMaps = ref([])
 const editingBookMap = ref(null)
-const bookMapForm = ref({ name: '', width: 30, height: 30, notes: '' })
+const bookMapForm = ref({ name: '', width: 10, height: 10, notes: '' })
 
 async function loadBookMaps() {
   bookMaps.value = []
@@ -104,7 +104,7 @@ async function loadBookMaps() {
 }
 
 function startNewBookMap() {
-  bookMapForm.value = { name: '', width: 30, height: 30, notes: '' }
+  bookMapForm.value = { name: '', width: 10, height: 10, notes: '' }
   editingBookMap.value = {}
 }
 
@@ -116,8 +116,8 @@ async function saveBookMap() {
   const payload = {
     book_id: editingBook.value.id,
     name: bookMapForm.value.name,
-    width: Number(bookMapForm.value.width) || 30,
-    height: Number(bookMapForm.value.height) || 30,
+    width: Number(bookMapForm.value.width) || 10,
+    height: Number(bookMapForm.value.height) || 10,
     notes: bookMapForm.value.notes || ''
   }
   const { error } = editingBookMap.value.id
@@ -3443,10 +3443,14 @@ onUnmounted(() => {
         <div v-if="editingBookMap" style="padding: 12px; background: #e8f5e9; border-radius: 8px; margin-bottom: 12px;">
           <input v-model="bookMapForm.name" placeholder="地图名称" style="width: 100%; padding: 6px; margin-bottom: 6px; box-sizing: border-box;" />
           <div style="display: flex; gap: 8px; margin-bottom: 6px;">
-            <label>宽 <input type="number" v-model.number="bookMapForm.width" style="width: 60px;" /></label>
-            <label>高 <input type="number" v-model.number="bookMapForm.height" style="width: 60px;" /></label>
+            <label>宽 <input type="number" v-model.number="bookMapForm.width" min="5" max="20" style="width: 60px;" /></label>
+            <label>高 <input type="number" v-model.number="bookMapForm.height" min="5" max="20" style="width: 60px;" /></label>
+            <span style="font-size: 12px; color: #666;">（战斗地图默认 10×10）</span>
           </div>
           <textarea v-model="bookMapForm.notes" rows="2" placeholder="备注" style="width: 100%; padding: 6px; box-sizing: border-box;"></textarea>
+          <div style="margin-top: 8px; display: grid; gap: 1px; background: #ccc; width: fit-content;" :style="{ gridTemplateColumns: 'repeat(' + (bookMapForm.width || 10) + ', 16px)' }">
+            <div v-for="i in (bookMapForm.width || 10) * (bookMapForm.height || 10)" :key="i" style="width: 16px; height: 16px; background: #fff;"></div>
+          </div>
           <div style="margin-top: 8px;">
             <button type="button" @click="saveBookMap" style="padding: 6px 12px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer;">保存地图</button>
             <button type="button" @click="editingBookMap = null" style="padding: 6px 12px; margin-left: 6px;">取消</button>
@@ -4546,7 +4550,7 @@ onUnmounted(() => {
   </div>
 </div>
     </div>
-
+</div>
 
 <div v-show="characterTab === 5">
 <!-- 检定技能栏（可折叠） -->
@@ -5210,7 +5214,6 @@ onUnmounted(() => {
 
 <h2>备注 / 讯息栏</h2>
 <textarea v-model="currentCharacter.notes" rows="4" style="width: 100%; padding: 8px; margin-top: 8px;" placeholder="临时状态、任务笔记等..."></textarea>
-</div>
 </div>
 </div>
 
