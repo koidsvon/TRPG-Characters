@@ -649,6 +649,23 @@ async function removeToken(t) {
   }
 }
 
+async function convertSpawnsToTokens() {
+  if (!battleMap.value?.id) return
+  const spawns = battleTokens.value.filter(t => t.kind === 'playerSpawn')
+  if (!spawns.length) return
+  const players = [...characters.value].sort((a, b) => String(a.name).localeCompare(b.name))
+  for (let i = 0; i < Math.min(spawns.length, players.length); i++) {
+    const spawn = spawns[i]
+    const ch = players[i]
+    await supabase.from('battle_tokens').update({
+      kind: 'player',
+      ref_id: ch.id,
+      label: ch.name
+    }).eq('id', spawn.id)
+  }
+  await loadBattleMap()
+}
+
 async function ensureBattleSetup() {
   if (!currentMission.value?.id) {
     alert('请先开启神秘事件')
@@ -703,6 +720,8 @@ async function ensureBattleSetup() {
 async function enterBattle() {
   const map = await ensureBattleSetup()
   if (!map) return
+  const hasPlayers = battleTokens.value.some(t => t.kind === 'player')
+  if (!hasPlayers) await convertSpawnsToTokens()
   await supabase.from('missions').update({ show_battle: true }).eq('id', currentMission.value.id)
   currentMission.value.show_battle = true
   viewX.value = 0
@@ -4190,6 +4209,8 @@ onUnmounted(() => {
                 color: ['obstacle','summon'].includes(tokenAt(viewX + col - 1, viewY + row - 1).kind) ? 'white' : '#333',
                 padding: '0 4px'
               }">
+                <span v-if="tokenAt(viewX + col - 1, viewY + row - 1).kind === 'obstacle'" style="font-size:8px; background:#ff9800; color:white; padding:1px 3px; border-radius:2px; margin-right:2px;">障</span>
+                <span v-else-if="tokenAt(viewX + col - 1, viewY + row - 1).kind === 'summon'" style="font-size:8px; background:#7b1fa2; color:white; padding:1px 3px; border-radius:2px; margin-right:2px;">召</span>
                 {{ tokenAt(viewX + col - 1, viewY + row - 1).label }}
               </div>
             </template>
