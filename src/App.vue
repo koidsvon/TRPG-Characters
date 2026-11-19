@@ -88,6 +88,54 @@ function emptyPhantasmForm() {
 }
 const phantasmForm = ref(emptyPhantasmForm())
 
+const bookMaps = ref([])
+const editingBookMap = ref(null)
+const bookMapForm = ref({ name: '', width: 30, height: 30, notes: '' })
+
+async function loadBookMaps() {
+  bookMaps.value = []
+  if (!editingBook.value?.id) return
+  const { data } = await supabase
+    .from('book_maps')
+    .select('*')
+    .eq('book_id', editingBook.value.id)
+    .order('created_at')
+  bookMaps.value = data || []
+}
+
+function startNewBookMap() {
+  bookMapForm.value = { name: '', width: 30, height: 30, notes: '' }
+  editingBookMap.value = {}
+}
+
+async function saveBookMap() {
+  if (!editingBook.value?.id || !bookMapForm.value.name) {
+    alert('请先保存事件，并填写地图名')
+    return
+  }
+  const payload = {
+    book_id: editingBook.value.id,
+    name: bookMapForm.value.name,
+    width: Number(bookMapForm.value.width) || 30,
+    height: Number(bookMapForm.value.height) || 30,
+    notes: bookMapForm.value.notes || ''
+  }
+  const { error } = editingBookMap.value.id
+    ? await supabase.from('book_maps').update(payload).eq('id', editingBookMap.value.id)
+    : await supabase.from('book_maps').insert(payload)
+  if (error) alert('保存地图失败：' + error.message)
+  else {
+    editingBookMap.value = null
+    await loadBookMaps()
+  }
+}
+
+async function deleteBookMap(m) {
+  if (!confirm('删除地图「' + m.name + '」？')) return
+  await supabase.from('book_maps').delete().eq('id', m.id)
+  await loadBookMaps()
+}
+
 const bookNodes = ref([])          // 编辑记录簿时
 const missionNodes = ref([])       // 本局
 const currentMissionNode = ref(null)
@@ -803,9 +851,10 @@ function editBookItem(item) {
     mission_type: item.mission_type || '',
     summary: item.summary || ''
   }
-    loadBookNodes(item.id)
-      loadPhantasmList()
-      loadBookPhantasms(item.id)
+  loadBookNodes(item.id)
+  loadPhantasmList()
+  loadBookPhantasms(item.id)
+  loadBookMaps()
 }
 
 async function loadBookNodes(bookId) {
@@ -2873,11 +2922,12 @@ charCopy.abilitySkills = charCopy.ability_skills || charCopy.abilitySkills || { 
 if (typeof charCopy.abilitySkills !== 'object' || Array.isArray(charCopy.abilitySkills)) {
   charCopy.abilitySkills = { I: null, II: null, III: null }
 }
-charCopy.activeSkills = charCopy.active_skills || charCopy.activeSkills || [null, null, null]
-if (!Array.isArray(charCopy.activeSkills)) {
-  charCopy.activeSkills = [null, null, null]
-}
-while (charCopy.activeSkills.length < 3) charCopy.activeSkills.push(null)
+const rawActive = charCopy.active_skills || charCopy.activeSkills || []
+charCopy.activeSkills = [
+  rawActive[0] || null,
+  rawActive[1] || null,
+  rawActive[2] || null
+]
 charCopy.specializations = charCopy.abilitySkills.specializations || charCopy.specializations || []
   skipAutoSave = true
   currentCharacter.value = charCopy
@@ -2962,7 +3012,11 @@ async function saveCharacter(silent = true) {
       spd: currentCharacter.value.spd,
       shd: currentCharacter.value.shd || 0,
       eva: currentCharacter.value.eva || 0,
-      active_skills: currentCharacter.value.activeSkills,
+      active_skills: [
+        currentCharacter.value.activeSkills?.[0] || null,
+        currentCharacter.value.activeSkills?.[1] || null,
+        currentCharacter.value.activeSkills?.[2] || null
+      ],
       attribute_skills: currentCharacter.value.attributeSkills,
       move_range: currentCharacter.value.move_range,
       pp: currentCharacter.value.pp,
@@ -3383,6 +3437,29 @@ onUnmounted(() => {
         </button>
 
               <div v-if="editingBook.id" style="margin-top: 28px; border-top: 1px solid #ddd; padding-top: 16px;">
+        <h3>预置战场地图</h3>
+        <p style="font-size: 13px; color: #666;">提前编辑本战役会用到的战场地图。开本局时可选用。</p>
+        <button type="button" @click="startNewBookMap" style="margin: 8px 0; padding: 6px 12px; cursor: pointer;">+ 新建地图</button>
+        <div v-if="editingBookMap" style="padding: 12px; background: #e8f5e9; border-radius: 8px; margin-bottom: 12px;">
+          <input v-model="bookMapForm.name" placeholder="地图名称" style="width: 100%; padding: 6px; margin-bottom: 6px; box-sizing: border-box;" />
+          <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+            <label>宽 <input type="number" v-model.number="bookMapForm.width" style="width: 60px;" /></label>
+            <label>高 <input type="number" v-model.number="bookMapForm.height" style="width: 60px;" /></label>
+          </div>
+          <textarea v-model="bookMapForm.notes" rows="2" placeholder="备注" style="width: 100%; padding: 6px; box-sizing: border-box;"></textarea>
+          <div style="margin-top: 8px;">
+            <button type="button" @click="saveBookMap" style="padding: 6px 12px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer;">保存地图</button>
+            <button type="button" @click="editingBookMap = null" style="padding: 6px 12px; margin-left: 6px;">取消</button>
+          </div>
+        </div>
+        <div v-for="m in bookMaps" :key="m.id" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 6px;">
+          <span>{{ m.name }}（{{ m.width }}×{{ m.height }}）</span>
+          <span>
+            <button type="button" @click="editingBookMap = m; bookMapForm = { name: m.name, width: m.width, height: m.height, notes: m.notes || '' }" style="padding: 4px 8px; cursor: pointer;">编辑</button>
+            <button type="button" @click="deleteBookMap(m)" style="padding: 4px 8px; color: #c62828; cursor: pointer;">删除</button>
+          </span>
+        </div>
+
         <h3>本战役空想种</h3>
         <p style="font-size: 13px; color: #666;">先在图鉴中创建，再按分类「选用」进本战役。开本局时会复制到本局。</p>
 
@@ -4283,29 +4360,77 @@ onUnmounted(() => {
     </span>
   </div>
 <div v-show="characterTab === 3">
-  <h2>核心属性</h2>
-  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px;">
-    <label>力量<br /><input type="number" v-model.number="currentCharacter.strength" style="width: 100%; padding: 6px;" /></label>
-    <label>力量成长<br /><input type="number" step="0.1" v-model.number="currentCharacter.strength_growth" style="width: 100%; padding: 6px;" /></label>
-    <label>智力<br /><input type="number" v-model.number="currentCharacter.intelligence" style="width: 100%; padding: 6px;" /></label>
-    <label>智力成长<br /><input type="number" step="0.1" v-model.number="currentCharacter.intelligence_growth" style="width: 100%; padding: 6px;" /></label>
-    <label>敏捷<br /><input type="number" v-model.number="currentCharacter.agility" style="width: 100%; padding: 6px;" /></label>
-    <label>敏捷成长<br /><input type="number" step="0.1" v-model.number="currentCharacter.agility_growth" style="width: 100%; padding: 6px;" /></label>
+    <h2>核心属性</h2>
+<div style="margin: 12px 0 20px; display: flex; flex-direction: column; gap: 10px;">
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+    <div style="border: 2px solid #e53935; border-radius: 8px; padding: 8px 10px; background: #fff5f5;">
+      <label style="color: #c62828; font-weight: 600;">力量</label>
+      <input type="number" step="0.1" v-model.number="currentCharacter.strength" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 2px solid #1e88e5; border-radius: 8px; padding: 8px 10px; background: #f3f8ff;">
+      <label style="color: #1565c0; font-weight: 600;">智力</label>
+      <input type="number" step="0.1" v-model.number="currentCharacter.intelligence" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 2px solid #43a047; border-radius: 8px; padding: 8px 10px; background: #f3fbf4;">
+      <label style="color: #2e7d32; font-weight: 600;">敏捷</label>
+      <input type="number" step="0.1" v-model.number="currentCharacter.agility" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
   </div>
-  <button type="button" @click="randomizeLevel1Stats" style="padding: 6px 12px; margin-bottom: 16px; cursor: pointer;">1级随机属性</button>
-  <h3>派生属性</h3>
-  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px;">
-    <label>HP 当前<br /><input type="number" v-model.number="currentCharacter.hp_current" style="width: 100%; padding: 6px;" /></label>
-    <label>HP 最大<br /><input type="number" v-model.number="currentCharacter.hp_max" style="width: 100%; padding: 6px;" /></label>
-    <label>ATK<br /><input type="number" v-model.number="currentCharacter.atk" style="width: 100%; padding: 6px;" /></label>
-    <label>DEF<br /><input type="number" v-model.number="currentCharacter.def" style="width: 100%; padding: 6px;" /></label>
-    <label>RES<br /><input type="number" v-model.number="currentCharacter.res" style="width: 100%; padding: 6px;" /></label>
-    <label>SPD<br /><input type="number" v-model.number="currentCharacter.spd" style="width: 100%; padding: 6px;" /></label>
-    <label>EVA<br /><input type="number" v-model.number="currentCharacter.eva" style="width: 100%; padding: 6px;" /></label>
-    <label>移动格<br /><input type="number" v-model.number="currentCharacter.move_range" style="width: 100%; padding: 6px;" /></label>
-    <label>PP<br /><input type="number" v-model.number="currentCharacter.pp" style="width: 100%; padding: 6px;" /></label>
+
+  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>当前 HP</label>
+      <input type="number" :value="Math.floor(currentCharacter.hp_current || 0)" @input="currentCharacter.hp_current = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>最大 HP</label>
+      <input type="number" :value="Math.floor(currentCharacter.hp_max || 0)" @input="currentCharacter.hp_max = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>PP</label>
+      <input type="number" v-model.number="currentCharacter.pp" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>主属性加值</label>
+      <input type="number" :value="mainAttrBonus" disabled style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; background: #f0f0f0;" />
+    </div>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>ATK</label>
+      <input type="number" :value="Math.floor(currentCharacter.atk || 0)" @input="currentCharacter.atk = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>DEF</label>
+      <input type="number" :value="Math.floor(currentCharacter.def || 0)" @input="currentCharacter.def = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>RES</label>
+      <input type="number" :value="Math.floor(currentCharacter.res || 0)" @input="currentCharacter.res = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>SPD</label>
+      <input type="number" :value="Math.floor(currentCharacter.spd || 0)" @input="currentCharacter.spd = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>EVA</label>
+      <input type="number" v-model.number="currentCharacter.eva" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>移动格</label>
+      <input type="number" v-model.number="currentCharacter.move_range" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
+    </div>
+    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
+      <label>攻击距离</label>
+      <input type="number" :value="attackRange" disabled style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; background: #f0f0f0;" />
+    </div>
   </div>
 </div>
+
+</div>
+
 <div v-show="characterTab === 1">
 <template v-if="currentCharacter && ['魔术师','术士','Code Wizard'].includes(currentCharacter.class_name)">
   <h2>魔术收藏</h2>
@@ -4422,76 +4547,7 @@ onUnmounted(() => {
 </div>
     </div>
 
-    <h2>核心属性</h2>
-<div style="margin: 12px 0 20px; display: flex; flex-direction: column; gap: 10px;">
-  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-    <div style="border: 2px solid #e53935; border-radius: 8px; padding: 8px 10px; background: #fff5f5;">
-      <label style="color: #c62828; font-weight: 600;">力量</label>
-      <input type="number" step="0.1" v-model.number="currentCharacter.strength" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-    <div style="border: 2px solid #1e88e5; border-radius: 8px; padding: 8px 10px; background: #f3f8ff;">
-      <label style="color: #1565c0; font-weight: 600;">智力</label>
-      <input type="number" step="0.1" v-model.number="currentCharacter.intelligence" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-    <div style="border: 2px solid #43a047; border-radius: 8px; padding: 8px 10px; background: #f3fbf4;">
-      <label style="color: #2e7d32; font-weight: 600;">敏捷</label>
-      <input type="number" step="0.1" v-model.number="currentCharacter.agility" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-  </div>
 
-  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
-    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
-      <label>当前 HP</label>
-      <input type="number" :value="Math.floor(currentCharacter.hp_current || 0)" @input="currentCharacter.hp_current = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
-      <label>最大 HP</label>
-      <input type="number" :value="Math.floor(currentCharacter.hp_max || 0)" @input="currentCharacter.hp_max = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
-      <label>PP</label>
-      <input type="number" v-model.number="currentCharacter.pp" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
-      <label>主属性加值</label>
-      <input type="number" :value="mainAttrBonus" disabled style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; background: #f0f0f0;" />
-    </div>
-  </div>
-  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
-    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
-      <label>ATK</label>
-      <input type="number" :value="Math.floor(currentCharacter.atk || 0)" @input="currentCharacter.atk = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
-      <label>DEF</label>
-      <input type="number" :value="Math.floor(currentCharacter.def || 0)" @input="currentCharacter.def = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
-      <label>RES</label>
-      <input type="number" :value="Math.floor(currentCharacter.res || 0)" @input="currentCharacter.res = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
-      <label>SPD</label>
-      <input type="number" :value="Math.floor(currentCharacter.spd || 0)" @input="currentCharacter.spd = Number($event.target.value)" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
-      <label>EVA</label>
-      <input type="number" v-model.number="currentCharacter.eva" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-  </div>
-  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
-    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
-      <label>移动格</label>
-      <input type="number" v-model.number="currentCharacter.move_range" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;" />
-    </div>
-    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;">
-      <label>攻击距离</label>
-      <input type="number" :value="attackRange" disabled style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; background: #f0f0f0;" />
-    </div>
-  </div>
-</div>
-
-</div>
 <div v-show="characterTab === 5">
 <!-- 检定技能栏（可折叠） -->
 <div style="margin: 30px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
@@ -5154,6 +5210,7 @@ onUnmounted(() => {
 
 <h2>备注 / 讯息栏</h2>
 <textarea v-model="currentCharacter.notes" rows="4" style="width: 100%; padding: 8px; margin-top: 8px;" placeholder="临时状态、任务笔记等..."></textarea>
+</div>
 </div>
 </div>
 
