@@ -90,6 +90,9 @@ const phantasmForm = ref(emptyPhantasmForm())
 
 const bookMaps = ref([])
 const editingBookMap = ref(null)
+const availableBookMaps = ref([])
+const selectedBookMapId = ref('')
+const showMapSelect = ref(false)
 const bookMapForm = ref({ name: '', width: 10, height: 10, notes: '', tokens: [] })
 const bookMapEditorMode = ref('')
 const bookMapSelectedCell = ref(null)
@@ -695,6 +698,49 @@ async function convertSpawnsToTokens() {
   await loadBattleMap()
 }
 
+async function loadAvailableBookMaps() {
+  availableBookMaps.value = []
+  if (!currentMission.value?.source_book_id) return
+  const { data } = await supabase
+    .from('book_maps')
+    .select('*')
+    .eq('book_id', currentMission.value.source_book_id)
+  availableBookMaps.value = data || []
+}
+
+async function createBattleFromBookMap(bookMap) {
+  if (!currentMission.value?.id) return null
+  const { data: map, error: mapErr } = await supabase
+    .from('battle_maps')
+    .insert({
+      mission_id: currentMission.value.id,
+      name: bookMap.name || '战斗地图',
+      width: bookMap.width || MAP_W,
+      height: bookMap.height || MAP_H
+    })
+    .select()
+    .single()
+  if (mapErr) {
+    alert('创建战斗地图失败：' + mapErr.message)
+    return null
+  }
+  const srcTokens = bookMap.tokens || []
+  if (srcTokens.length) {
+    const inserts = srcTokens.map(t => ({
+      map_id: map.id,
+      kind: t.kind,
+      label: t.label || '',
+      x: t.x,
+      y: t.y,
+      ref_id: null
+    }))
+    await supabase.from('battle_tokens').insert(inserts)
+  }
+  await supabase.from('missions').update({ current_battle_map_id: map.id }).eq('id', currentMission.value.id)
+  await loadBattleMap()
+  return battleMap.value
+}
+
 async function ensureBattleSetup() {
   if (!currentMission.value?.id) {
     alert('请先开启神秘事件')
@@ -747,16 +793,45 @@ async function ensureBattleSetup() {
 }
 
 async function enterBattle() {
-  const map = await ensureBattleSetup()
-  if (!map) return
-  const hasPlayers = battleTokens.value.some(t => t.kind === 'player')
-  if (!hasPlayers) await convertSpawnsToTokens()
-  await supabase.from('missions').update({ show_battle: true }).eq('id', currentMission.value.id)
-  currentMission.value.show_battle = true
-  viewX.value = 0
-  viewY.value = 0
-  page.value = 'battle'
-  loadDiceLogs()
+  await loadBattleMap()
+  if (battleMap.value) {
+    const hasPlayers = battleTokens.value.some(t => t.kind === 'player')
+    if (!hasPlayers) await convertSpawnsToTokens()
+    await supabase.from('missions').update({ show_battle: true }).eq('id', currentMission.value.id)
+    currentMission.value.show_battle = true
+    viewX.value = 0
+    viewY.value = 0
+    page.value = 'battle'
+    loadDiceLogs()
+    return
+  }
+  if (!isGM.value) {
+    alert('等待 GM 选择地图')
+    return
+  }
+  await loadAvailableBookMaps()
+  showMapSelect.value = true
+}
+
+async function confirmMapSelect() {
+  if (selectedBookMapId.value) {
+    const bm = availableBookMaps.value.find(m => m.id === selectedBookMapId.value)
+    if (bm) await createBattleFromBookMap(bm)
+  } else {
+    await ensureBattleSetup()
+  }
+  showMapSelect.value = false
+  selectedBookMapId.value = ''
+  if (battleMap.value) {
+    const hasPlayers = battleTokens.value.some(t => t.kind === 'player')
+    if (!hasPlayers) await convertSpawnsToTokens()
+    await supabase.from('missions').update({ show_battle: true }).eq('id', currentMission.value.id)
+    currentMission.value.show_battle = true
+    viewX.value = 0
+    viewY.value = 0
+    page.value = 'battle'
+    loadDiceLogs()
+  }
 }
 
 async function exitBattle() {
@@ -3980,6 +4055,17 @@ onUnmounted(() => {
           @click="enterBattle"
           style="margin-left: 8px; padding: 6px 12px; cursor: pointer;"
         >进入战斗地图</button>
+        <div v-if="showMapSelect && isGM" style="margin-top: 12px; padding: 12px; background: #fff; border-radius: 6px; border: 1px solid #ccc;">
+          <strong>选择预置地图</strong>
+          <div style="margin: 8px 0;">
+            <select v-model="selectedBookMapId" style="padding: 6px; min-width: 200px;">
+              <option value="">空白地图（自动生成玩家）</option>
+              <option v-for="m in availableBookMaps" :key="m.id" :value="m.id">{{ m.name }}</option>
+            </select>
+          </div>
+          <button type="button" @click="confirmMapSelect" style="padding: 6px 12px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer;">确认并进入</button>
+          <button type="button" @click="showMapSelect = false" style="padding: 6px 12px; margin-left: 6px;">取消</button>
+        </div>
         <button
           v-if="!isGM && currentMission.show_battle"
           type="button"
