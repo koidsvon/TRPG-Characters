@@ -90,7 +90,9 @@ const phantasmForm = ref(emptyPhantasmForm())
 
 const bookMaps = ref([])
 const editingBookMap = ref(null)
-const bookMapForm = ref({ name: '', width: 10, height: 10, notes: '' })
+const bookMapForm = ref({ name: '', width: 10, height: 10, notes: '', tokens: [] })
+const bookMapEditorMode = ref('')
+const bookMapSelectedCell = ref(null)
 
 async function loadBookMaps() {
   bookMaps.value = []
@@ -104,7 +106,8 @@ async function loadBookMaps() {
 }
 
 function startNewBookMap() {
-  bookMapForm.value = { name: '', width: 10, height: 10, notes: '' }
+  bookMapForm.value = { name: '', width: 10, height: 10, notes: '', tokens: [] }
+  bookMapEditorMode.value = ''
   editingBookMap.value = {}
 }
 
@@ -118,7 +121,8 @@ async function saveBookMap() {
     name: bookMapForm.value.name,
     width: Number(bookMapForm.value.width) || 10,
     height: Number(bookMapForm.value.height) || 10,
-    notes: bookMapForm.value.notes || ''
+    notes: bookMapForm.value.notes || '',
+    tokens: bookMapForm.value.tokens || []
   }
   const { error } = editingBookMap.value.id
     ? await supabase.from('book_maps').update(payload).eq('id', editingBookMap.value.id)
@@ -134,6 +138,31 @@ async function deleteBookMap(m) {
   if (!confirm('删除地图「' + m.name + '」？')) return
   await supabase.from('book_maps').delete().eq('id', m.id)
   await loadBookMaps()
+}
+
+function bookMapTokenAt(x, y) {
+  return (bookMapForm.value.tokens || []).find(t => t.x === x && t.y === y)
+}
+
+function placeBookMapToken(x, y) {
+  const mode = bookMapEditorMode.value
+  if (!mode) return
+  const tokens = bookMapForm.value.tokens || []
+  const existing = tokens.findIndex(t => t.x === x && t.y === y)
+  if (existing >= 0) {
+    tokens.splice(existing, 1)
+    bookMapForm.value.tokens = [...tokens]
+    return
+  }
+  let kind = ''
+  let label = ''
+  if (mode === 'obstacle') { kind = 'obstacle'; label = prompt('障碍名称') || '障' }
+  else if (mode === 'summon') { kind = 'summon'; label = prompt('召唤物名称') || '召唤' }
+  else if (mode === 'playerSpawn') { kind = 'playerSpawn'; label = 'P' }
+  else if (mode === 'enemySpawn') { kind = 'enemySpawn'; label = 'E' }
+  else return
+  tokens.push({ kind, label, x, y })
+  bookMapForm.value.tokens = [...tokens]
 }
 
 const bookNodes = ref([])          // 编辑记录簿时
@@ -3475,8 +3504,31 @@ onUnmounted(() => {
             <span style="font-size: 12px; color: #666;">（战斗地图默认 10×10）</span>
           </div>
           <textarea v-model="bookMapForm.notes" rows="2" placeholder="备注" style="width: 100%; padding: 6px; box-sizing: border-box;"></textarea>
-          <div style="margin-top: 8px; display: grid; gap: 1px; background: #ccc; width: fit-content;" :style="{ gridTemplateColumns: 'repeat(' + (bookMapForm.width || 10) + ', 16px)' }">
-            <div v-for="i in (bookMapForm.width || 10) * (bookMapForm.height || 10)" :key="i" style="width: 16px; height: 16px; background: #fff;"></div>
+          <div style="margin: 8px 0; display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" @click="bookMapEditorMode = bookMapEditorMode === 'obstacle' ? '' : 'obstacle'"
+                    :style="{ background: bookMapEditorMode === 'obstacle' ? '#ff9800' : '#fff', border: '1px solid #ff9800', padding: '4px 8px' }">障碍</button>
+            <button type="button" @click="bookMapEditorMode = bookMapEditorMode === 'summon' ? '' : 'summon'"
+                    :style="{ background: bookMapEditorMode === 'summon' ? '#7b1fa2' : '#fff', color: bookMapEditorMode === 'summon' ? 'white' : '#7b1fa2', border: '1px solid #7b1fa2', padding: '4px 8px' }">召唤物</button>
+            <button type="button" @click="bookMapEditorMode = bookMapEditorMode === 'playerSpawn' ? '' : 'playerSpawn'"
+                    :style="{ background: bookMapEditorMode === 'playerSpawn' ? '#4CAF50' : '#fff', color: bookMapEditorMode === 'playerSpawn' ? 'white' : '#4CAF50', border: '1px solid #4CAF50', padding: '4px 8px' }">玩家出生点</button>
+            <button type="button" @click="bookMapEditorMode = bookMapEditorMode === 'enemySpawn' ? '' : 'enemySpawn'"
+                    :style="{ background: bookMapEditorMode === 'enemySpawn' ? '#f44336' : '#fff', color: bookMapEditorMode === 'enemySpawn' ? 'white' : '#f44336', border: '1px solid #f44336', padding: '4px 8px' }">敌人出生点</button>
+            <span v-if="bookMapEditorMode" style="font-size: 12px; color: #666;">点击格子放置（再点取消）</span>
+          </div>
+          <div style="display: grid; gap: 1px; background: #ccc; width: fit-content;" :style="{ gridTemplateColumns: 'repeat(' + (bookMapForm.width || 10) + ', 20px)' }">
+            <div v-for="i in (bookMapForm.width || 10) * (bookMapForm.height || 10)" :key="i"
+                 @click="placeBookMapToken((i - 1) % (bookMapForm.width || 10), Math.floor((i - 1) / (bookMapForm.width || 10)))"
+                 :style="{
+                   width: '20px', height: '20px', cursor: 'pointer',
+                   background: bookMapTokenAt((i - 1) % (bookMapForm.width || 10), Math.floor((i - 1) / (bookMapForm.width || 10)))
+                     ? (bookMapTokenAt((i - 1) % (bookMapForm.width || 10), Math.floor((i - 1) / (bookMapForm.width || 10))).kind === 'obstacle' ? '#ff9800'
+                       : bookMapTokenAt((i - 1) % (bookMapForm.width || 10), Math.floor((i - 1) / (bookMapForm.width || 10))).kind === 'summon' ? '#7b1fa2'
+                       : bookMapTokenAt((i - 1) % (bookMapForm.width || 10), Math.floor((i - 1) / (bookMapForm.width || 10))).kind === 'playerSpawn' ? '#4CAF50'
+                       : '#f44336')
+                     : '#fff'
+                 }"
+                 :title="bookMapTokenAt((i - 1) % (bookMapForm.width || 10), Math.floor((i - 1) / (bookMapForm.width || 10)))?.label || ''"
+            ></div>
           </div>
           <div style="margin-top: 8px;">
             <button type="button" @click="saveBookMap" style="padding: 6px 12px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer;">保存地图</button>
@@ -3486,7 +3538,7 @@ onUnmounted(() => {
         <div v-for="m in bookMaps" :key="m.id" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 6px;">
           <span>{{ m.name }}（{{ m.width }}×{{ m.height }}）</span>
           <span>
-            <button type="button" @click="editingBookMap = m; bookMapForm = { name: m.name, width: m.width, height: m.height, notes: m.notes || '' }" style="padding: 4px 8px; cursor: pointer;">编辑</button>
+            <button type="button" @click="editingBookMap = m; bookMapForm = { name: m.name, width: m.width, height: m.height, notes: m.notes || '', tokens: m.tokens || [] }" style="padding: 4px 8px; cursor: pointer;">编辑</button>
             <button type="button" @click="deleteBookMap(m)" style="padding: 4px 8px; color: #c62828; cursor: pointer;">删除</button>
           </span>
         </div>
