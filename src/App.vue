@@ -4120,16 +4120,17 @@ onUnmounted(() => {
       <span style="margin-left: 8px; font-size: 13px; color:#666;">原点 ({{ viewX }}, {{ viewY }})</span>
     </div>
 
-    <div v-if="isGM" style="margin: 10px 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+    <div v-if="isGM" style="margin: 10px 0; padding: 10px; background: #fff8e1; border-radius: 6px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+      <strong style="font-size: 13px; color: #e65100;">编辑器：</strong>
       <button type="button" @click="editorMode = editorMode === 'obstacle' ? '' : 'obstacle'"
-              :style="{ background: editorMode === 'obstacle' ? '#ff9800' : '#eee', padding: '6px 10px' }">障碍</button>
+              :style="{ background: editorMode === 'obstacle' ? '#ff9800' : '#fff', border: '1px solid #ff9800', padding: '6px 10px', fontWeight: editorMode === 'obstacle' ? 'bold' : 'normal' }">障碍</button>
       <button type="button" @click="editorMode = editorMode === 'summon' ? '' : 'summon'"
-              :style="{ background: editorMode === 'summon' ? '#7b1fa2' : '#eee', padding: '6px 10px', color: editorMode === 'summon' ? 'white' : 'black' }">召唤物</button>
+              :style="{ background: editorMode === 'summon' ? '#7b1fa2' : '#fff', color: editorMode === 'summon' ? 'white' : '#7b1fa2', border: '1px solid #7b1fa2', padding: '6px 10px', fontWeight: editorMode === 'summon' ? 'bold' : 'normal' }">召唤物</button>
       <button type="button" @click="editorMode = editorMode === 'playerSpawn' ? '' : 'playerSpawn'"
-              :style="{ background: editorMode === 'playerSpawn' ? '#4CAF50' : '#eee', padding: '6px 10px' }">玩家出生点</button>
+              :style="{ background: editorMode === 'playerSpawn' ? '#4CAF50' : '#fff', color: editorMode === 'playerSpawn' ? 'white' : '#4CAF50', border: '1px solid #4CAF50', padding: '6px 10px', fontWeight: editorMode === 'playerSpawn' ? 'bold' : 'normal' }">玩家出生点</button>
       <button type="button" @click="editorMode = editorMode === 'enemySpawn' ? '' : 'enemySpawn'"
-              :style="{ background: editorMode === 'enemySpawn' ? '#f44336' : '#eee', padding: '6px 10px' }">敌人出生点</button>
-      <span style="font-size: 12px; color: #666;">{{ editorMode ? '点击格子放置' : '' }}</span>
+              :style="{ background: editorMode === 'enemySpawn' ? '#f44336' : '#fff', color: editorMode === 'enemySpawn' ? 'white' : '#f44336', border: '1px solid #f44336', padding: '6px 10px', fontWeight: editorMode === 'enemySpawn' ? 'bold' : 'normal' }">敌人出生点</button>
+      <span v-if="editorMode" style="font-size: 12px; color: #e65100; font-weight: bold;">点击格子放置 {{ editorMode }}</span>
       <label>添加玩家</label>
       <select v-model="addPlayerId">
         <option value="">选择角色</option>
